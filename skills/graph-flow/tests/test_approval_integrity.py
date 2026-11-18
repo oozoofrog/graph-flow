@@ -134,10 +134,23 @@ class ApprovalIntegrityTests(unittest.TestCase):
             proc=subprocess.Popen([sys.executable,'-I','-S','-B',str(script),'serve'],env=dict(os.environ),
                 stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             try:
-                record=core.gf_home()/'server.json'; deadline=time.monotonic()+10
-                while not record.exists() and proc.poll() is None and time.monotonic()<deadline: time.sleep(.02)
-                self.assertTrue(record.exists()); proc.send_signal(sig); proc.communicate(timeout=10)
-                self.assertEqual(proc.returncode,0); self.assertFalse(record.exists())
+                path = core.gf_home() / 'server.json'
+                deadline = time.monotonic() + 45
+                while proc.poll() is None and time.monotonic() < deadline:
+                    record = server._record()
+                    if record and server._alive(record):
+                        break
+                    time.sleep(.05)
+                else:
+                    if proc.poll() is None:
+                        proc.kill()
+                    _, stderr = proc.communicate()
+                    self.fail(f'{sig.name}: dashboard never answered (exit {proc.returncode}): {stderr.decode()}')
+                self.assertTrue(path.exists())
+                proc.send_signal(sig)
+                _, stderr = proc.communicate(timeout=15)
+                self.assertEqual(proc.returncode, 0, stderr.decode())
+                self.assertFalse(path.exists())
             finally:
                 if proc.poll() is None: proc.kill(); proc.communicate()
 
