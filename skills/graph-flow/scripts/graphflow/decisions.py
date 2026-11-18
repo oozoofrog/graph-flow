@@ -120,10 +120,10 @@ def verify(run_id, decision_id, answer_data, decision=None):
         return False
 
 
-def recovery_identity(derived):
+def recovery_identity(derived, *, key_reader=None):
     run = derived["run"]
     return {"nonce": run.get("run_nonce"),
-            "pinned_key": run.get("human_key_sha256"), "current_key": core.key_fingerprint(),
+            "pinned_key": run.get("human_key_sha256"), "current_key": (key_reader or core.key_fingerprint)(),
             "location": run.get("location"), "plan": run.get("plan_identity"),
             "repin_seq": run.get("repin_seq", 0)}
 

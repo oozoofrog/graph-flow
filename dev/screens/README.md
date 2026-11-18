@@ -13,7 +13,7 @@ Set `CHROME_BIN` if Chrome is installed elsewhere. CI runs both full captures
 serially. Run the commands locally to retain images and verification records.
 
 The builder replaces only its marked `fixtures/` directory. The capture command
-writes 135 numbered PNGs to `final/`, copies them and makes the requested ffmpeg
+writes 154 numbered PNGs to `final/`, copies them and makes the requested ffmpeg
 variants in `verify/`, and records DOM observations, hashes, and process cleanup
 outside those directories. Some scenes alter their isolated fixtures, for
 example when recovering a key. An optional third argument such as `5,16`
@@ -83,3 +83,14 @@ motion. Clock-stepped captures sample new call dots and strip growth, one
 handoff with route fill, and the answer halo with native keyboard pause. The
 three short clips are in the WebGL capture's `final/` directory. The SVG run
 checks the same static facts and layout.
+
+
+Scenes 137–148 show the early attempt, return, open decision, side lanes,
+node and relation selections, compressed gap, past/live controls, mid-pose
+frames, phone list and replay. The deterministic graph clock samples both
+view changes and handoff playback for MP4s. Scenes 149–155 add the selected
+side lane, ten-minute runs in Korean and English, the three-day side and true
+scales, and a horizontally scrolled lane. Captures check real DOM collisions,
+drawer record coverage, exact durations, priority, marked minimum height and
+aggregation. Forced SVG covers the same history in the static side pose and
+flat graph.

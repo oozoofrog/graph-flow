@@ -116,6 +116,39 @@ const STRINGS = {
     "skip": "내용으로 건너뛰기",
     "listView": "그래프를 목록으로 보기",
     "nodes": "하는 일",
+    "relationList": "관계 목록",
+    "timePlay": "▶ 재생",
+    "timePause": "Ⅱ 일시 정지",
+    "timeSpeed": "재생 속도",
+    "timeLive": "지금",
+    "timePast": "과거 기록을 보고 있어요",
+    "timeLinear": "실제 시간 간격",
+    "timeScrub": "실행 시점",
+    "timeUnits": "일,시간,분,초,밀리초",
+    "timeZero": "0초",
+    "timeReturned": "되돌려 보냄",
+    "timeRevision": "계획 개정 {n}",
+    "timeHuman": "사람의 답을 기다림 · {duration}",
+    "timeBreak": "줄인 시간 간격 · {duration}",
+    "timeFailed": "과거 기록을 불러오지 못했어요",
+    "spaceView": "시공간",
+    "spaceSide": "옆에서",
+    "spaceViews": "그래프 보기 방식",
+    "spaceWebGL": "시공간 뷰를 보려면 WebGL 2가 필요해요",
+    "spaceViewed": "보고 있는 시점",
+    "spaceVerify": "확인 대기",
+    "spaceHuman": "사람의 답을 기다림",
+    "spaceUnobserved": "작업 중 관측 없음",
+    "spaceHandoff": "전달",
+    "spaceVerdict": "판정",
+    "spaceCheck": "검사",
+    "spaceTransferWait": "{duration} 기다림",
+    "spaceTransferGroup": "전달 {n}건 · 최대 {duration} 기다림",
+    "spaceActivityCount": "{name} {n}회",
+    "spaceAsked": "질문을 올림",
+    "spaceAnswered": "답변을 받음",
+    "spaceNotToScale": "높이를 실제보다 크게 표시",
+    "spaceRecords": "시간순 기록",
     "handoffs": "주고받는 것",
     "yourTurn": "내가 할 일",
     "choiceEffects": "고르면 생기는 일",
@@ -912,6 +945,39 @@ const STRINGS = {
     "skip": "Skip to content",
     "listView": "Read the graph as a list",
     "nodes": "The work",
+    "relationList": "Relations",
+    "timePlay": "▶ Play",
+    "timePause": "Ⅱ Pause",
+    "timeSpeed": "Playback speed",
+    "timeLive": "Live",
+    "timePast": "Viewing past records",
+    "timeLinear": "True time scale",
+    "timeScrub": "Time in the run",
+    "timeUnits": " d, h, min, s, ms",
+    "timeZero": "0 s",
+    "timeReturned": "Sent back",
+    "timeRevision": "Plan revised · {n}",
+    "timeHuman": "Wait for a human answer · {duration}",
+    "timeBreak": "Shortened time gap · {duration}",
+    "timeFailed": "Past records could not be loaded",
+    "spaceView": "Space-time",
+    "spaceSide": "Side view",
+    "spaceViews": "Graph views",
+    "spaceWebGL": "The space-time view requires WebGL 2",
+    "spaceViewed": "Viewed time",
+    "spaceVerify": "Awaiting verification",
+    "spaceHuman": "Waiting for a human answer",
+    "spaceUnobserved": "Unobserved work",
+    "spaceHandoff": "Handoff",
+    "spaceVerdict": "Verdict",
+    "spaceCheck": "Check",
+    "spaceTransferWait": "Waited {duration}",
+    "spaceTransferGroup": "{n} transfers · up to {duration} waiting",
+    "spaceActivityCount": "{name} ×{n}",
+    "spaceAsked": "Question asked",
+    "spaceAnswered": "Answer recorded",
+    "spaceNotToScale": "Height exaggerated",
+    "spaceRecords": "Records in time order",
     "handoffs": "What is handed over",
     "yourTurn": "Your turn",
     "choiceEffects": "What each choice does",
@@ -2556,17 +2622,20 @@ export function activityStrip(attempt, facts, now) {
     head:facts.now?position(now):null};
 }
 
+function graphMotionCard(node, decisions, now, language) {
+  const facts=cardFacts(node,decisions,now,language);
+  const attempt=graphAttempt(node);
+  return {id:node.id,kind:facts.kind,state:facts.state,lane:facts.lane,facts,
+    attemptHistory:node.activity||[],recordedAttempt:node.attempts||0,strip:activityStrip(attempt,facts,now)};
+}
+
 export function createGraphScene(nodes, layout, decisions, level, now = 0, language = 'en') {
   const byId = new Map(nodes.map(node => [node.id, node]));
   const cards = layout.order.map((id, order) => {
-    const node = byId.get(id);
     const {x, y, width, height, layer} = layout.positions[id];
-    const facts=cardFacts(node,decisions,now,language);
-    const card = {id, kind:facts.kind, state:facts.state, level, x, y, width, height, layer, order,
-      lane:facts.lane, facts, attemptHistory:node.activity || [], recordedAttempt:node.attempts||0};
-    card.strip=activityStrip(graphAttempt(node),facts,now);
-    card.tier=card.state==='awaiting'?1:card.state==='stalled'||graphAttempt(node)?.repeating?2:card.strip?3:null;
-    return card;
+    const card=graphMotionCard(byId.get(id),decisions,now,language);
+    const tier=card.state==='awaiting'?1:card.state==='stalled'||graphAttempt(byId.get(id))?.repeating?2:card.strip?3:null;
+    return {...card,tier,level,x,y,width,height,layer,order};
   });
   const positions = Object.fromEntries(cards.map(card => [card.id, card]));
   const edges = layout.routes.map(route => ({
@@ -2677,6 +2746,8 @@ function translate() {
 translate();
 let chosen = null, projects = [], view = null, fingerprint = '', ageFingerprint = '', mode = 'flow', selected = null;
 let selectedEdge = null, edgeChoices = [], edgeOrigin = null;
+let timeBar, timeBarModule, liveView, timeCut;
+const isPast = () => !!timeBar?.describe().past;
 function flowNode(id) { return planFlow(view,language).nodes.find(n => n.id === id); }
 let queuedRefresh = false;
 let timer = 0, loading = false, generation = 0, renderer = null;
@@ -2684,6 +2755,7 @@ const decisionController = createDecisionController();
 let decisionUI = null, decisionNotice = '', cameFrom = 'flow';
 
 async function api(path, body, text = false) {
+  if (body && isPast()) throw new Error(t("timePast"));
   const response = await fetch(path, {method: body ? 'POST' : 'GET', headers: {'X-GF-Token': token, ...(body ? {'Content-Type':'application/json'} : {})}, ...(body ? {body:JSON.stringify(body)} : {})});
   if (!response.ok) { const err = new Error('request'); err.status = response.status; try{err.code=(await response.json()).code;}catch{} throw err; }
   return text ? response.text() : response.json();
@@ -2907,7 +2979,7 @@ function graphReadReason() {
   return remaining.length?t(remaining.some(n=>planChanges?.some(c=>c.id===n.id&&!planRead.has(c.id)))?'changesReadReason':'planRemainingReason',{names:remaining.map(title).join(', ')}):'';
 }
 function recordGraphRead() {
-  if(!view||!planBlocked()||mode!=='flow'||$('accessible').open||(matchMedia('(max-width:760px)').matches&&selected))return;
+  if(isPast()||!view||!planBlocked()||mode!=='flow'||$('accessible').open||(matchMedia('(max-width:760px)').matches&&selected))return;
   const identity=JSON.stringify(view.plan_approval?.identity);
   if(identity!==graphReadIdentity){graphRead.clear();graphReadSpans.clear();graphReadIdentity=identity;}
   const phone=matchMedia('(max-width:760px)').matches&&!$('flow').classList.contains('phone-diagram');
@@ -2927,7 +2999,7 @@ function recordGraphRead() {
   updateUnreadMarks();planBanner?.update?.();
 }
 function updateUnreadMarks(){
-  const remaining=new Set(planBlocked()?unreadCards().map(n=>n.id):[]);
+  const remaining=new Set(!isPast()&&planBlocked()?unreadCards().map(n=>n.id):[]);
   for(const card of document.querySelectorAll('.node-card')){
     const unread=remaining.has(card.dataset.node);
     let mark=card.querySelector('.unread-mark');
@@ -2945,12 +3017,12 @@ function renderPlanDiff(parent,id){
   for(const field of change.fields||[])box.append(el('p',diffText(field)));parent.append(box);
 }
 function unreadPlanChanges(){return !!planChanges?.some(c=>!planRead.has(c.id));}
-function readPlanChange(id){planRead.add(id);updateUnreadMarks();planBanner?.update?.();}
+function readPlanChange(id){if(isPast())return;planRead.add(id);updateUnreadMarks();planBanner?.update?.();}
 
 
 function planAttention(box) {
   const approval = view.plan_approval;
-  const blocked = planBlocked();
+  const blocked = !isPast() && planBlocked();
   if (!blocked) { planBanner = null; return false; }
   box.hidden = false; box.classList.add('plan-banner');
   const key = JSON.stringify([mode, chosen, approval?.id, approval?.status, approval?.verified, approval?.outcome, approval?.answer, view.plan_error, view.key_mismatch, view.location_mismatch, view.has_work, approval?.identity, planChanges]);
@@ -3058,6 +3130,10 @@ function attention() {
   if (planAttention(planBox)) return;
   planBox.classList.remove('plan-banner','problem'); planBox.removeAttribute('aria-labelledby');
   const box = $('attention'); clear(box); box.hidden = !view.decisions.length;
+  if(isPast()) {
+    for(const decision of view.decisions) box.append(el('p',question(decision)||purposeWording(decision.purpose,language)));
+    return;
+  }
   box.setAttribute('aria-label', t('yourTurn'));
   if (box.hidden) return;
   const heading = el('div', undefined, 'attention-heading');
@@ -3384,7 +3460,7 @@ function panel() {
   }
   delete shell.dataset.edge;
   delete shell.dataset.trunk;
-  const signature=JSON.stringify([selected,details,view.decisions.filter(d=>d.node===selected),view.timeline.filter(r=>r.node===selected)]);
+  const signature=JSON.stringify([isPast(),selected,details,view.decisions.filter(d=>d.node===selected),view.timeline.filter(r=>r.node===selected)]);
   if(signature===panelFingerprint){
     workSummary?.render(activity || []);
     return;
@@ -3405,7 +3481,8 @@ function panel() {
   const panelBar=el('div',undefined,'panel-bar'),intro=el('div',undefined,'panel-intro'); intro.append(el('strong',title(node)),el('p',nodeSentence(node,view.nodes,language),'node-sentence')); panelBar.append(intro,close); shell.append(panelBar,p);
   for (const d of view.decisions.filter(d => d.node === node.id)) {
     const ask = card(t('yourTurn'), question(d) || purposeWording(d.purpose, language), true);
-    ask.append(refChip(d.id, `${d.id} · ${title(node)}`, true, d.free),button(t('read'),()=>openDecision(d.id),'primary')); p.append(ask);
+    if(!isPast())ask.append(refChip(d.id, `${d.id} · ${title(node)}`, true, d.free),button(t('read'),()=>openDecision(d.id),'primary'));
+    p.append(ask);
   }
   if(showSummary){
     workSummary ||= createWorkSummary();
@@ -3632,7 +3709,8 @@ function accessible() {
 }
 function showMode(next) {
   if (next !== 'decision' && (mode === 'decision' || next === 'home') && !discardDecision()) return false;
-  mode = next; if(view&&planBlocked())planAttention($('attention')); $('attention').hidden = !planBlocked() && (next!=='flow' || !view?.decisions.length); $('home').hidden = next !== 'home'; $('flow').hidden = next !== 'flow'; $('decision').hidden = next !== 'decision'; $('accessible').hidden = next !== 'flow' || !!view?.plan_error;
+  if(next==='home' && isPast())timeBar.returnLive();
+  mode = next; if(view&&planBlocked())planAttention($('attention')); $('attention').hidden = (isPast()||!planBlocked()) && (next!=='flow' || !view?.decisions.length); $('home').hidden = next !== 'home'; $('flow').hidden = next !== 'flow'; $('decision').hidden = next !== 'decision'; $('accessible').hidden = next !== 'flow' || !!view?.plan_error;
   workSummary?.visible(next === 'flow');
   $('home-tab').setAttribute('aria-pressed', String(next === 'home')); $('flow-tab').setAttribute('aria-pressed', String(next === 'flow'));
   // The map can only measure its cards while it is on screen.
@@ -3712,10 +3790,13 @@ function selectNode(id) {
     };
     reveal();
     document.fonts?.ready.then(reveal);
+    const opening=$('panel').getAnimations?.()||[];
+    if(opening.length)Promise.allSettled(opening.map(animation=>animation.finished)).then(reveal);
   }
 }
 function focusHeading(heading) { heading.tabIndex = -1; heading.focus({preventScroll:true}); }
 function openDecision(id, focus = true) {
+  if(isPast())return;
   replacementDecision=null; decisionNotice=''; notice('');
   if (view.decisions.find(d => d.id === id)?.purpose === 'plan_approval') {
     showGraph(); attention(); if (focus) $('plan-question')?.focus({preventScroll:true}); return;
@@ -3943,7 +4024,7 @@ const unavailableDecisions=[];
 function updateSubtitle(){
   const pending=actionableDecisions(view,unavailableDecisions);
   const states=Object.entries(stateCounts(planFlow(view,language).nodes,pending)).filter(([key])=>key!=='awaiting').map(([key,n])=>stateWords(key,language).name+' '+n).join(' · ');
-  $('subtitle').textContent=view.plan_error?'':view.complete?t('complete'):[t('yourTurnCount',{n:pending.length}),states].filter(Boolean).join(' · ');
+  $('subtitle').textContent=view.plan_error?'':view.complete?t('complete'):[isPast()?null:t('yourTurnCount',{n:pending.length}),states].filter(Boolean).join(' · ');
 }
 function applyView(next) {
   if (decisionController.session?.busy) return;
@@ -3969,13 +4050,19 @@ function applyView(next) {
   }
   const nextFingerprint=JSON.stringify(recorded),nextAgeFingerprint=JSON.stringify(ages);
   if(nextFingerprint===fingerprint&&(mode!=='flow'||nextAgeFingerprint===ageFingerprint))return;
-  const active=document.activeElement,focusId=active?.id,focusLabel=active?.getAttribute?.('aria-label');
-  const focusHeader=active?.className==='node-header',phoneFocus=!!active?.closest?.('#phone-flow'),focusNode=active?.closest?.('[data-node]')?.dataset.node;
-  const pageScroll=typeof scrollY==='number'?{left:scrollX,top:scrollY}:null;
   const languageChanged=language!==viewLanguage(next,navigator.language);
   language = viewLanguage(next, navigator.language); translate();
   if(languageChanged && projects.length)chooseRuns({projects});
-  view = next; fingerprint = nextFingerprint; ageFingerprint=nextAgeFingerprint;
+  fingerprint = nextFingerprint; ageFingerprint=nextAgeFingerprint;
+  renderView(next);
+}
+
+function renderView(next) {
+  const active=document.activeElement,focusId=active?.id,focusLabel=active?.getAttribute?.('aria-label');
+  const focusHeader=active?.className==='node-header',phoneFocus=!!active?.closest?.('#phone-flow'),focusNode=active?.closest?.('[data-node]')?.dataset.node;
+  const pageScroll=typeof scrollY==='number'?{left:scrollX,top:scrollY}:null;
+  view = {...next,nodes:next.nodes.map(n=>({...n,plan_revision_wait:next.plan_approval?.status==='answered'&&
+    ['rejected','revision_requested'].includes(next.plan_approval.outcome)}))};
   const flow=planFlow(view,language), keys=new Set(flow.edges.map(edgeKey));
   if(!flow.nodes.some(n=>n.id===selected))selected=null;
   if(!keys.has(selectedEdge))selectedEdge=null;
@@ -3986,11 +4073,9 @@ function applyView(next) {
   $('title').textContent = view.title || t('brand'); $('where').textContent = '';
   const sent = view.plan_approval?.verified && ['rejected','revision_requested'].includes(view.plan_approval.outcome);
   $('flow').classList.toggle('sent-plan',!!sent); $('flow').classList.toggle('plan-unavailable',!!view.plan_error);
-  const sentBack=view.plan_approval?.status==='answered'&&['rejected','revision_requested'].includes(view.plan_approval.outcome);
-  view.nodes.forEach(n=>n.plan_revision_wait=sentBack);
   updateSubtitle();
   if(view.complete){const resultNode=[...view.nodes].reverse().find(n=>n.kind==='work'&&view.timeline.some(r=>r.node===n.id&&r.files?.length));if(resultNode){const files=[...new Set(view.timeline.filter(r=>r.node===resultNode.id).flatMap(r=>r.files||[]))];$('subtitle').append(button(t('results'),()=>selectNode(resultNode.id),'primary result-action'),el('span',t('runResultSummary',{files:files.join(', ')}),'result-summary'));}}
-  accessible(); attention(); panel(); home(); showMode(mode);
+  accessible(); attention(); panel(); if(!isPast())home(); showMode(mode);
   if (mode === 'decision' && decisionController.session) openDecision(decisionController.session.target.id, false);
   if(active && active.isConnected===false){
     const scope=phoneFocus?$('phone-flow'):document;
@@ -4027,13 +4112,66 @@ async function refresh(force = false) {
     if (!projects.length) { resetView(); notice(decisionNotice || 'noProjects'); return; }
     if (!chosen) { resetView(); notice(decisionNotice || (projects.some(p => p.error) ? 'unreadable' : 'noRun')); return; }
     if (available && available.error) { resetView(); notice(decisionNotice || 'unreadable', true); return; }
-    const data = await api(query('/api/run')); if (currentGeneration !== generation || document.hidden || decisionController.session?.busy) return;
-    notice(decisionNotice || (data.view.plan_error ? '' : !data.plan ? 'noPlan' : '')); applyView(data.view);
+    const data = await api(query('/api/run',{history:'index'})); if (currentGeneration !== generation || document.hidden || decisionController.session?.busy) return;
+    liveView=data.view;
+    if(!isPast()){
+      notice(decisionNotice || (data.view.plan_error ? '' : !data.plan ? 'noPlan' : ''));
+      applyView(liveView);
+    }
+    if(data.history)await receiveTimeIndex(data.history,currentGeneration);
     if (pendingJump && view && !decisionController.session?.busy) { const target = pendingJump; pendingJump = null; jump(target); }
   } catch (error) { if (currentGeneration === generation) notice(error.status === 401 ? 'unauthorized' : error.status === 400 || error.status === 404 || error.status === 500 ? 'unreadable' : 'lost', true); }
   finally { loading = false; if (queuedRefresh) { queuedRefresh = false; refresh(true); } else schedule(); }
 }
-function resetView() { workSummary?.dispose();workSummary=null;planSeen=null;planChanges=null;planRead.clear(); $('panel').onscroll=null; $('panel').hidden=true; $('flow').classList.remove('has-selection'); panelFingerprint=''; panelNode=null; language = viewLanguage(null, navigator.language); translate(); closeInvalidDecision(chosen, []); view = null; selected = selectedEdge = edgeOrigin = null; edgeChoices=[]; fingerprint = ''; ['node-list','edge-list','decision-list','panel','home','attention'].forEach(id => clear($(id))); if (renderer) renderer.update({nodes:[],edges:[],decisions:[],complete:false}, null); $('flow').hidden = true; $('home').hidden = true; $('accessible').hidden = true; $('decision').hidden = true; $('subtitle').textContent = ''; $('where').textContent = ''; }
+async function receiveTimeIndex(index, snapshotGeneration) {
+  const root=$('time-bar');
+  if(!root)return;
+  if(!timeBar){
+    timeBarModule ||= import('./history.js');
+    const [{createTimeBar},{createSpaceView}]=await Promise.all([timeBarModule,import('./spacetime.js')]);
+    if(snapshotGeneration!==generation)return;
+    timeBar ||= createTimeBar({root,t,duration:historyDuration,stamp:historyStamp,
+      load:()=>api(query('/api/history')),
+      display:(next, reset)=>{
+        if(reset)renderer?.resetMotion();
+        renderView(next);
+        if(reset)renderer?.baselineMotion();
+      },
+      live:()=>{
+        if(!liveView)return;
+        renderer?.resetMotion();fingerprint='';applyView(liveView);renderer?.baselineMotion();
+      },
+      cut:next=>{timeCut=next;renderer?.timeCut?.();},
+      clock:()=>graphTestClock?.time??performance.now(),
+      deterministic:()=>graphTestClock?.time!=null});
+    timeBar.setMotion(next=>renderer?.observeReplay(next));
+    renderer?.enableSpace(createSpaceView);
+  }
+  timeBar.update(index);
+}
+
+let historyClock, historyClockLanguage;
+function historyStamp(at) {
+  if(historyClockLanguage!==language){
+    historyClockLanguage=language;
+    historyClock=new Intl.DateTimeFormat(language,{
+      month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,
+    });
+  }
+  return historyClock.format(at);
+}
+
+function historyDuration(ms, exact = false) {
+  const units=t('timeUnits').split(',');
+  const steps=[86_400_000,3_600_000,60_000,1_000,1];
+  let remaining=Math.max(0,Math.round(ms));
+  const words=(remaining>=1000&&!exact?steps.slice(0,-1):steps).flatMap((step,i)=>{
+    const count=Math.floor(remaining/step);remaining%=step;
+    return count?[count+units[i]]:[];
+  });
+  return words.join(' ')||t('timeZero');
+}
+function resetView() { timeBar?.reset();timeCut=liveView=null;renderer?.resetSpace();workSummary?.dispose();workSummary=null;planSeen=null;planChanges=null;planRead.clear(); $('panel').onscroll=null; $('panel').hidden=true; $('flow').classList.remove('has-selection'); panelFingerprint=''; panelNode=null; language = viewLanguage(null, navigator.language); translate(); closeInvalidDecision(chosen, []); view = null; selected = selectedEdge = edgeOrigin = null; edgeChoices=[]; fingerprint = ''; ['node-list','edge-list','decision-list','panel','home','attention'].forEach(id => clear($(id))); if (renderer) renderer.update({nodes:[],edges:[],decisions:[],complete:false}, null); $('flow').hidden = true; $('home').hidden = true; $('accessible').hidden = true; $('decision').hidden = true; $('subtitle').textContent = ''; $('where').textContent = ''; }
 function schedule() { clearTimeout(timer); if (!document.hidden) timer = setTimeout(refresh, 2000); }
 $('phone-view-toggle').addEventListener('click',()=>{const diagram=$('flow').classList.toggle('phone-diagram');$('phone-view-toggle').dataset.i18n=diagram?'showFlowList':'showDiagram';$('phone-view-toggle').textContent=t(diagram?'showFlowList':'showDiagram');$('phone-view-toggle').setAttribute('aria-pressed',String(diagram));if(renderer&&view)renderer.update(view,selected);});
 $('home-tab').addEventListener('click', () => { if (view) goHome(); });
@@ -4117,7 +4255,7 @@ function appendStrip(root, strip, facts) {
   }
 }
 function nodeCard(n, expanded = false, level = 'detail', state, model) {
-  const now=graphTestClock?.wall ?? view?.observed_at_ms ?? graphNow(), facts=model?.facts || cardFacts(n,view.decisions,now,language);
+  const now=(isPast()?view?.observed_at_ms:graphTestClock?.wall) ?? view?.observed_at_ms ?? graphNow(), facts=model?.facts || cardFacts(n,view.decisions,now,language);
   state=facts.state;
   const {kind,lane}=facts;
   const root=el('article',undefined,'node-card '+cardTone(n,state)+(runningCard(state)?' working':'')+(expanded?' expanded':''));
@@ -4128,7 +4266,7 @@ function nodeCard(n, expanded = false, level = 'detail', state, model) {
   root.append(plate);
   if(planBlocked())root.classList.add('read-status');
   if(planBlocked())root.append(el('p',t('cardUnread'),'unread-mark'));
-  const change=planChanges?.find(c=>c.id===n.id);if(change)root.append(el('p',t(change.kind),'change-mark'));
+  const change=isPast()?null:planChanges?.find(c=>c.id===n.id);if(change)root.append(el('p',t(change.kind),'change-mark'));
   const header=button('',()=>selectNode(n.id),'node-header');
   const titleLine=el('span',undefined,'node-title-line');
   titleLine.append(typeIcon(kind),el('strong',title(n),'node-title'));
@@ -4335,6 +4473,15 @@ function createMap() {
   const capture=startup.searchParams.get('graphTest')==='1';
   let gpu=null, gpuRequested=startup.searchParams.get('renderer')==='svg'||typeof WebGL2RenderingContext==='undefined';
   let lastDraw, drawPending=false, svgStrokes=[], svgMarkers=[], keyboardNode=null, focusId=null, focus;
+  let space, spaceFrame, spacePlane, spaceTags=[], sideScroll=0;
+  const sideRail=el('div',undefined,'space-scroll'), sideTrack=el('div');
+  sideRail.hidden=true;sideRail.tabIndex=0;sideRail.dataset.i18nLabel='spaceSide';
+  sideRail.setAttribute('role','region');sideRail.append(sideTrack);area.append(sideRail);
+  sideRail.addEventListener('scroll',()=>{
+    if(sideRail.hidden||sideRail.scrollLeft===sideScroll)return;
+    sideScroll=sideRail.scrollLeft;space?.refresh();
+  });
+  const phone=matchMedia('(max-width:760px)');
   const forcedColors=matchMedia('(forced-colors: active)');
   const highContrast=matchMedia('(prefers-contrast: more)');
   let motionPaused=false, motionRAF=0, motionFrames=0, pulseStarts=0, lastMotion=[];
@@ -4345,7 +4492,7 @@ function createMap() {
     document.body.classList.toggle('graph-paused',motionPaused);
     $('panel').getAnimations?.().forEach(animation=>animation.cancel());
     workSummary?.globalMotion();
-    syncMotion();
+    space?.backendChanged();syncMotion();
   },'graph-motion');
   const attentionCount=el('span',undefined,'map-activity-count');
   const flowCount=el('span',undefined,'map-flow-count');
@@ -4451,6 +4598,7 @@ function createMap() {
     pulseStarts+=frame.filter(event=>['handoff','reverse'].includes(event.kind)&&
       !lastMotion.some(old=>old.kind===event.kind&&old.id===event.id&&old.record===event.record)).length;
     lastMotion=frame;
+    space?.effects(frame);
   }
   function syncMotion() {
     pauseMotion.hidden=!gpu || reduced.matches || forcedColors.matches || !layout?.cards.length;
@@ -4469,7 +4617,7 @@ function createMap() {
   flowCount.hidden=attentionCount.hidden=pauseMotion.hidden=true;
   if(capture)Object.defineProperty(map,'graphTest',{value:{
     step(time,wall=graphTestClock.wall){
-      graphTestClock.time=time;graphTestClock.wall=wall;syncMotion();
+      graphTestClock.time=time;graphTestClock.wall=wall;timeBar?.tick(time);space?.tick(time);syncMotion();
       return structuredClone(lastMotion);
     },
     updateTime(time,wall){
@@ -4477,11 +4625,111 @@ function createMap() {
       return structuredClone(lastMotion);
     },
     frame:()=>structuredClone(lastMotion),
+    history:()=>timeBar?.describe(),
+    seek:time=>timeBar?.seek(time),
+    space:()=>space?.describe(),
   }});
-  const viewBox=()=>({width:viewport.clientWidth,height:viewport.clientHeight,scale,
+  const flatBox=()=>({width:viewport.clientWidth,height:viewport.clientHeight,scale,
     x:origin.x-viewport.scrollLeft,y:origin.y-viewport.scrollTop,dpr:globalThis.devicePixelRatio||1,
     insetX:viewport.clientLeft,insetY:viewport.clientTop,focusId,
     transfers:map.dataset.transfers || '', highContrast:highContrast.matches, background:'#080b10'});
+  const viewBox=()=>({...flatBox(),plane:spacePlane});
+  function spaceNotes(rows) {
+    const body=$('panel').querySelector('.panel-body');
+    if(!body)return;
+    let list=body.querySelector('.space-records');
+    if(!rows.length){list?.remove();return;}
+    const signature=JSON.stringify(rows.map(({ids,text})=>[ids,text]));
+    if(list?.dataset.signature===signature)return;
+    if(!list){
+      list=el('details',undefined,'space-records');
+      list.append(el('summary',t('spaceRecords')),el('ol'));
+      const pending=body.querySelector(':scope>.paper');
+      if(pending)pending.after(list);
+      else body.prepend(list);
+    }
+    const items=rows.map(row=>{
+      const item=el('li',row.text);
+      item.dataset.records=row.ids.join(' ');
+      item.dataset.duration=row.duration??0;
+      return item;
+    });
+    list.lastElementChild.replaceChildren(...items);
+    list.dataset.signature=signature;
+  }
+  function applySpace(next) {
+    if(!next&&!spaceFrame)return;
+    if(next&&!spaceFrame)sideScroll=0;
+    spaceFrame=next;spacePlane=next?.projection.plane;
+    if(next)map.dataset.space='';else delete map.dataset.space;
+    area.classList.toggle('space-stage',!!next);
+    const plane=spacePlane, box=flatBox();
+    const matrix=plane?`matrix(${plane.a/scale},${plane.b/scale},${plane.c/scale},${plane.d/scale},${(plane.e-box.x)/scale},${(plane.f-box.y)/scale})`:'';
+    for(const layer of [drawing,tagLeads,fxLayer]){
+      if(!layer)continue;
+      layer.style.transform=matrix;
+      layer.style.opacity=plane?(layer===fxLayer?Math.max(0,2*plane.opacity-1):plane.opacity):'';
+    }
+    const projection=next?.projection, lean=projection?.lean||0, lanes=projection?.lanes||0;
+    const lerp=(a,b,p)=>a+(b-a)*p;
+    const fold=Math.min(1,lean*1.4);
+    const chipsOnCut=projection&&layout.cards.map(card=>({
+      id:card.id,point:projection.nodeAt(card.id,next.cut.at),
+      width:Math.max(92,Math.min(lanes>.25?projection.laneWidth-14:192,card.width*projection.zoom)),height:36,
+    }));
+    if(chipsOnCut&&lanes<.85){
+      for(const chip of chipsOnCut){
+        if(chipsOnCut.some(other=>other!==chip&&Math.abs(chip.point.y-other.point.y)<40&&
+          Math.abs(chip.point.x-other.point.x)<(chip.width+other.width)/2+4))chip.height=26;
+      }
+      for(const chip of chipsOnCut){
+        for(const other of chipsOnCut){
+          if(other===chip||Math.abs(chip.point.y-other.point.y)>=(chip.height+other.height)/2+3)continue;
+          chip.width=Math.min(chip.width,Math.max(28,Math.abs(chip.point.x-other.point.x)-4));
+        }
+      }
+    }
+    const chipByNode=new Map(chipsOnCut?.map(chip=>[chip.id,chip]));
+    for(const card of layout?.cards||[]){
+      const element=nodes.get(card.id);if(!element)continue;
+      const extras=element.querySelector('.node-essentials');
+      if(extras)extras.inert=fold>.95;
+      if(!projection){
+        setRect(element,card);delete element.dataset.fold;delete element.dataset.compact;
+        for(const key of ['--map-text','--kind-size','--status-size','--fold'])element.style.removeProperty(key);
+        continue;
+      }
+      const {point:p,width:compactWidth,height:compactHeight}=chipByNode.get(card.id);
+      const width=lerp(card.width,compactWidth/scale,lean);
+      const height=lerp(card.height,compactHeight/scale,fold);
+      setRect(element,{x:(p.x-box.x)/scale-width/2,y:(p.y-box.y)/scale-height/2,width,height});
+      element.dataset.fold=String(fold>.95);
+      element.dataset.compact=String(compactHeight===26&&fold>.95);
+      element.style.visibility='visible';
+      for(const label of element.querySelectorAll('[style*="clip-path"]'))label.style.clipPath='';
+      element.style.setProperty('--map-text',Math.max(13/scale,14)+'px');
+      element.style.setProperty('--kind-size',Math.max(14/scale,18)+'px');
+      element.style.setProperty('--status-size',Math.max(15/scale,18)+'px');
+      element.style.setProperty('--fold',String(fold));
+    }
+    for(const tag of layout?.tags||[]){
+      const element=chips.get(tag.id);if(!element)continue;
+      if(projection)element.hidden=true;
+      else setRect(element,tag);
+    }
+    sideRail.hidden=!(lanes>.98&&projection.sideWidth>box.width);
+    if(!sideRail.hidden){
+      sideRail.style.left=viewport.clientLeft+'px';
+      sideRail.style.width=box.width+'px';
+      sideTrack.style.width=projection.sideWidth+'px';
+      if(sideRail.scrollLeft!==sideScroll)sideRail.scrollLeft=sideScroll;
+    }
+    if(tagLeads&&projection)tagLeads.style.opacity='0';
+    if(!projection){sideScroll=0;outside();}
+    requestDrawing();
+    return [...nodes.values()].map(wrapper=>wrapper.firstElementChild);
+  }
+
   function updateFocus() {
     if(!layout)return;
     const keys=new Set(selectedEdge?[selectedEdge]:edgeChoices);
@@ -4512,10 +4760,15 @@ function createMap() {
       element.dataset.order=rank;
       drawing.append(element);
     }
+    space?.refresh();
     requestDrawing();
   }
   stage.addEventListener('focusin',e=>{
     keyboardNode=e.target.matches(':focus-visible')?e.target.closest('.node-card')?.dataset.node:null;
+    if(keyboardNode&&spaceFrame?.projection.lanes>.9){
+      const point=spaceFrame.projection.nodeAt(keyboardNode,spaceFrame.cut.at);
+      if(point.x<80||point.x>viewport.clientWidth-80)scrollSide(point.x-viewport.clientWidth/2);
+    }
     updateFocus();
   });
   stage.addEventListener('focusout',e=>{
@@ -4523,7 +4776,7 @@ function createMap() {
   });
   function useSVG() {
     gpu=null;surface.hidden=true;mini.setGPU(false);map.dataset.renderer='svg';
-    syncMotion();
+    space?.backendChanged();syncMotion();
   }
   function requestDrawing() {
     if(!layout||!viewport.clientWidth||!viewport.clientHeight)return;
@@ -4531,7 +4784,7 @@ function createMap() {
       gpuRequested=true;
       import('./graph-webgl.js').then(({createWebGLGraph})=>{
         gpu=createWebGLGraph(canvas,useSVG,capture,mini.canvas);
-        if(gpu){syncMotion();requestDrawing();}
+        if(gpu){space?.backendChanged();syncMotion();requestDrawing();}
       }).catch(useSVG);
     }
     if(!gpu||drawPending||forcedColors.matches)return;
@@ -4545,7 +4798,7 @@ function createMap() {
       try {
         gpu.draw(layout,next,RELATION_MARKS,graphInkOrder(layout,focusId,focus));
         if(lastDraw?.layout!==layout || ['width','height','x','y','scale','dpr'].some(key=>lastDraw.box[key]!==next[key]))
-          mini.setGPU(gpu.drawMinimap(mini.frame()));
+          mini.setGPU(!spaceFrame&&gpu.drawMinimap(mini.frame()));
         lastDraw={layout,box:next};
         surface.style.left=next.insetX+'px';surface.style.top=next.insetY+'px';
         surface.hidden=false;map.dataset.renderer='webgl';
@@ -4624,7 +4877,9 @@ function createMap() {
   const zoomOut=button('−',()=>zoom(-.1)),zoomIn=button('+',()=>zoom(.1)),fitButton=button(t('fit'),fit);fitButton.dataset.action='fit';
   const overviewNote=el('span',undefined,'overview-note'),overviewLabel=button(t('overviewLevel'),()=>{automatic=true;level='overview';scale=fitScale(layouts.overview.bounds,viewport.clientWidth-24,viewport.clientHeight-24);update(rawData,chosenNode);start();}),detailButton=button(t('detailLevel'),()=>{automatic=false;level='detail';scale=1;update(rawData,chosenNode);start();});
   overviewLabel.dataset.i18n='overviewLevel';detailButton.dataset.i18n='detailLevel';
-  overviewNote.append(overviewLabel,detailButton);overflow.append(button(t('listAll'),()=>{$('accessible').open=true;$('accessible').scrollIntoView({block:'start'});},'small'));
+  const listAll=button(t('listAll'),()=>{$('accessible').open=true;$('accessible').scrollIntoView({block:'start'});},'small');
+  listAll.dataset.i18n='listAll';
+  overviewNote.append(overviewLabel,detailButton);overflow.append(listAll);
   toolbar.append(zoomOut,zoomIn,fitButton,zoomText,overviewNote,overflow);
   zoomOut.dataset.i18nLabel='zoomOut';zoomIn.dataset.i18nLabel='zoomIn';viewport.dataset.i18nLabel='mapHelp';
   const mapTitle=el('div',undefined,'map-title'), name=el('strong',t('graph')), direction=el('span',t('mapDirection'));
@@ -4638,6 +4893,7 @@ function createMap() {
   function outside() {
     if(!layout)return;
     if(!viewport.clientWidth){mini.update(layout,viewBox());updateCounts(0);return;}
+    if(spaceFrame)return;
     const w=viewport.clientWidth,h=viewport.clientHeight,ox=origin.x,oy=origin.y,far=graphDetail(level,scale)==='far',vr=contentRect(viewport);
     const groups={offLeft:[],offRight:[],offTop:[],offBottom:[]}; let visible=0;
     for(const n of data.nodes) {
@@ -4719,7 +4975,7 @@ function createMap() {
       height:layout.bounds.height*scale>h?layout.bounds.height*scale+'px':'100%',
     });
     if(!$('panel').hidden && $('panel').onscroll)$('panel').onscroll();
-    zoomText.textContent=t(level==='overview'?'overviewLevel':'detailLevel')+' '+Math.round(scale*100)+'%';zoomOut.disabled=level==='overview'&&scale<=MIN_MAP_SCALE;zoomOut.title=zoomOut.disabled?t('minZoom'):t('zoomOut');zoomIn.disabled=level==='detail'&&scale>=1.6;updateReadout();rememberScroll();outside();
+    zoomText.textContent=t(level==='overview'?'overviewLevel':'detailLevel')+' '+Math.round(scale*100)+'%';zoomOut.disabled=level==='overview'&&scale<=MIN_MAP_SCALE;zoomOut.title=zoomOut.disabled?t('minZoom'):t('zoomOut');zoomIn.disabled=level==='detail'&&scale>=1.6;updateReadout();rememberScroll();outside();space?.refresh();
   }
   const maxCardWidth=()=>matchMedia('(max-width:760px)').matches ? Math.max(156,(viewport.clientWidth || innerWidth-72)-24) : Infinity;
   let measuredWidth;
@@ -4744,7 +5000,7 @@ function createMap() {
       sample.remove();return height;
     }})]));
     layouts.overview=compactOverview(layouts.overview,viewport.clientWidth-24);
-    const now=graphTestClock?.wall ?? next.observed_at_ms ?? graphNow();
+    const now=(isPast()?next.observed_at_ms:graphTestClock?.wall) ?? next.observed_at_ms ?? graphNow();
     for(const name of ['detail','overview'])layouts[name]=createGraphScene(data.nodes,layouts[name],data.decisions,name,now,language);
     layout=layouts[level];
     size();
@@ -4803,6 +5059,17 @@ function createMap() {
         'data-marker-id':model.id,'data-role':model.tone,'marker-end':`url(#arrow-${relation})`});
       svgMarkers.push({model,line});
     }
+    const lineLength=([a,b])=>Math.hypot(a.x-b.x,a.y-b.y);
+    const routedTags=new Map(layout.tags.map(tag=>[tag.id,tag]));
+    spaceTags=layout.edges.flatMap(edge=>{
+      const tag=routedTags.get(edge.id);
+      if(tag)return [{key:edge.key,...tag}];
+      const points=edge.points;
+      if(points.length<2)return [];
+      const [a,b]=points.slice(1).map((p,i)=>[points[i],p]).reduce((longest,part)=>
+        lineLength(part)>lineLength(longest)?part:longest);
+      return [{key:edge.key,...edgeTag(edge,language),anchor:{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}];
+    });
     tagLeads?.remove();
     tagLeads=svg('svg',{width:layout.bounds.width,height:layout.bounds.height,class:'tag-leads','aria-hidden':'true'});
     for(const tag of layout.tags){
@@ -4845,12 +5112,16 @@ function createMap() {
       }
     }
 
-    fx.observe(layout,motionClock(),motionAllowed());
+    if(!isPast())fx.observe(layout,motionClock(),motionAllowed());
     updateFocus();outside();syncMotion();
     if(focused)nodes.get(focused)?.querySelector('button')?.focus({preventScroll:true});
   }
   map.addEventListener('keydown',e=>{
     if(!['map-viewport','map'].includes(e.target.id||e.target.className))return;
+    if(space?.key(e)){e.preventDefault();return;}
+    if(spaceFrame?.projection.lanes>.9&&['ArrowLeft','ArrowRight'].includes(e.key)){
+      e.preventDefault();scrollSide(e.key==='ArrowLeft'?-120:120);return;
+    }
     if(['+','=','-','0','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))e.preventDefault();
     if(e.key==='+'||e.key==='=')zoom(.1);if(e.key==='-')zoom(-.1);if(e.key==='0')fit();
     if(e.key.startsWith('Arrow')){automatic=false;panIntent=true;}
@@ -4860,23 +5131,29 @@ function createMap() {
   let drag=null;
   viewport.addEventListener('pointerdown',e=>{
     if(e.button!==0 || e.target.closest('button,summary,a'))return;
-    drag={x:e.clientX,y:e.clientY,left:viewport.scrollLeft,top:viewport.scrollTop,
+    const orbit=space?.startDrag(e,map.dataset.fitted==='true');
+    drag={x:e.clientX,y:e.clientY,left:viewport.scrollLeft,top:viewport.scrollTop,orbit,
       touch:e.pointerType==='touch',card:!!e.target.closest('.node-position')};
     if(drag.touch)return;
     automatic=false;viewport.setPointerCapture(e.pointerId);viewport.classList.add('panning');
   });
   viewport.addEventListener('pointermove',e=>{
+    if(drag?.orbit){space.moveDrag(e);return;}
     if(drag&&!drag.touch){
+      if(spaceFrame?.projection.lanes>.7){scrollSide(drag.x-e.clientX);drag.x=e.clientX;return;}
       viewport.scrollLeft=drag.left+drag.x-e.clientX;
       viewport.scrollTop=drag.top+drag.y-e.clientY;
     }
   });
   function release(event){
     const start=drag;drag=null;viewport.classList.remove('panning');panIntent=true;
+    if(start?.orbit&&space.releaseDrag()){panIntent=false;return;}
     if(layout && start && !start.card && event.type==='pointerup' && Math.hypot(start.x-event.clientX,start.y-event.clientY)<5 &&
       start.left===viewport.scrollLeft && start.top===viewport.scrollTop){
       const rect=contentRect(viewport),box=viewBox();
-      const point={x:(event.clientX-rect.left-box.x)/scale,y:(event.clientY-rect.top-box.y)/scale};
+      const screenPoint={x:event.clientX-rect.left,y:event.clientY-rect.top};
+      if(spaceFrame){space.pick(screenPoint,viewport);panIntent=false;return;}
+      const point={x:(screenPoint.x-box.x)/scale,y:(screenPoint.y-box.y)/scale};
       const hit=pickGraphEdges(layout,point,scale);
       const keys=layout.edges.filter(edge=>hit.includes(edge.id)).map(edgeKey);
       if(keys.length===1){selectEdge(keys[0],viewport);return;}
@@ -4885,7 +5162,13 @@ function createMap() {
     snapTitles();
   }
   viewport.addEventListener('pointerup',release);viewport.addEventListener('pointercancel',release);
+  function scrollSide(amount) {
+    if(!spaceFrame)return;
+    sideScroll=Math.max(0,Math.min(spaceFrame.projection.sideWidth-viewport.clientWidth,sideScroll+amount));
+    space.refresh();
+  }
   viewport.addEventListener('wheel',e=>{
+    if(spaceFrame?.projection.lanes>.7){e.preventDefault();scrollSide(e.deltaX||e.deltaY);return;}
     panIntent=true;
     if(e.ctrlKey || e.metaKey){e.preventDefault();const r=contentRect(viewport);zoom(e.deltaY<0?.1:-.1,{x:e.clientX-r.left,y:e.clientY-r.top});}
     else automatic=false;
@@ -4899,17 +5182,18 @@ function createMap() {
     if(w && measuredWidth!==maxCardWidth())update(rawData,chosenNode);
     else size();
   }
-  reduced.addEventListener('change',syncMotion);
+  reduced.addEventListener('change',()=>{syncMotion();space?.backendChanged();});
+  phone.addEventListener('change',()=>{if(phone.matches)space?.view('flat');space?.refresh();});
   highContrast.addEventListener('change',requestDrawing);
   forcedColors.addEventListener('change',()=>{
     map.dataset.renderer=forcedColors.matches?'svg':gpu?'webgl':'svg';
     surface.hidden=forcedColors.matches||!gpu;mini.setGPU(!forcedColors.matches&&!!gpu&&!!mini.frame());
-    syncMotion();requestDrawing();
+    space?.backendChanged();syncMotion();requestDrawing();
   });
   new ResizeObserver(()=>resize()).observe(viewport);
   addEventListener('resize',requestDrawing);
   function revealSelection() {
-    const p=layout?.positions[chosenNode];if(!p || !viewport.clientWidth)return;
+    const p=layout?.positions[chosenNode];if(spaceFrame||!p || !viewport.clientWidth)return;
     const w=viewport.clientWidth,h=viewport.clientHeight,ox=origin.x,oy=origin.y;
     const left=p.x*scale+ox,top=p.y*scale+oy,right=left+p.width*scale,bottom=top+p.height*scale;
     if(left<viewport.scrollLeft+12)viewport.scrollLeft=Math.max(0,left-12);
@@ -4918,11 +5202,35 @@ function createMap() {
     else if(bottom>viewport.scrollTop+h-12)viewport.scrollTop=bottom-h+12;
     rememberScroll();outside();
   }
-  return {update,select:id=>{
+  function observeReplay(history) {
+    const model=planFlow(history,language);
+    const cards=model.nodes.map(node=>graphMotionCard(node,model.decisions,history.observed_at_ms,language));
+    const positions=Object.fromEntries(cards.map(card=>[card.id,card]));
+    const routes=new Map(layout?.edges.map(edge=>[edge.key,edge.points]));
+    const edges=model.edges.map(edge=>({...edge,key:edgeKey(edge),points:routes.get(edgeKey(edge))||[],
+      targetRunning:runningCard(positions[edge.to]?.state)}));
+    fx.observe({cards,positions,edges},motionClock(),motionAllowed());
+  }
+  function enableSpace(createSpaceView) {
+    if(space)return;
+    viewport.setAttribute("aria-keyshortcuts", "1 2 3 Shift+ArrowUp Shift+ArrowDown Shift+ArrowLeft Shift+ArrowRight");
+    space=createSpaceView({area,viewport,toolbar,svg,t,duration:ms=>historyDuration(ms,true),stamp:historyStamp,
+      read:()=>layout&&timeCut&&viewport.clientWidth?{layout,cut:timeCut,box:flatBox(),sideScroll,
+        selection:{node:selected,relation:selectedEdge},tags:spaceTags,
+        focus:{active:!!focusId,cards:focus?.cards||new Set(),
+          relations:new Set(layout.edges.filter(e=>focus?.edges.has(e.id)).map(e=>e.key))}}:null,
+      apply:applySpace,load:()=>timeBar.history(),clock:motionClock,deterministic:()=>graphTestClock?.time!=null,
+      canAnimate:()=>!reduced.matches&&!motionPaused,canOrbit:()=>!!gpu&&!forcedColors.matches,
+      isPhone:()=>phone.matches,select:selectEdge,choose:chooseEdge,selectNode,
+      notes:spaceNotes,nodeTitle:id=>data.nodes.find(node=>node.id===id)?.title||id});
+    space.refresh();
+  }
+  return {update,observeReplay,enableSpace,timeCut:()=>space?.refresh(),resetSpace:()=>space?.reset(),resetMotion:()=>fx.observe(null,motionClock(),false,true),
+    baselineMotion:()=>fx.observe(layout,motionClock(),false,true),select:id=>{
     chosenNode=id;
     for(const [key,element] of nodes){element.firstElementChild.classList.toggle('expanded',key===id);element.querySelector('.node-header').setAttribute('aria-expanded',String(key===id));}
     updateFocus();resize(true);size();revealSelection();
-  },wake(){syncMotion();size();if(!document.hidden)requestDrawing();},remeasure:()=>update(rawData,chosenNode)};
+  },wake(){syncMotion();space?.backendChanged();size();if(!document.hidden)requestDrawing();},remeasure:()=>update(rawData,chosenNode)};
 }
 renderer = createMap(); if(view)renderer.update(view,selected);
 }

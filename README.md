@@ -49,6 +49,11 @@ To resume a run from 0.2.1, repost and approve its current plan. Unchanged
 submissions can continue with their recorded results. Set `GF_NO_OPEN=1` to
 suppress automatic browser opening. Plan approval is still required.
 
+Use the time bar under the graph to revisit a run or play back its records.
+Space-time shows how work and handoffs unfolded. Side view makes start,
+end and wait times easier to read. Choose **Live** to answer a current
+question after viewing history.
+
 ## Local records and privacy
 
 Graph Flow writes run plans, session and assignment records, human answers,

@@ -594,10 +594,11 @@ def summaries(activity, events, nodes, now_ms):
             boundaries = [_boundary_time(event) for event in rows]
             last = [stamp for stamp in boundaries if stamp is not None]
             last.extend(_milliseconds(record["ts"]) for record in observations)
-            # Only the recorded endpoints leave the server. Call arguments, names and inferred starts
-            # are unnecessary for the flat strip.
+            # Share the condensation inputs with the strip and time views.
+            # Call arguments, names and inferred starts stay out of this list.
             calls = [{"id": call["key"], "category": call["category"],
-                      "start_ms": call["recorded_start"], "end_ms": call["recorded_end"]}
+                      "start_ms": call["recorded_start"], "end_ms": call["recorded_end"],
+                      "duration_ms": None if call["unknown"] else call["duration"], "failed": bool(call["error"])}
                      for call in _calls(observations)]
             result[node].append(dict(attempt=number, started_ms=boundaries[0],
                                      last_ms=max(last, default=None), calls=calls,
