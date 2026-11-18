@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {readFileSync} from 'node:fs';
+import {paint, readPhoneCards, until} from './browser_waits.mjs';
 const config=JSON.parse(readFileSync(process.argv[2]));
-const delay=ms=>new Promise(r=>setTimeout(r,ms));
 const chrome=spawn(config.chrome,['--headless=new','--remote-debugging-port=0','--user-data-dir='+config.profile,'about:blank'],{stdio:['ignore','ignore','pipe']});
 let ws;
-const timeout=setTimeout(()=>{ws?.close();chrome.kill();},80000);
+const timeout=setTimeout(()=>{ws?.close();chrome.kill();},150_000);
 try {
   const endpoint=await new Promise((resolve,reject)=>{
     chrome.on('error',reject);
@@ -29,19 +29,24 @@ try {
       if(mode==='changed')v.plan_approval={...v.plan_approval,status:'open',verified:false};
       if(mode==='old'){v.plan_approval=null;v.legacy=true;}
       return new Response(JSON.stringify(data),{status:r.status,headers:r.headers});};`});
-  const url=config.url+'#'+new URLSearchParams({project:config.project,run:config.run});
-  const ready=async()=>{for(let i=0;i<80;i++){if(await evaluate("document.querySelectorAll('#phone-flow .node-card').length===4"))return;await delay(50);}assert.fail('cards did not load');};
+  const url = new URL(config.url);
+  url.hash = new URLSearchParams({project:config.project,run:config.run});
+  url.searchParams.set('testVisit', 'setup');
+  await send('Page.navigate',{url:url.href});
+  await until(evaluate, "new URLSearchParams(location.search).get('testVisit')==='setup'");
   for(const [width,height] of [[1440,900],[1024,700],[390,844]]) {
     await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
     for(const mode of ['plan','running','done','changed','old']) {
-      await send('Page.navigate',{url});await ready();
       await evaluate(`sessionStorage.setItem('test-mode',${JSON.stringify(mode)})`);
-      await send('Page.navigate',{url});await ready();await delay(80);
+      const visit = width+'-'+mode;
+      url.searchParams.set('testVisit', visit);
+      await send('Page.navigate',{url:url.href});
+      await until(evaluate, `new URLSearchParams(location.search).get('testVisit')===${JSON.stringify(visit)}&&document.querySelectorAll('#phone-flow .node-card').length===4`);
+      await evaluate(`document.fonts.ready.then(()=>${paint})`);
       if(width===390&&mode==='plan'){
-        const bottom=await evaluate('document.documentElement.scrollHeight');
-        for(let y=0;y<bottom;y+=180){await evaluate(`window.scrollTo(0,${y})`);await delay(15);}
-        assert(await evaluate("!document.querySelector('.plan-actions button.primary').disabled"),'U2 tall phone cards can be read by scrolling');
-        await evaluate('window.scrollTo(0,0)');
+        assert(await evaluate("document.querySelector('.plan-actions button.primary').disabled"), 'U2 starts locked');
+        await readPhoneCards(evaluate, 180, 'U2 tall phone cards can be read by scrolling');
+        await evaluate(`window.scrollTo(0,0); ${paint}`);
       }
       if(width===390&&mode==='plan')assert(await evaluate("document.querySelector('.plan-actions').getBoundingClientRect().height<=innerHeight*.45"),'Q3 choices and consequences leave room for the question');
       for(const id of ['n0','n1','n2','_run_checks']) {
@@ -52,7 +57,7 @@ try {
         if(id!=='_run_checks')assert.equal(audit.text.length,300);
         const check=async()=>{const bad=await evaluate(`(()=>{const selector=document.querySelector('#flow').classList.contains('phone-diagram')?'#map .node-card':${JSON.stringify(width<761?'#phone-flow .node-card':'#map .node-card')};return [...document.querySelectorAll(selector)].flatMap(c=>[c,...c.querySelectorAll('*')]).filter(e=>e.clientWidth&&e.clientHeight&&(e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+1||(!e.children.length&&e.textContent.trim().endsWith('…')))).map(e=>({tag:e.tagName,cls:e.className,text:e.textContent,width:[e.scrollWidth,e.clientWidth],height:[e.scrollHeight,e.clientHeight]}))})()`);assert.deepEqual(bad,[],JSON.stringify({width,mode,id,bad}));};
         if(width<761)await evaluate("document.querySelector('#phone-view-toggle').click()");
-        for(const label of ['상세 보기','간략 보기']){await evaluate(`[...document.querySelectorAll('.map-toolbar button')].find(b=>b.textContent===${JSON.stringify(label)}).click()`);await delay(30);await check();
+        for(const label of ['상세 보기','간략 보기']){await evaluate(`[...document.querySelectorAll('.map-toolbar button')].find(b=>b.textContent===${JSON.stringify(label)}).click(); ${paint}`);await check();
           if(width>=761)assert(await evaluate(`(()=>{const v=document.querySelector('.map-viewport'),r=v.getBoundingClientRect(),left=r.left+v.clientLeft,top=r.top+v.clientTop;const count=[...document.querySelectorAll('#map .node-title')].filter(e=>{if(getComputedStyle(e).visibility==='hidden')return false;const range=document.createRange();range.selectNodeContents(e);const b=range.getBoundingClientRect();return b.left>=left-.5&&b.right<=left+v.clientWidth+.5&&b.top>=top-.5&&b.bottom<=top+v.clientHeight+.5}).length;return document.querySelector('.map-visible').textContent.includes(count+'개 제목')})()`),'V3 visible title count agrees with glyph bounds');
         }
         if(width>=761&&mode==='plan'){

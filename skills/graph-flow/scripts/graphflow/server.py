@@ -17,6 +17,7 @@ import time
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 from . import activity, core, decisions, graph, learn, state, store, trace
@@ -1165,10 +1166,17 @@ try {
     return Handler
 
 
+class _LoopbackServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # The numeric address is enough. A reverse lookup can stall startup on macOS.
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address
+
+
 def make_server(port=0):
     """Bind loopback without blocking or publishing server.json; caller closes it."""
     token = secrets.token_urlsafe(32)
-    httpd = ThreadingHTTPServer(("127.0.0.1", port), _handler(token))
+    httpd = _LoopbackServer(("127.0.0.1", port), _handler(token))
     httpd.daemon_threads = True
     return httpd, token
 
@@ -1194,10 +1202,9 @@ def serve(host="127.0.0.1", port=0):
             store.atomic_write(path, json.dumps({"url": url, "port": port, "token": token,
                                                 "pid": pid, "started": core.now()}) + "\n")
         print(json.dumps({"ok": True, "url": url, "port": port}), flush=True)
-        try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            pass
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
     finally:
         for signum, handler in previous_handlers.items():
             signal.signal(signum, handler)
@@ -1239,11 +1246,12 @@ def _alive(record):
 def _launch():
     """Start `gf serve` detached from the calling session."""
     script = pathlib.Path(__file__).resolve().parents[1] / "gf"
-    subprocess.Popen([sys.executable, "-B", str(script), "serve"], stdin=subprocess.DEVNULL,
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    return subprocess.Popen([sys.executable, "-I", "-S", "-B", str(script), "serve"],
+                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL, start_new_session=True)
 
 
-def open_dashboard(launch=None, browse=None, timeout=10.0, target=None):
+def open_dashboard(launch=None, browse=None, timeout=45.0, target=None):
     """Open the dashboard in the person's browser, starting it when none answers.
 
     The result carries no address or token, so the caller learns neither.
@@ -1251,19 +1259,37 @@ def open_dashboard(launch=None, browse=None, timeout=10.0, target=None):
     """
     if os.environ.get("GF_NO_OPEN") == "1":
         return {"opened": False, "started": False, "suppressed": True}
-    record, started = _record(), False
-    if not (record and _alive(record)):
-        (launch or _launch)()
-        started = True
-        deadline = time.monotonic() + timeout
-        while True:
-            record = _record()
-            if record and _alive(record):
-                break
-            if time.monotonic() >= deadline:
-                raise core.GFError("dashboard_unavailable",
-                                   "the dashboard did not start; run gf serve in a terminal", core.EXIT_IO)
-            time.sleep(0.1)
+    started = False
+    # Serve uses the registry lock to publish its record. Serialize callers separately.
+    with store.locked(core.gf_home() / ".dashboard.lock", timeout_s=timeout):
+        record = _record()
+        if not (record and _alive(record)):
+            child = (launch or _launch)()
+            started = True
+            deadline = time.monotonic() + timeout
+            try:
+                while True:
+                    record = _record()
+                    if record and _alive(record):
+                        break
+                    status = child.poll() if child is not None else None
+                    if status is not None or time.monotonic() >= deadline:
+                        reason = " (exit %d)" % status if status is not None else ""
+                        raise core.GFError("dashboard_unavailable",
+                                           "the dashboard did not start%s; run gf serve in a terminal" % reason,
+                                           core.EXIT_IO)
+                    time.sleep(0.1)
+            except BaseException:
+                if child is not None and child.poll() is None:
+                    child.terminate()
+                    try:
+                        child.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        child.kill()
+                        child.wait()
+                raise
+            if child is not None:
+                threading.Thread(target=child.wait, daemon=True).start()
     url = record["url"]
     if target:
         # The fragment never reaches the server; the page reads it to choose what to show.

@@ -1,5 +1,6 @@
 """Dashboard contract against real runs, checks, gates and signed human answers."""
 import contextlib
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import http.client
 import io
@@ -1059,6 +1060,15 @@ class ServerTests(unittest.TestCase):
             server.serve()
         self.assertEqual(json.loads((self.home / "server.json").read_text()), {"pid": os.getpid() + 1})
 
+    def test_interrupt_during_record_publication_removes_the_record(self):
+        write = store.atomic_write
+        def interrupt(path, text):
+            write(path, text)
+            raise KeyboardInterrupt
+        with mock.patch.object(store, "atomic_write", side_effect=interrupt):
+            server.serve()
+        self.assertFalse((self.home / "server.json").exists())
+
     def running(self, pid=None):
         """Serve in this process and publish the record `gf serve` would write."""
         httpd, token = server.make_server()
@@ -1151,6 +1161,36 @@ class ServerTests(unittest.TestCase):
             threading.Event().wait(0.1)
         self.assertFalse(server._alive(record))
 
+    @mock.patch.dict(os.environ, GF_NO_OPEN="0")
+    def test_concurrent_open_waits_for_one_detached_dashboard(self):
+        launched = threading.Event()
+        children = []
+        def launch():
+            child = server._launch()
+            children.append(child)
+            launched.set()
+            return child
+        def open_dashboard():
+            return server.open_dashboard(launch=launch, browse=lambda url: True)
+        try:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                with store.locked(self.home / ".lock"):
+                    first = pool.submit(open_dashboard)
+                    self.assertTrue(launched.wait(15))
+                    second = pool.submit(open_dashboard)
+                    self.assertFalse(first.done())
+                    self.assertFalse((self.home / "server.json").exists())
+                results = [future.result(timeout=50) for future in (first, second)]
+            self.assertEqual(len(children), 1)
+            self.assertEqual([result["started"] for result in results], [True, False])
+            self.assertEqual(results[0]["port"], results[1]["port"])
+            self.assertTrue(server.stop_dashboard())
+        finally:
+            for child in children:
+                if child.poll() is None:
+                    child.terminate()
+                child.wait(timeout=10)
+
 
 class ReviewRegressionTest(unittest.TestCase):
     """Defects found by the cross-family review of the server."""
@@ -1213,6 +1253,14 @@ class ReviewRegressionTest(unittest.TestCase):
         httpd, token = server.make_server()
         try:
             self.assertEqual(httpd.RequestHandlerClass.timeout, 30)
+        finally:
+            httpd.server_close()
+
+    def test_loopback_server_binds_without_a_hostname_lookup(self):
+        with mock.patch("socket.getfqdn", side_effect=AssertionError("unexpected DNS lookup")):
+            httpd, _ = server.make_server()
+        try:
+            self.assertEqual((httpd.server_name, httpd.server_port), httpd.server_address)
         finally:
             httpd.server_close()
 

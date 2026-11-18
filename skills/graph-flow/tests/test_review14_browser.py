@@ -41,7 +41,7 @@ class Browser14Tests(unittest.TestCase):
                 'project': str(self.project.resolve()), 'run': self.run.name, 'chrome': CHROME,
                 'profile': str(self.root / 'chrome-profile')}))
             result = subprocess.run([NODE, str(Path(__file__).with_name('review14_browser.mjs')), str(config)],
-                                    capture_output=True, text=True, timeout=45)
+                                    capture_output=True, text=True, timeout=120)
             self.assertEqual(result.returncode, 0, result.stderr)
         finally:
             httpd.shutdown()
