@@ -213,24 +213,34 @@ Integration check `requires_passed` is validated by `plan.validate` and kept in 
 
 ### Graph renderer input
 
-`createGraphScene(nodes, layout, decisions, level)` projects measured layout into a pure scene in stage CSS pixels. Each card has an ID, kind, presentation state, effective lane, level, rectangle, layer and dependency order. Each edge has an ID, ordered endpoints, direction, relation, recorded gate and label, style tokens, optional label-chip geometry and routed polyline points. The scene includes graph bounds, an ID lookup for cards, and the physical shaft and marker geometry with the IDs of all relations each portion serves. Both orthographic backends consume those portions. Longest-path ranks and the reading order continue to carry dependency direction. Within ranks, neighbor sweeps and adjacent swaps improve ordering. In each channel, fixed ports and ordered tracks preserve perpendicular crossings. Direct fans can share a source or target track when every branch has the same relation, gate and recorded label and a distinct opposite endpoint. The scene retains the full polyline and a branch marker for every relation. Fan-in also marks the common destination. The `#map.graphScene` getter returns a detached copy of the active scene for checks.
+`createGraphScene(nodes, layout, decisions, level, now, language)` projects measured layout into a pure scene in stage CSS pixels. Each card has an ID, kind, presentation state, effective lane, level, rectangle, layer and dependency order. Each edge has an ID, ordered endpoints, direction, relation, recorded gate and label, style tokens, optional label-chip geometry and routed polyline points. The scene includes graph bounds, an ID lookup for cards, and the physical shaft and marker geometry with the IDs of all relations each portion serves. Each card carries its current words, strip and recorded attempt history. Edges retain the current transfer and its timestamp, and the scene anchors collision-tested tags on single-member branch parts. Both orthographic backends consume those portions. Longest-path ranks and the reading order continue to carry dependency direction. Within ranks, neighbor sweeps and adjacent swaps improve ordering. In each channel, fixed ports and ordered tracks preserve perpendicular crossings. Direct fans can share a source or target track when every branch has the same relation, gate and recorded label and a distinct opposite endpoint. The scene retains the full polyline and a branch marker for every relation. Fan-in also marks the common destination. The `#map.graphScene` getter returns a detached copy of the active scene for checks.
 
 The SVG backend uses the DOM stage transform. The WebGL2 backend uses the same scale, origin and scroll offsets for an orthographic camera. It loads from the same origin on demand and draws on invalidation. SVG remains available for unsupported WebGL2, renderer failure, context loss and `renderer=svg`. The active backend exposes a detached `#map.graphDrawing` snapshot with the viewport transform, projected shafts and marker directions in viewport-relative CSS pixels, and their draw order. Its visibility flag describes submitted geometry, including portions clipped by the viewport. The capture harness alone uses `graphTest=1` to preserve the WebGL framebuffer for pixel readback.
 
-Node focus derives from recorded dependencies and review targets. Edge focus shows the two endpoints and the selected relation. Pointer picking searches the same physical shafts in both renderers with a 12 CSS px radius. A shared shaft exposes its member IDs to the chooser and takes the emphasis of its most prominent branch. Both renderers draw context first, then the focus underlays, then focused ink and markers. Recorded attempt counts remain in the card captions and history. The minimap sits in a reserved strip below the scrolling viewport. The lane badge repeats the effective lane as one, two or three tall bars at mid and near zoom. This presentation serves principles P1, P3 and P6 and preserves the P10 human-stop baseline.
+Node focus derives from recorded dependencies and review targets. Edge focus shows the two endpoints and the selected relation. Pointer picking searches the same physical shafts in both renderers with a 12 CSS px radius. A shared shaft exposes its member IDs to the chooser and takes the emphasis of its most prominent branch. Both renderers draw context first, then the focus underlays, then focused ink and markers. Recorded attempt counts remain in the card captions and history. The minimap sits in a reserved strip below the scrolling viewport. The cut size increases with effective lane and the card names the level. Detail uses an overlay drawer on desktop and a bottom sheet on phone. This presentation serves principles P1, P3 and P6 and preserves the P10 human-stop baseline.
 
 The layout and capture checks use one routing ratchet for fixture-specific crossing and bend limits. They validate shaft membership, drawn segments, branch markers, renderer registration, framebuffer ink, focus order, and minimap clearance.
 
 ### Activity presentation input
 
-The graph projects the current attempt's condensed phases into a bottom
-strip. Detail cards reserve 42 stage px for the category cue and band.
-Overview cards place the cue in their second row and reserve 24 stage px
-for the band. The shared scene computes clamped proportional rails,
-category shapes and error crosses once for WebGL and SVG. A timer requests
-frames only for visible progress or a new handoff. The graph motion control,
-visibility and reduced-motion preference govern both. A pulse lasts 1 second
-and the rail period is 2.4 seconds at up to 12 frames per second.
+The graph shares a time-based DOM strip between WebGL and SVG. The active
+card carries the attempt's boundary and phase timestamps, call dots and
+three duration-ranked rows. Pattern tokens match between the strip and
+bars. Calls with only an end observation appear at that recorded end.
+The served view includes a server sample time, attempt start and last
+record timestamps, and allowlisted call IDs, categories and endpoints.
+These fields are derived from the existing ledgers.
+
+The live motion registry observes successive scene models. Its baseline,
+clock and enabled flag are inputs. Fresh records add bounded one-shot
+effects and can activate the answer halo or running-target drift.
+Handoff overlays share the route coordinates, and the core trace stays
+dashed during a forward token. The test-only `#map.graphTest.step(time, wall)`
+drives the same registry and paint path used by requestAnimationFrame.
+Reduced motion and the global pause settle finite effects, and switching
+runs resets the baseline. The SVG backend uses the same fixed state and
+the same card DOM. Forced colors uses system-colored SVG and removes
+the stage textures and trace halos.
 
 `server._edge_flows` takes relations, replay-derived node and decision state,
 the event ledger, and record-derived readiness. It uses event sequence numbers
@@ -255,8 +265,7 @@ timestamp, call count, tool-name counts, total and longest duration in
 milliseconds, unknown-duration count, error count, recorded start and end,
 attribution rules, origin, inferred/repeating/stalled flags, step count and
 fixed label token. Each attempt carries totals by original phase category
-and the id of its current condensed phase. Only the CLI and MCP reads expose the original
-metadata rows. See the [activity record contract](../skills/graph-flow/references/records.md#local-activity-observations).
+and the ID of its current condensed phase. The dashboard projects call IDs and endpoints, while the original observation rows remain in the CLI and MCP reads. See the [activity record contract](../skills/graph-flow/references/records.md#local-activity-observations).
 
 Calls are ordered by their start observations with stable call-key ties.
 Adjacent calls of the same category coalesce across gaps shorter than
@@ -287,9 +296,11 @@ Unclamped lengths use a common scale of up to one unit per second. The
 orthographic scene has three columns of 84 CSS px rows. Fixed cross-sections
 give readable final silhouettes independently of duration. Screen-aligned
 DOM labels mirror the scene and share a selection ID with the list.
-Playback advances through the displayed order once over 3.6 seconds and
+Requested playback advances through the displayed order once over 3.6 seconds and
 keeps its sequence across polling. `graphTest=1` enables framebuffer
 readback and raster silhouette diagnostics.
+
+The dashboard bundles full IBM Plex Sans KR, IBM Plex Mono, Do Hyeon and Chakra Petch faces. The [font manifest](../skills/graph-flow/scripts/graphflow/vendor/fonts/manifest.json) pins the Google Fonts source revision, paths and SHA-256 digests, including all four OFL-1.1 licence texts.
 
 The dashboard HTTP contract and fixed public static allowlist are in [dashboard.md](../skills/graph-flow/references/dashboard.md#get-staticname). Only those GET static requests skip token authentication; every request still needs the loopback Host check, and all APIs still require the token.
 

@@ -25,38 +25,85 @@ for(const scale of [.7, 6/7, 1, 1.6]){
 }
 """)
 
-    def test_f1_activity_band_matches_phases_and_stays_inside_card(self):
-        self.run_controller("""
-const {activityBand, ACTIVITY_SHAPES} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
-const categories = Object.keys(ACTIVITY_SHAPES).slice(0,7);
-const card = {x:32,y:25,width:156,height:110,state:'running'};
-const phases = [0,1,2,3,4,50,100,0,0,30,0,200].map((duration_ms,i)=>({
-  id:String(i+1),category:categories[i%7],duration_ms,errors:i===6?1:0
-}));
-const attempt = {phases,latest:phases.at(-1).category};
-const input = {status:'running',activity:[attempt]};
-const {x,width,segments} = activityBand(input,card);
-assert.deepEqual(segments.map(({id,category,errors})=>({id,category,errors})),
-  phases.map(({id,category,errors})=>({id,category,errors})));
-// Solve for a common duration scale independently of the layout's sort-and-clamp algorithm.
-let lo=0,hi=width;
-for(let i=0;i<64;i++){
-  const mid=(lo+hi)/2;
-  if(phases.reduce((sum,p)=>sum+Math.max(7,p.duration_ms*mid),0)>width)hi=mid;else lo=mid;
+    def test_f1_activity_strip_preserves_order_timing_and_bounds(self):
+        self.run_controller(r"""
+const {cardFacts,activityStrip} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+const phases=[
+ {id:'late',category:'tool',start_ms:1600,end_ms:1800,duration_ms:200},
+ {id:'early',category:'skill',start_ms:1000,end_ms:1400,duration_ms:400},
+ {id:'gap',category:'thinking',start_ms:1400,end_ms:1600,duration_ms:200},
+];
+const attempt={attempt:2,status:'observed',started_ms:800,last_ms:1800,phases,
+  totals:{tool:{count:1,duration_ms:200},skill:{count:1,duration_ms:400},thinking:{count:0,duration_ms:200}},
+  calls:[{id:'a',category:'skill',start_ms:1000,end_ms:1400},{id:'b',category:'tool',start_ms:1600,end_ms:1800},
+    {id:'future',category:'tool',start_ms:2500,end_ms:null}]};
+const node={id:'a',status:'running',attempts:2,lane:3,activity:[{attempt:1},attempt]};
+const before=cardFacts(node,[],1700,'ko');
+assert.equal(before.now,'tool');
+assert.deepEqual(before.calls.map(c=>c.id),['a','b']);
+assert.deepEqual(before.totals.map(t=>[t.category,t.duration]),[['skill',400],['thinking',200],['tool',200]]);
+assert.equal(before.attempt,2);
+assert.equal(before.lane,3);
+const strip=activityStrip(attempt,before,1700);
+assert.deepEqual(strip.segments.map(({id,left,width})=>[id,left,Math.round(width*1000)]),
+ [['early',0,400],['gap',.4,200],['late',.6,100]]);
+assert.deepEqual(strip.dots,[{id:'a',left:0},{id:'b',left:.6}]);
+assert.equal(strip.head,.7);
+for(const segment of strip.segments)assert(segment.left>=0&&segment.left+segment.width<=1);
+const after=cardFacts(node,[],2000);
+assert.equal(after.now,null);
+assert.equal(activityStrip(attempt,after,2000).head,null);
+const boundary={...attempt,status:'unobserved'};
+assert.deepEqual(cardFacts({...node,activity:[boundary]},[],1700).calls,[]);
+assert.equal(cardFacts({...node,activity:[boundary]},[],1700).unread,'unobserved');
+""")
+
+    def test_g6_deterministic_event_clock_and_loop_inventory(self):
+        self.run_controller(r"""
+const {createGraphMotion} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+const motion=createGraphMotion(), clock=1000;
+const card=(id,state,overrides={})=>({id,state,recordedAttempt:1,
+ facts:{calls:[],...overrides},attemptHistory:[],strip:null});
+const edge=(key,to,flow,targetRunning=true)=>({key,to,flow,targetRunning,points:[{x:0,y:0},{x:280,y:0}]});
+const snapshot=(cards,edges)=>({cards,edges,positions:Object.fromEntries(cards.map(c=>[c.id,c]))});
+const baseline=snapshot([card('work','running'),card('ask','notStarted'),card('pass','running'),
+ card('returned','running'),card('settled','awaiting',{ask:43})],
+ [edge('f','work',{state:'waiting'},false),edge('r','returned',{state:'delivered',delivery:{seq:7}})]);
+motion.observe(baseline,clock,true);
+assert.deepEqual(motion.frame(clock+100,true),[],'existing decisions, delivery and activity stay static');
+const call={id:'call',category:'session',start_ms:56};
+const active={...card('work','running',{calls:[call],activeCall:'call',now:'session'}),
+  strip:{head:.5},attemptHistory:[{calls:[call]}]};
+const after=snapshot([active,card('ask','awaiting',{ask:99}),card('pass','passed'),card('returned','returned'),
+ card('settled','awaiting',{ask:43})],
+ [edge('f','work',{state:'delivered',delivery:{seq:8}}),
+  edge('r','returned',{state:'returned',record:{seq:9}},false)]);
+motion.observe(after,clock+200,true);
+const start=clock+200, events=motion.frame(start,true);
+const count=kind=>events.filter(e=>e.kind===kind).length;
+assert.deepEqual(Object.fromEntries(['dot','strip','glyph','pass','return','flicker','session','handoff','reverse','halo','drift']
+ .map(k=>[k,count(k)])),{dot:1,strip:1,glyph:3,pass:1,return:1,flicker:1,session:1,handoff:1,reverse:1,halo:1,drift:1});
+assert.deepEqual(events.filter(e=>e.loop).map(e=>e.kind),['halo','drift']);
+for(const [kind,d] of Object.entries({dot:180,strip:220,glyph:280,pass:620,return:620,flicker:320,session:700,handoff:700,reverse:700})){
+ const at=(time)=>motion.frame(time,true).filter(event=>event.kind===kind);
+ assert(at(start+d-1).length,kind+' still active before deadline');
+ assert.equal(at(start+d).length,0,kind+' stops at deadline');
+ // Use a fresh timeline for checking the next deadline.
+ motion.observe(baseline,0,false);motion.observe(after,start,true);
 }
-for(const [i,segment] of segments.entries()){
-  assert(Math.abs(segment.width-Math.max(7,phases[i].duration_ms*lo))<1);
-  for(const point of segment.paths.flat()){
-    assert(point.x>=segment.x&&point.x<=segment.x+segment.width);
-    assert(point.y>=card.y+card.height-30&&point.y<card.y+card.height);
-  }
-}
-assert(Math.abs(segments.at(-1).x+segments.at(-1).width-x-width)<1);
-assert.deepEqual(segments.filter(s=>s.animate).map(s=>s.id),['12']);
-for(const overrides of [{stalled:true},{repeating:true}]){
-  assert(!activityBand({...input,activity:[{...attempt,...overrides}]},card).segments.some(s=>s.animate));
-}
-assert(!activityBand(input,{...card,state:'awaiting'}).segments.some(s=>s.animate));
+motion.observe(after,start+1500,true);
+assert.deepEqual(motion.frame(start+1501,true).map(e=>e.kind),['halo','drift'],'unchanged snapshots do not replay');
+const halo=ms=>motion.frame(start+ms,true).find(e=>e.kind==='halo').strength;
+let peaks=[];
+for(let ms=20;ms<36000;ms+=20)if(halo(ms)>halo(ms-20)&&halo(ms)>halo(ms+20))peaks.push(ms);
+assert.deepEqual(peaks.map(p=>Math.floor(p/1000)),[0,1,2,12,24]);
+assert(peaks.every((p,i)=>!i||p-peaks[i-1]>=980),'at most one peak per second');
+assert.deepEqual(motion.frame(start+12100,false),[],'pause or reduced motion stops all marks immediately');
+const stalled=snapshot(after.cards.map(c=>c.id==='work'?{...c,state:'stalled'}:c),
+  after.edges.map(e=>({...e,targetRunning:false})));
+motion.observe(stalled,start+12100,false);
+motion.settle();
+assert.deepEqual(motion.frame(start+12110,true).map(e=>e.kind),['halo'],'stalled targets stop drift');
 """)
 
     def test_p4_scene_has_no_cards_or_edges_without_records(self):
@@ -115,6 +162,12 @@ assert.match(get('node-list').textContent,/Missing case/,'retry work P3 failure 
     def test_psi1_psi4_state_glyphs_and_words_cover_the_vocabulary(self):
         self.run_dom(r"""
 const api=globalThis.surfaceTest, base=live.nodes[0];
+const words={
+ en:{notStarted:'Not started',running:'Running',reviewing:'Reviewing',retrying:'Retrying',submitted:'Awaiting check',
+  passed:'Done',awaiting:'Needs your answer',returned:'Returned',stalled:'No activity'},
+ ko:{notStarted:'시작 전',running:'진행 중',reviewing:'검토 중',retrying:'다시 진행 중',submitted:'확인 대기',
+  passed:'끝남',awaiting:'답이 필요함',returned:'되돌아옴',stalled:'활동 없음'},
+};
 const cases={
  notStarted:{status:'pending'}, running:{status:'running',attempts:1},
  reviewing:{kind:'review',status:'running'}, retrying:{status:'running',attempts:2},
@@ -124,8 +177,9 @@ const cases={
  preapprovalSubmitted:{status:'submitted',preapproval_submission:true},
  planRevisionState:{status:'held',plan_revision_wait:true},
  failedFinal:{status:'failed',runLevel:true,kind:'goal'},
+ stalled:{status:'running',activity:[{stalled:true}]},
 };
-assert.deepEqual(Object.keys(cases).sort(),Object.keys(STATE_VOCABULARY).sort());
+assert.deepEqual(Object.keys(cases).sort(),[...Object.keys(STATE_VOCABULARY),'stalled'].sort());
 for(const language of ['en','ko'])for(const level of ['overview','detail']){
  const signatures = new Map();
  for(const [expected,record] of Object.entries(cases)){
@@ -133,11 +187,11 @@ for(const language of ['en','ko'])for(const level of ['overview','detail']){
    live={...live,language,nodes:[n],decisions:expected==='awaiting'?[{...d,node:id}]:[]};
    api.applyView(structuredClone(live));
    const card=api.nodeCard(n,false,level), glyph=card.querySelector('.status-glyph').textContent;
-   const header=card.querySelector('.node-header'), name=api.stateWords(expected,language).name;
+   const header=card.querySelector('.node-header'), name=words[language][expected]||api.stateWords(expected,language).name;
    const context=language+'/'+level+' '+id;
    assert.equal(card.dataset.state,expected,context+' Psi1 presentation state');
    assert(header['aria-label'].includes(name),context+' Psi1 expected accessible '+name+', observed '+header['aria-label']);
-   if(level==='detail')assert(card.querySelector('.node-status').textContent.includes(name),context+' Psi1 expected visible '+name);
+   assert.equal(card.querySelector('.state-word').textContent,name,context+' Psi1 visible state word at both levels');
    // A unique glyph alone is sufficient for an injective signature at either level.
    assert(!signatures.has(glyph),context+' Psi1 expected unique glyph, observed '+glyph+' also on '+signatures.get(glyph));
    signatures.set(glyph,id);

@@ -1,5 +1,5 @@
 import {
-  BufferGeometry, CircleGeometry, DoubleSide, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial,
+  BufferGeometry, DoubleSide, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial,
   OrthographicCamera, Scene, Vector3, WebGLRenderer,
 } from 'three';
 import {LineMaterial} from './vendor/three/examples/jsm/lines/LineMaterial.js';
@@ -28,28 +28,19 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
   const camera = new OrthographicCamera(0, 1, 0, -1, 0, 2000);
   const scene = new Scene();
   const graph = new Group();
-  const bands = new Group();
-  const handoffs = new Group();
   scene.add(graph);
-  scene.add(bands);
-  scene.add(handoffs);
-  const bandMaterial = new LineMaterial({color:0x31465e,linewidth:1.3,depthTest:false});
-  const currentMaterial = bandMaterial.clone();
-  const flowMaterials = {
-    ordinary:new LineMaterial({color:0x405972,linewidth:1.7,depthTest:false}),
-    emphasis:new LineMaterial({color:0x233f60,linewidth:2.6,depthTest:false}),
-  };
-  const pulseGeometry = new CircleGeometry(4,16);
-  const pulseMaterial = new MeshBasicMaterial({color:0x294da9,depthTest:false});
-  const color = 0x607287;
-  const contextColor = 0x748090;
-  const underlay = new LineMaterial({linewidth:6});
-  const markerStroke = new LineMaterial({color, linewidth:1.7});
-  const markerFill = new MeshBasicMaterial({color, side:DoubleSide});
+  const palette={structure:0x3fd8e8,live:0xff4fa8,quiet:0x8aa2ad,failure:0xff766d};
+  const color=palette.structure;
+  const defaults={depthTest:false,depthWrite:false};
+  const markerStroke = new LineMaterial({color, linewidth:1.7,...defaults});
+  const markerFill = new MeshBasicMaterial({color, side:DoubleSide,...defaults});
+  const flowMaterials=Object.fromEntries(Object.entries({
+    unreachable:'quiet',waiting:'quiet',delivered:'structure',frontier:'live',blocked:'structure',returned:'failure',
+  }).map(([cue,role])=>[cue,new LineMaterial({color:palette[role],linewidth:1.7,...defaults})]));
   const gates = Object.fromEntries(Object.entries({
     open: [], closed: [12, 6], waiting_for_you: [3, 6], returned: [12, 5, 2, 5],
   }).map(([gate, pattern]) => {
-    const material = new LineMaterial({color, linewidth:2, dashed:pattern.length > 0});
+    const material = new LineMaterial({color, linewidth:2, dashed:pattern.length > 0,...defaults});
     if (pattern.length) {
       const [dash, gap, short = 0, tail = 0] = pattern;
       material.dashSize = dash;
@@ -64,22 +55,25 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
     }
     return [gate, material];
   }));
-  const contextGates = Object.fromEntries(Object.entries(gates).map(([gate,material])=>{
-    const dim = material.clone();
-    dim.color.set(contextColor);
-    return [gate,dim];
-  }));
-  const pathGates = Object.fromEntries(Object.entries(gates).map(([gate,material])=>{
-    const emphasis = material.clone();
-    emphasis.linewidth = 3;
-    return [gate,emphasis];
-  }));
-  const contextStroke = markerStroke.clone();
-  contextStroke.color.set(contextColor);
-  const contextFill = markerFill.clone();
-  contextFill.color.set(contextColor);
-  let drawnLayout, strokes = [], markers = [], currentBand, frame, frames = 0, firstFrame, frameTime, minimap;
-  let activePulses = [];
+  const inks=new Map();
+  function materialFor(trace,tone,weight,halo=false){
+    const key=[trace,tone,weight,halo].join(':');
+    if(!inks.has(key)){
+      const material=gates[trace].clone();
+      material.color.set(palette[tone]);
+      material.linewidth=halo?7:weight==='path'?3:2;
+      material.transparent=halo;
+      material.opacity=halo?(weight==='path'?.28:.14):1;
+      inks.set(key,material);
+    }
+    return inks.get(key);
+  }
+  const markerStrokes={},markerFills={};
+  for(const [role,ink] of Object.entries(palette)){
+    markerStrokes[role]=markerStroke.clone();markerStrokes[role].color.set(ink);
+    markerFills[role]=markerFill.clone();markerFills[role].color.set(ink);
+  }
+  let drawnLayout, strokes = [], markers = [], frame, frames = 0, firstFrame, frameTime, minimap;
   let miniFailed = false;
 
   function markerFor(mark) {
@@ -99,16 +93,14 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
   function rebuild(layout, marks) {
     const oldGeometry = new Set();
     graph.traverse(object => { if (object.geometry) oldGeometry.add(object.geometry); });
-    bands.traverse(object => { if (object.geometry) oldGeometry.add(object.geometry); });
     for (const geometry of oldGeometry) geometry.dispose();
     graph.clear();
-    bands.clear();
     strokes = layout.strokes.map(model => {
       const geometry = routeGeometry(model.points);
-      const line = stroke(geometry, gates[model.gate], 0).computeLineDistances();
+      const line = stroke(geometry, gates[model.trace], 0).computeLineDistances();
       const distances = geometry.attributes.instanceDistanceStart.data.array;
       for (let i=0;i<distances.length;i++) distances[i]+=model.distance;
-      const backdrop = stroke(geometry, underlay, 0);
+      const backdrop = stroke(geometry, materialFor(model.trace,model.tone,'normal',true), 0);
       graph.add(backdrop,line);
       return {model,line,backdrop};
     });
@@ -120,60 +112,40 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
       graph.add(marker);
       return {model,marker};
     });
-    for(const {cue,paths} of layout.flowMarks){
-      const material=cue==='delivered'||cue==='frontier'?flowMaterials.emphasis:flowMaterials.ordinary;
-      graph.add(stroke(pathGeometry(paths),material,layout.strokes.length*2+4));
-    }
-    const segments = layout.cards.flatMap(card => card.band?.segments ?? []);
-    const paths = segments.flatMap(segment => segment.animate ? segment.paths.slice(1) : segment.paths);
-    const current = segments.filter(segment=>segment.animate).map(segment=>segment.paths[0]);
-    if(paths.length)bands.add(stroke(pathGeometry(paths),bandMaterial,1));
-    currentBand = current.length ? stroke(pathGeometry(current),currentMaterial,2) : null;
-    if(currentBand)bands.add(currentBand);
+    for(const {cue,paths} of layout.flowMarks)
+      graph.add(stroke(pathGeometry(paths),flowMaterials[cue],layout.strokes.length*2+4));
     drawnLayout = layout;
   }
 
-  function draw(layout, box, marks, order, pulses) {
+  function draw(layout, box, marks, order) {
     const start = performance.now();
     if (drawnLayout !== layout) rebuild(layout, marks);
-    const {width,height,scale,x,y,dpr,background,bandVisible,bandMotion} = box;
-    bands.visible = bandVisible;
-    currentMaterial.linewidth = bandMaterial.linewidth + bandMotion;
+    const {width,height,scale,x,y,dpr} = box;
+    const transfers=new Set(box.transfers.split(',').filter(Boolean));
     if (!frame || frame.dpr !== dpr) renderer.setPixelRatio(dpr);
     if (!frame || frame.dpr !== dpr || frame.width !== width || frame.height !== height) renderer.setSize(width,height);
     camera.position.set(-x/scale,y/scale,1000);
     camera.right = width/scale;
     camera.bottom = -height/scale;
     camera.updateProjectionMatrix();
-    underlay.color.set(background);
-    for (const family of [gates,contextGates,pathGates])for(const material of Object.values(family))material.dashScale=scale;
     for (const {model,line,backdrop} of strokes) {
       const {weight,base,ink}=order.strokes.get(model.id);
-      line.material = (weight==='path'?pathGates:weight==='context'?contextGates:gates)[model.gate];
+      const tone=weight==='context'&&model.tone==='structure'?'quiet':model.tone;
+      const trace=model.trace==='open'&&model.members.every(id=>transfers.has(id))?'closed':model.trace;
+      line.material=materialFor(trace,tone,weight);
+      backdrop.material=materialFor(trace,tone,weight,true);
+      line.material.dashScale=backdrop.material.dashScale=scale;
+      backdrop.visible=!box.highContrast;
       backdrop.renderOrder=base;
       line.renderOrder=ink;
     }
     for (const {model,marker} of markers) {
       const {weight,ink}=order.markers.get(model.id);
-      const dimmed=weight==='context';
+      const tone=weight==='context'&&model.tone==='structure'?'quiet':model.tone;
       marker.renderOrder=ink;
-      marker.material = marker.isLineSegments2 ? (dimmed?contextStroke:markerStroke) : (dimmed?contextFill:markerFill);
+      marker.material = marker.isLineSegments2 ? markerStrokes[tone] : markerFills[tone];
       marker.scale.setScalar((weight==='path'?1.7:1.4)/scale);
     }
-    while(handoffs.children.length<pulses.length){
-      const pulse=new Mesh(pulseGeometry,pulseMaterial);
-      pulse.renderOrder=layout.strokes.length*2+5;
-      handoffs.add(pulse);
-    }
-    for(const [i,mesh] of handoffs.children.entries()){
-      const point=pulses[i];
-      mesh.visible=!!point;
-      if(point){
-        mesh.position.set(point.x,-point.y,0);
-        mesh.scale.setScalar(1/scale);
-      }
-    }
-    activePulses=pulses;
     renderer.render(scene,camera);
     frame = box;
     frames++;
@@ -202,7 +174,7 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
       points:[-1,0].map(x=>project(marker.localToWorld(new Vector3(x,0,0)))),
     }));
     return {strokes:shafts,markers:heads,
-      flowMarks:drawnLayout.flowMarks.map(({id,cue})=>({id,cue})),activePulses};
+      flowMarks:drawnLayout.flowMarks.map(({id,cue})=>({id,cue}))};
   }
 
   canvas.addEventListener('webglcontextlost', () => {
@@ -238,7 +210,7 @@ function createWebGLMinimap(canvas) {
   const camera = new OrthographicCamera(0,1,0,-1,0,20);
   camera.position.z = 10;
   const scene = new Scene(), marks = new Group();
-  const outlineMaterial = new LineMaterial({color:0x345bc1,linewidth:1.5});
+  const outlineMaterial = new LineMaterial({color:0xff4fa8,linewidth:1.5});
   let outline, previous;
   let lost = false;
   canvas.addEventListener('webglcontextlost',()=>{lost=true;renderer.dispose();},{once:true});

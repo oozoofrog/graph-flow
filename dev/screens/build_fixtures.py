@@ -21,6 +21,7 @@ from test_review11 import Review11Tests
 from graphflow import activity, cli
 
 SCENARIOS = {
+    'graph-instrument': 'A branched live graph with recorded work, a decision, stalls and a return',
     'graph-flow-states': 'Delivered, frontier, waiting, blocked, returned and unreachable relations',
     'graph-activity-unreadable': 'A damaged activity log with readable boundary records',
     'graph-activity': 'Mixed observed, stalled, repeated, boundary-only, and waiting work',
@@ -183,10 +184,26 @@ def branching(count):
                  ['n%d' % n for n in (deps[i] if i < 13 else [i - 1])]) for i in range(count)]
 
 
-def activity_fixture(f):
+def activity_fixture(f, instrument=False):
     f.raw['nodes'] = [work('rich', '검색 화면 정리'), work('stalled', '배포 안내 확인'),
                       work('repeating', '검색 검사 수정'), work('blind', '예제 검토'), question()]
+    if instrument:
+        f.raw['title'] = '검색 안내와 배포 준비'
+        f.raw['nodes'].insert(0, work('a', '요구 정리'))
+        for node in ('rich', 'stalled', 'q'):
+            nxt = next(row for row in f.raw['nodes'] if row['id'] == node)
+            nxt['needs'] = [{'from': 'a', 'artifact': '결과'}]
+        f.raw['nodes'].extend([
+            review('release'), work('release', '안내 통합', ['rich', 'q']), work('broken', '예제 검사'),
+        ])
+        f.raw['nodes'][-2]['needs'][-1]['artifact'] = '허가'
     f.post(True)
+    if instrument:
+        f.submit('a', True)
+        f.assign('broken')
+        f.call('start', 'broken')
+        f.call('submit', 'broken')
+        f.call('gate', 'broken', code=1)
     f.call('start', 'rich')
     f.call('submit', 'rich')
     f.call('gate', 'rich', code=1)
@@ -204,17 +221,24 @@ def activity_fixture(f):
         return value.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
     f.activity_epoch = stamp(now)
-    rows = []
 
-    def series(node, tools, age, attempt=1):
+    rows = []
+    invocations = {}
+
+    def series(node, tools, age, attempt=1, open_last=False):
+        offset = invocations.get((node, attempt), 0)
+        invocations[node, attempt] = offset + len(tools)
         cursor = now - timedelta(seconds=age)
         for index, (tool, gap, duration, failed) in enumerate(tools):
             cursor += timedelta(milliseconds=gap)
             end = cursor + timedelta(milliseconds=duration)
-            for event, at in (('PreToolUse', cursor), ('PostToolUseFailure' if failed else 'PostToolUse', end)):
+            observations = [('PreToolUse', cursor)]
+            if not open_last or index != len(tools) - 1:
+                observations.append(('PostToolUseFailure' if failed else 'PostToolUse', end))
+            for event, at in observations:
                 secret = 'sk-payload-secret-123456789'
                 record = activity.observation(dict(hook_event_name=event, session_id='screens-' + node,
-                    tool_name=tool, tool_use_id=f'{attempt}-{index}', tool_input={'argument': secret},
+                    tool_name=tool, tool_use_id=f'{attempt}-{offset + index}', tool_input={'argument': secret},
                     tool_response={'content': secret}, transcript_path=secret, error=secret), stamp(at))
                 record.update(node=node, attempt=attempt, via='cwd')
                 if record['phase'] == 'end':
@@ -229,12 +253,18 @@ def activity_fixture(f):
         ('Custom', 70, 500, False)], 10, attempt=2)
     series('stalled', [('mcp__catalog__search', 0, 1200, False)], 400)
     series('repeating', [('Bash', gap, 700, True) for gap in (0, 90, 90)], 3)
+    if instrument:
+        series('a', [('Skill', 0, 3100, False), ('Read', 70, 1900, False),
+                     ('mcp__graph-flow__check_run', 0, 1400, False)], 425)
+        series('rich', [('Agent', 0, 45000, False)], 1, attempt=2, open_last=True)
     events_path = f.run / 'events.jsonl'
     events = [json.loads(line) for line in events_path.read_text().splitlines()]
     for event in events:
-        if event['type'] == 'node.start' and event['data']['node'] in ('rich', 'stalled', 'repeating'):
+        if event['type'] == 'node.start' and event['data']['node'] in ('a', 'rich', 'stalled', 'repeating'):
             age = 500 if event['data']['node'] == 'rich' and event['data']['attempt'] == 1 else 450
-            event['ts'] = stamp(now - timedelta(seconds=age))
+            event['ts'] = (now - timedelta(seconds=age)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        if instrument and event['type'] == 'decision.ask' and event['data'].get('node') == 'q':
+            event['ts'] = (now - timedelta(minutes=6, seconds=15)).strftime('%Y-%m-%dT%H:%M:%SZ')
     events_path.write_text(''.join(json.dumps(event) + '\n' for event in events))
     (f.run / 'activity.jsonl').write_bytes(b''.join(activity._encode(row) for row in sorted(rows, key=lambda row: row['ts'])))
 
@@ -257,8 +287,8 @@ def build(root, scenario):
         f.call('gate', 'broken', code=1)
         f.decision = f.call('gate', 'q', code=1)['asks'][0]
         return f.metadata()
-    if scenario in ('graph-activity', 'graph-activity-unreadable'):
-        activity_fixture(f)
+    if scenario in ('graph-activity', 'graph-activity-unreadable', 'graph-instrument'):
+        activity_fixture(f, instrument=scenario == 'graph-instrument')
         if scenario == 'graph-activity-unreadable':
             (f.run / 'activity.jsonl').write_text('invalid complete line\n')
         return f.metadata()

@@ -148,9 +148,11 @@ class PageTests(unittest.TestCase):
         for used_class in ('working', 'walker'):
             self.assertIn("'" + used_class, js.replace("' " + used_class, "'" + used_class))
         self.assertNotIn('frog-walk', js)
-        self.assertEqual(js.count('requestAnimationFrame('), 1)  # Only the invalidated WebGL frame.
-        self.assertIn('!document.hidden && !reduced.matches && !motionPaused', js)
-        self.assertIn('GRAPH_FRAME_MS = 1000 / 12', js)
+        self.assertEqual(js.count('requestAnimationFrame('), 2)  # WebGL invalidation and the event clock.
+        self.assertIn('!document.hidden && !reduced.matches', js)
+        self.assertIn('!motionPaused && viewport.clientWidth', js)
+        self.assertIn('if(motionAllowed()&&fx.active()', js)
+        self.assertNotIn('GRAPH_PERIOD_MS', js)
 
     def test_a7_activity_cues_are_optional_and_quieter_than_answers(self):
         self.run_controller("""
@@ -164,7 +166,8 @@ assert.deepEqual(activityCues({status:'running',activity:[{latest:null,stalled:t
 assert.equal(statusGlyph('awaiting'), '◆');
 """)
         html = (S / 'scripts/graphflow/page.html').read_text()
-        self.assertIn('data-activity="stalled"', html)
+        self.assertIn('data-state="stalled"', html)
+        self.assertIn('data-hazard="answer"', html)
 
     def test_translation_keys_match(self):
         js = (S / 'scripts/graphflow/page.js').read_text(encoding='utf-8')
@@ -532,12 +535,12 @@ live.nodes[0].attempts=2;live.nodes[0].laps=['returned','current'];live.nodes[0]
 docEvents.visibilitychange();await settle();
 assert.match(get('map').textContent,/Attempt 2/);
 assert.doesNotMatch(get('map').textContent,/✕|Unit passes/,'earlier failure cannot dominate the current card');
-assert.match(get('map').textContent,/Work awaiting my answer/);
+assert.match(get('map').textContent,/Needs your answer/);
 live.nodes[0]=originalNode;docEvents.visibilitychange();await settle();
 
 live.nodes.push({id:'choice',kind:'decision',title:'Pick a direction',status:'pending',answered:true,inputs:[],outputs:[],laps:[],returned_reasons:[]});
 docEvents.visibilitychange();await settle();
-assert.match(get('map').textContent,/Finished/,'answered decisions use finished words as well as colour');
+assert.match(get('map').textContent,/Done/,'answered decisions use finished words as well as colour');
 live.nodes.pop();docEvents.visibilitychange();await settle();
 // The other view is the inbox and the record, newest entry first, with the real check of a returned attempt.
 get('home-tab').click(); assert.equal(get('home').hidden,false); assert.equal(get('flow').hidden,true);
@@ -709,10 +712,14 @@ for(const lang of ['ko','en'])for(const [name,status,attempts] of cases){
   live={...live,language:lang,nodes:[node],plan_counts:{work:1},plan_approval:null,decisions:name==='awaiting'?[{...d,node:'work'}]:[],timeline:[row]};
   api.applyView(structuredClone(live));
   const expected=api.stateWords(name,lang).name;
-  assert(api.nodeCard(node,false,'detail').textContent.includes(expected),name+' detail');
-  assert(api.nodeCard(node,false,'overview').querySelector('.node-header')['aria-label'].includes(expected),name+' overview accessible state');
-  assert(get('map').querySelector('.state-legend').textContent.includes(expected),name+' legend');
-  assert(get('phone-flow').textContent.includes(expected),name+' phone');
+  const compact=({ko:{notStarted:'시작 전',running:'진행 중',retrying:'다시 진행 중',submitted:'확인 대기',
+     passed:'끝남',awaiting:'답이 필요함',returned:'되돌아옴'},
+     en:{notStarted:'Not started',running:'Running',retrying:'Retrying',submitted:'Awaiting check',
+     passed:'Done',awaiting:'Needs your answer',returned:'Returned'}}[lang])[name]||expected;
+  assert.equal(api.nodeCard(node,false,'detail').querySelector('.state-word').textContent,compact,name+' detail');
+  assert(api.nodeCard(node,false,'overview').querySelector('.node-header')['aria-label'].includes(compact),name+' overview accessible state');
+  assert(!get('map').querySelector('.state-legend'),name+' no page legend');
+  assert.equal(get('phone-flow').querySelector('.state-word').textContent,compact,name+' phone');
   assert(get('node-list').textContent.includes(expected),name+' list');
   api.selectNode('work');if(get('panel').hidden)api.selectNode('work');
   assert(get('panel').querySelector('.panel-status').textContent.includes(expected),name+' panel');
@@ -727,7 +734,8 @@ for(const lang of ['ko','en'])for(const [name,status,attempts] of cases){
         self.assertIn('details[open]>summary:before{transform:rotate(45deg)',html)
         self.assertNotIn('content:"▶"',html)
         self.assertNotIn('if(chosenNode && layout.bounds',js)
-        self.assertIn('#flow.has-selection{grid-template-columns:minmax(0,1fr) 320px}',html)
+        self.assertIn('#flow.has-selection{grid-template-columns:minmax(0,1fr)}',html)
+        self.assertIn('position:absolute;grid-area:auto;',html)
         self.run_controller(r"""
 const nodes=['a','b','c'].map(id=>({id,title:id,kind:'work'})), edges=[{from:'a',to:'b'},{from:'b',to:'c'}];
 const before=layeredLayout(nodes,edges);
@@ -742,7 +750,7 @@ assert.equal(statusGlyph('running'),'▶');
         self.assertIn('returnedLine(n)',card)
         self.assertNotIn('checkWording',card)
         self.assertNotIn('failure-mark',card)
-        self.assertLess(card.index('statusLine'),card.index('returnedLine(n)'))
+        self.assertLess(card.index('stateLine'),card.index('returnedLine(n)'))
 
     def test_real_demo_and_decision_view(self):
         with tempfile.TemporaryDirectory() as directory, mock.patch.dict(os.environ):

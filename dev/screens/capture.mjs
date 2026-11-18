@@ -143,16 +143,29 @@ const kindShapes = {work:/^M5 4H19V20H5Z/,review:/^M10 3A/,decision:/^M12 3L22/,
 
 function rebaseActivityFixture(fixture) {
   const originals = new Map();
+  const dir = path.join(fixture.project,'.graph-flow/runs',fixture.run);
+  if(fixture.scenario==='graph-verification'){
+    const file=path.join(dir,'events.jsonl'),raw=readFileSync(file,'utf8');
+    const rows=raw.trim().split('\n').map(line=>JSON.parse(line));
+    const retry=rows.findLast(row=>row.type==='node.start'&&row.data.node==='d');
+    assert(retry,'the retry capture requires the recorded retry');
+    // This scenario tests a fresh retry, even when it is captured after the stall interval.
+    retry.ts=new Date().toISOString().replace(/\.\d+Z$/,'Z');
+    originals.set(file,raw);
+    writeFileSync(file,rows.map(row=>JSON.stringify(row)).join('\n')+'\n');
+    return originals;
+  }
   if(!fixture.activity_epoch)return originals;
   const shift = Date.now() - Date.parse(fixture.activity_epoch);
-  const dir = path.join(fixture.project,'.graph-flow/runs',fixture.run);
   for(const name of ['events.jsonl','activity.jsonl']){
     if(name==='activity.jsonl'&&fixture.scenario==='graph-activity-unreadable')continue;
     const file=path.join(dir,name), raw=readFileSync(file,'utf8');
     const rows=raw.trim().split('\n').map(line=>JSON.parse(line));
     for(const row of rows){
-      if(name==='activity.jsonl'||row.type==='node.start'){
+      if(name==='activity.jsonl'){
         row.ts=new Date(Date.parse(row.ts)+shift).toISOString();
+      }else if(row.type==='node.start'||fixture.scenario==='graph-instrument'&&row.type==='decision.ask'&&row.data.node==='q'){
+        row.ts=new Date(Date.parse(row.ts)+shift).toISOString().replace(/\.\d+Z$/,'Z');
       }
     }
     originals.set(file,raw);
@@ -203,7 +216,8 @@ function graphDOM() {
       path:e.parentElement.classList.contains('graph-path'),context:e.parentElement.classList.contains('graph-context'),
       cueVisible:r?.width>0&&r?.height>0&&getComputedStyle(cue).visibility==='visible'&&Number(getComputedStyle(cue).opacity)>0,
       actualSize, title:shown('.node-title'), glyphShown:shown('.status-glyph'), full:shown('.node-essentials'),
-      lane:e.querySelector('.lane-cue')?.childElementCount??null,laneShown:shown('.lane-cue'),
+      lane:Number(e.querySelector('.risk-level')?.textContent.match(/\d+$/)?.[0])||null,laneShown:shown('.risk-level'),
+      cut:Number(e.dataset.cut),clip:e.dataset.clip,
       attempts:Number(e.querySelector('.attempt-caption')?.dataset.attempts||0),
       footer:e.querySelector('.node-footer')?.textContent,
       reference:[...e.querySelectorAll('.node-reference > :not(.attempt-caption)')].map(item=>item.textContent).join(''),
@@ -248,11 +262,11 @@ function assertGraphRecords(name, language, expected, observed, visibleTitles) {
       assert.equal(item.kind,kind,context+' plan kind');
       assert.match(item.shape||'',kindShapes[kind],context+' expected '+kind+' path, observed '+item.shape);
       if(item.visible){
-        assert(item.cueVisible&&item.actualSize>=15.99,context+' expected ≥ 16 CSS px painted kind cue, observed '+item.actualSize);
+        assert(item.cueVisible&&item.actualSize>0&&item.clip===kind,context+' visible kind silhouette');
         const level=surface==='phone'?'near':observed.lod;
         assert(item.glyphShown&&item.title===(level!=='far')&&item.full===(level==='near'),
           context+' R6 '+level+' cues '+JSON.stringify(item));
-        assert.equal(item.laneShown,level!=='far'&&lane!==null,name+' R9 '+surface+' '+item.id+' lane visibility');
+        assert.equal(item.laneShown,lane!==null,name+' R9 '+surface+' '+item.id+' lane visibility');
         if(level==='near')assert.equal(item.attempts,expected.state[item.id]?.attempts??0,name+' P3 planar attempt count '+item.id);
       }
       assert.equal(item.glyph==='◆',item.state==='awaiting',context+' Psi4 glyph '+item.glyph+' for '+item.state);
@@ -281,7 +295,9 @@ function assertGraphRecords(name, language, expected, observed, visibleTitles) {
   for(const {key,strokes,markers,ends} of observed.lines){
     const [from,to,relation,gate]=key;
     const context=name+' P2 SVG '+from+' → '+to+' '+relation;
-    assert(strokes.length&&strokes.every(dash=>dash===dashPatterns[gate]),context+' gate pattern on every route portion');
+    const relationId=scene.edges.find(e=>tuple(e).every((value,i)=>value===key[i])).id;
+    const trace=scene.strokes.filter(part=>part.members.includes(relationId)).map(part=>dashPatterns[part.trace]);
+    assert.deepEqual(strokes,trace,context+' current flow trace on every physical route portion');
     assert(markers.length,context+' branch marker');
     for(const {direction,shape} of markers){
       assert.equal(direction,'auto',context+' marker follows the routed direction');
@@ -422,7 +438,7 @@ function assertDependencyFocus(name, records, graph, drawing) {
     const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);
     const luminance=hex=>rgb(hex).map(c=>c<=.04045?c/12.92:((c+.055)/1.055)**2.4)
       .reduce((sum,c,i)=>sum+c*[.2126,.7152,.0722][i],0);
-    assert((luminance(drawing.box.background)+.05)/(luminance(part.color)+.05)>=3,
+    assert((luminance(part.color)+.05)/(luminance(drawing.box.background)+.05)>=3,
       name+' R5 WebGL stroke contrast '+part.id);
   }
 }
@@ -443,8 +459,8 @@ function assertMinimap(name, graph, drawing, mini) {
   if(mini.hidden)return;
   assert(mini.focusable&&mini.label&&Math.min(...mini.target)>=24,name+' R9 minimap target');
   assert.equal(mini.renderer==='webgl',drawing.renderer==='webgl',name+' R9 minimap renderer');
-  const kinds={work:[4,'#335cad'],review:[12,'#23654e'],decision:[6,'#9e4d04'],goal:[3,'#6f4f91']};
-  assert.deepEqual(sorted(mini.marks),sorted(graph.scene.cards.map(c=>[c.id,c.kind,...kinds[c.kind]])),
+  const kinds={work:4,review:12,decision:6,goal:3};
+  assert.deepEqual(sorted(mini.marks),sorted(graph.scene.cards.map(c=>[c.id,c.kind,kinds[c.kind],'#3fd8e8'])),
     name+' R9 minimap card marks');
   if(drawing.renderer==='webgl')assert.deepEqual(sorted(drawing.minimapMarks),sorted(graph.scene.cards.map(c=>c.id)),
     name+' R9 WebGL minimap mesh inventory');
@@ -460,7 +476,7 @@ function graphInk() {
   gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
   const ink=(x,y)=>{
     const p=(Math.floor(x)+(height-1-Math.floor(y))*width)*4;
-    return pixels[p+3]>100&&pixels[p]<170&&pixels[p+1]<180&&pixels[p+2]<200;
+    return pixels[p+3]>100&&Math.max(...pixels.subarray(p,p+3))>90;
   };
   const dpr=box.dpr, samples=[];
   for(const {id,points} of strokes) {
@@ -481,25 +497,16 @@ function graphInk() {
     const x=(card.x*box.scale+box.x)*dpr, y=(card.y*box.scale+box.y)*dpr;
     const left=Math.max(0,Math.ceil(x+3*dpr)), right=Math.min(width,Math.floor(x+(card.width*box.scale-3)*dpr));
     const top=Math.max(0,Math.ceil(y+3*dpr)), bottom=Math.min(height,Math.floor(y+(card.height*box.scale-3)*dpr));
-    const band=card.band && box.bandVisible ? card.band : null;
-    const bands=band?.segments.flatMap(s=>s.paths.flatMap(path=>path.slice(1).map((end,i)=>[path[i],end]))) || [];
-    const fringe=2/box.scale;
     let found;
     for(let row=top;row<bottom&&!found;row++)for(let col=left;col<right;col++){
       if(ink(col,row)){
         const x=((col+.5)/dpr-box.x)/box.scale,y=((row+.5)/dpr-box.y)/box.scale;
-        const onBand=bands.some(([a,b])=>{
-          const dx=b.x-a.x,dy=b.y-a.y,length=dx*dx+dy*dy;
-          const t=length?Math.max(0,Math.min(1,((x-a.x)*dx+(y-a.y)*dy)/length)):0;
-          return Math.hypot(x-a.x-t*dx,y-a.y-t*dy)<=fringe;
-        });
-        if(onBand)continue;
         const at=(col+(height-1-row)*width)*4;
         found={x,y,rgba:[...pixels.slice(at,at+4)]};
         break;
       }
     }
-    if(found)interiors.push({id:card.id,point:found,band:card.band&&[card.band.x,card.band.y,card.band.width,card.band.height]});
+    if(found)interiors.push({id:card.id,point:found});
   }
   const byId=new Map(samples.map(sample=>[sample.id,sample]));
   const routes=scene.edges.map(edge=>scene.strokes.filter(p=>p.members.includes(edge.id)).reduce((total,part)=>{
@@ -507,15 +514,7 @@ function graphInk() {
     total.count+=sample.count;total.on+=sample.on;
     return total;
   },{id:edge.id,count:0,on:0}));
-  const bands=box.bandVisible ? scene.cards.flatMap(card=>(card.band?.segments??[]).map(segment=>{
-    const [a,b]=segment.paths[0];
-    const y=(a.y*box.scale+box.y)*dpr;
-    const left=(a.x*box.scale+box.x)*dpr, right=(b.x*box.scale+box.x)*dpr;
-    const visible=left>=2&&right<width-2&&y>=2&&y<height-2;
-    const painted=visible&&[0,.5,1].some(f=>[-1,0,1].some(dy=>ink(left+(right-left)*f,y+dy)));
-    return {card:card.id,id:segment.id,visible,painted};
-  })) : [];
-  return {samples,routes,interiors,bands,preserved:gl.getContextAttributes().preserveDrawingBuffer,error:gl.getError()};
+  return {samples,routes,interiors,preserved:gl.getContextAttributes().preserveDrawingBuffer,error:gl.getError()};
 }
 
 function assertGraphInk(name, ink) {
@@ -523,68 +522,159 @@ function assertGraphInk(name, ink) {
   assert.deepEqual(ink.interiors,[],name+' R2 off-route ink inside card interiors');
   for(const {id,count,on} of ink.routes)if(count>=15)assert(on>0,name+' R2 missing ink for edge '+id);
   for(const {id,count,on} of ink.samples)if(count>=15)assert(on>0,name+' R2 missing ink for shaft '+id);
-  for(const {card,id,visible,painted} of ink.bands)if(visible)assert(painted,name+' F1 missing band ink '+card+'/'+id);
 }
 
-async function assertActivityCues(name, base, values) {
-  const result = await evaluate(`(()=>{
-    const map = document.querySelector('#map'), scene = map.graphScene;
-    const color = e => getComputedStyle(e).color.match(/\\d+/g).slice(0,3).map(Number);
-    const linear = n => n<=10 ? n/3294.6 : ((n/255+.055)/1.055)**2.4;
-    const contrast = e => 1.05/(.05+color(e).reduce((sum,n,i)=>sum+[.2126,.7152,.0722][i]*linear(n),0));
-    const inspect = e => {
-      const r=e.getBoundingClientRect(), icon=e.querySelector('svg'), path=icon?.getBBox(),
-        stroke=icon?parseFloat(getComputedStyle(icon).strokeWidth):null;
-      return {text:e.textContent,contrast:contrast(e),size:r.width,stroke,animation:getComputedStyle(e).animationDuration,
-        apparent:path?Math.max(path.width,path.height)*r.width/12+stroke:r.width,
-        rect:[Math.floor(r.x),Math.floor(r.y),Math.ceil(r.right)-Math.floor(r.x),Math.ceil(r.bottom)-Math.floor(r.y)]};
+async function assertInstrument(screen, fixture, base, values, shown) {
+  const graph=await evaluate(`(()=>{
+    const map=document.querySelector('#map'), scene=map.graphScene;
+    const visible=e=>!!e.getClientRects().length&&getComputedStyle(e).visibility==='visible';
+    const rect=e=>e.getBoundingClientRect().toJSON();
+    const inspect=card=>{
+      const read=selector=>card.querySelector(selector)?.textContent??null;
+      const data=(selector,key)=>card.querySelector(selector)?.dataset[key]??null;
+      const plate=card.querySelector('.node-plate');
+      const glyph=card.querySelector('.status-glyph');
+      return {id:card.dataset.node,state:card.dataset.state,clip:card.dataset.clip,cut:Number(card.dataset.cut),
+        cssClip:getComputedStyle(plate).clipPath, hazard:plate.hasAttribute('data-hazard'),
+        glyph:glyph.textContent,adjacent:glyph.nextElementSibling?.matches('.state-word'),
+        kind:read('.kind-word'),word:read('.state-word'),lane:read('.risk-level'),ordinal:read('.card-attempt'),
+        age:read('.card-age'),minutes:data('.card-age','minutes'),
+        now:read('.card-now'),active:data('.card-now','category'),observation:read('.card-unobserved'),
+        names:[...card.querySelectorAll('.card-total')].map(row=>({
+          category:row.dataset.category,duration:Number(row.dataset.duration),word:row.querySelector('.total-name').textContent,
+          durationWord:row.querySelector('.total-duration').textContent,pattern:row.querySelector('[data-pattern]').dataset.pattern})),
+        patterns:[...card.querySelectorAll('.strip-segment[data-pattern]')].map(e=>e.dataset.pattern),
+        dots:[...card.querySelectorAll('.call-dot')].map(e=>e.dataset.call),head:!!card.querySelector('.strip-head'),
+        visible:visible(card),rect:rect(card),tier:scene.positions[card.dataset.node].tier};
     };
-    const cues=Object.fromEntries(['#map','#phone-flow'].map(scope=>[scope,[...document.querySelectorAll(scope+' .node-card')].map(card=>({
-      id:card.dataset.node, tier:scene.positions[card.dataset.node]?.tier, label:card.querySelector('.node-header').ariaLabel,
-      answer:inspect(card.querySelector('.status-glyph')),
-      marks:[...card.querySelectorAll('.activity-mark:not(.activity-boundary)')].map(e=>({key:e.dataset.activity,...inspect(e)})),
-    }))]));
-    return {cues,blocks:scene.cards.filter(c=>c.band), fallback:[...map.querySelectorAll('.activity-layer path')]
-      .map(e=>({...e.dataset,d:e.getAttribute('d')})), count:map.querySelector('.map-activity-count').textContent};
+    return {scene,lang:document.documentElement.lang,lod:map.dataset.lod,renderer:map.dataset.renderer,
+      legend:document.querySelectorAll('.map-key,.activity-legend,.state-legend,[data-legend],legend').length,
+      cards:[...map.querySelectorAll('.node-card')].map(inspect),
+      phone:[...document.querySelectorAll('#phone-flow .node-card')].map(inspect),
+      tags:[...map.querySelectorAll('.edge-tag')].map(tag=>({id:tag.dataset.edgeId,flow:tag.dataset.flow,
+        text:tag.textContent,visible:visible(tag),rect:rect(tag)})),
+      viewport:rect(map.querySelector('.map-viewport'))};
   })()`);
-  for(const cards of Object.values(result.cues)){
-    const answer = cards.find(card=>card.id==='q').answer;
-    assert.equal(answer.text,'◆',name+' A7 answer mark');
-    for(const [id,keys] of Object.entries({rich:['other'],stalled:['mcp','stalled'],repeating:['tool','repeating'],blind:[],q:[]})){
-      const card=cards.find(c=>c.id===id);
-      assert.deepEqual(card.marks.map(mark=>mark.key),keys,name+' A7 '+id);
-      for(const mark of card.marks){
-        assert(mark.contrast>=3,name+' A7 mark contrast '+JSON.stringify(mark));
-        if(mark.size)assert(mark.apparent>=16,name+' A7 apparent category cue '+JSON.stringify(mark));
-        assert.equal(parseFloat(mark.animation),0,name+' A7 static cues');
+  const {scene,lang}=graph, ko=lang==='ko';
+  const kindWords=ko?{work:'일',review:'검토',decision:'결정',goal:'전체 결과'}:
+    {work:'Work',review:'Review',decision:'Decision',goal:'Overall result'};
+  const words=ko?{notStarted:'시작 전',running:'진행 중',reviewing:'검토 중',retrying:'다시 진행 중',submitted:'확인 대기',
+    passed:'끝남',awaiting:'답이 필요함',returned:'되돌아옴',stalled:'활동 없음'}:
+    {notStarted:'Not started',running:'Running',reviewing:'Reviewing',retrying:'Retrying',submitted:'Awaiting check',
+      passed:'Done',awaiting:'Needs your answer',returned:'Returned',stalled:'No activity'};
+  const vocabulary=ko?{delivered:'넘어감',frontier:'쓰이는 중',waiting:'기다리는 중',unreachable:'차례 전',blocked:'답 대기',returned:'되돌아옴'}:
+    {delivered:'Delivered',frontier:'In use',waiting:'Waiting',unreachable:'Not yet',blocked:'Answer pending',returned:'Returned'};
+  const context=screen.name;
+  assert.equal(graph.legend,0,context+' G1 no page legend');
+  const overlaps=(a,b)=>a.left<b.right-.5&&a.right>b.left+.5&&a.top<b.bottom-.5&&a.bottom>b.top+.5;
+  for(const card of [...graph.cards,...graph.phone]){
+    assert(card.adjacent&&card.word,context+' G1 glyph adjacent to state word '+card.id);
+    const keys=card.names.map(row=>row.pattern);
+    for(const token of card.patterns)assert(keys.includes(token)||card.active===token,context+' G1 card key '+token);
+    assert.equal(card.clip,scene.positions[card.id].kind,context+' G3 clip token');
+    assert(card.cssClip.startsWith('polygon('),context+' G3 painted polygon');
+    assert.equal(card.hazard,card.state==='awaiting',context+' G3 only live answers have a hazard rim');
+    assert.equal(card.kind,kindWords[card.clip],context+' G2 kind word');
+    if(words[card.state])assert.equal(card.word,words[card.state],context+' G2 state word');
+    if(card.ordinal)assert.equal(card.ordinal,ko?'· '+scene.positions[card.id].recordedAttempt+'번째':
+      '· Attempt '+scene.positions[card.id].recordedAttempt,context+' G2 attempt word');
+    assert.equal(card.lane,scene.positions[card.id].lane?(ko?'단계 ':'Level ')+scene.positions[card.id].lane:null,context+' G2 lane word');
+    assert.equal(card.cut,5+3*(scene.positions[card.id].lane||1),context+' G3 risk cut');
+  }
+  assert.equal(graph.tags.length,scene.edges.length,context+' G1 one tag per relation');
+  for(const tag of graph.tags){
+    const edge=scene.edges.find(e=>e.id===tag.id);
+    const cue=edge.flow?.frontier?'frontier':edge.flow?.state||(edge.gate==='open'?'delivered':'unreachable');
+    const prefix={reviews:kindWords.review,waits_for_decision:kindWords.decision}[edge.relation];
+    assert.deepEqual([tag.flow,tag.text],[cue,[prefix,vocabulary[cue]].filter(Boolean).join(' ')],context+' G1 relation word');
+    if(shown&&graph.lod!=='far'){
+      const tagModel=scene.tags.find(model=>model.id===tag.id);
+      if(tag.visible){
+        assert(tag.rect.width>0,context+' G1 visible tag has ink bounds');
+        assert(!graph.cards.some(c=>c.visible&&overlaps(c.rect,tag.rect)),context+' G7 tag hits card '+tag.id);
+        assert(!graph.tags.some(other=>other.visible&&tag.id!==other.id&&overlaps(tag.rect,other.rect)),context+' G7 tags collide '+tag.id);
       }
+      const branch=scene.strokes.find(stroke=>stroke.id===tagModel.branch);
+      assert.deepEqual(branch?.members,[tag.id],context+' G7 tag has an exclusive branch');
+      const {x,y}=tagModel.anchor;
+      assert(branch.points.slice(1).some((b,i)=>{
+        const a=branch.points[i];
+        return a.x===b.x&&x===a.x&&y>=Math.min(a.y,b.y)&&y<=Math.max(a.y,b.y) ||
+          a.y===b.y&&y===a.y&&x>=Math.min(a.x,b.x)&&x<=Math.max(a.x,b.x);
+      }),context+' G7 tag anchor lies on its branch');
     }
-    assert(cards.find(card=>card.id==='stalled').label.includes('최근 활동 없음'),name+' A7 accessible stalled');
-    assert(cards.find(card=>card.id==='repeating').label.includes('실패 반복'),name+' A7 accessible repeating');
   }
-  assert.equal(await evaluate("document.querySelectorAll('.activity-legend .state-key').length"),9,name+' A7 activity legend');
-  assert.equal(result.count,'활동 확인 필요 2개',name+' F3 attention count');
-  const mapCards=result.cues['#map'];
-  assert.deepEqual(['q','stalled','repeating','rich'].map(id=>mapCards.find(c=>c.id===id).tier),[1,2,2,3],name+' F3 tier ordering');
-  const response = await fetch(new URL('/api/run?'+new URLSearchParams({project:values.project,run:values.run}),base),
-    {headers:{'X-GF-Token':values.token}});
-  const {view:{nodes}}=await response.json();
-  const expected=[];
-  for(const {id,band,tier} of result.blocks){
-    const phases=nodes.find(n=>n.id===id).activity.at(-1).phases;
-    assert.deepEqual(band.segments.map(s=>[s.id,s.category,s.errors]),phases.map(p=>[p.id,p.category,p.errors]),name+' F1 phase order');
-    assert.equal(band.segments.filter(s=>s.animate).length,id==='rich'?1:0,name+' F3 animated tier '+tier);
-    for(const segment of band.segments)expected.push({card:id,phase:segment.id,category:segment.category,
-      d:segment.paths.map(path=>`M${path[0].x} ${path[0].y}`+path.slice(1).map(p=>` L${p.x} ${p.y}`).join('')).join(' ')});
+  if(screen.activity_macro||screen.instrument){
+    const response=await fetch(new URL('/api/run?'+new URLSearchParams({project:values.project,run:values.run}),base),
+      {headers:{'X-GF-Token':values.token}});
+    const {view:{nodes,decisions}}=await response.json();
+    const dir=path.join(fixture.project,'.graph-flow/runs',fixture.run);
+    const read=filename=>readFileSync(path.join(dir,filename),'utf8').trim().split('\n').filter(Boolean).map(line=>JSON.parse(line));
+    const events=read('events.jsonl');
+    const observations=fixture.scenario==='graph-activity-unreadable'||!existsSync(path.join(dir,'activity.jsonl'))?[]:read('activity.jsonl');
+    const activityWords=ko?{tool:'도구',skill:'스킬',mcp:'MCP',session:'세션 소통',gf:'검사·제출',other:'기타 작업',thinking:'생각(추정)'}:
+      {tool:'Tools',skill:'Skills',mcp:'MCP',session:'Session messages',gf:'Checks and submission',other:'Other work',thinking:'Thinking (inferred)'};
+    const format=ms=>ms>=60000? (Math.round(ms/6000)/10)+(ko?'분':Math.round(ms/6000)===10?' min':' mins'):
+      ms>=1000?(Math.round(ms/100)/10)+(ko?'초':' s'):ms+' ms';
+    const durationFromCalls=groups=>{
+      const rows=[...groups.values()].map(records=>{
+        const start=records.find(r=>r.phase==='start'),end=records.find(r=>r.phase==='end');
+        const stop=end?Date.parse(end.ts):null;
+        const at=start?Date.parse(start.ts):stop-(end?.duration_ms||0);
+        return {id:(start||end).call,category:(start||end).category,known:!!start,at,stop,
+          duration:end?.duration_ms??(start&&end?Math.max(0,stop-at):0)};
+      }).sort((a,b)=>a.at-b.at||a.id.localeCompare(b.id));
+      const totals=new Map();
+      const add=(category,duration)=>totals.set(category,(totals.get(category)||0)+duration);
+      let closed=null,open=false;
+      for(const row of rows){
+        if(row.known&&!open&&closed!=null&&row.at-closed>=1000)add('thinking',row.at-closed);
+        add(row.category,row.duration);
+        if(row.stop==null)open=true;
+        else closed=Math.max(closed??row.stop,row.stop);
+      }
+      return totals;
+    };
+    for(const card of [...graph.cards,...graph.phone]){
+      const node=nodes.find(n=>n.id===card.id);
+      if(!node)continue;
+      const attempt=node.activity?.find(a=>a.attempt===node.attempts);
+      const groups=Map.groupBy(observations.filter(o=>o.node===node.id&&o.attempt===node.attempts&&Date.parse(o.ts)<=scene.now),o=>o.call);
+      if(attempt?.status!=='observed')groups.clear();
+      assert.deepEqual(sorted(card.dots),sorted([...groups.keys()]),context+' G4 call dots '+card.id);
+      const now=[...groups.values()].map(items=>items.find(c=>c.phase==='start'&&!items.some(e=>e.phase==='end')))
+        .filter(Boolean).sort((a,b)=>Date.parse(a.ts)-Date.parse(b.ts)).at(-1);
+      const active=['running','reviewing','retrying'].includes(card.state)?now?.category??null:null;
+      assert.equal(card.active,active,context+' G2 current category '+card.id);
+      assert.equal(card.now,active?(ko?'지금 ':'Now: ')+activityWords[active]:null,context+' G2 current words '+card.id);
+      assert.equal(card.head,!!active,context+' G4 observed phase head '+card.id);
+      const ask=decisions.filter(d=>d.node===card.id).sort((a,b)=>Date.parse(b.asked)-Date.parse(a.asked))[0];
+      const latest=attempt?.last_ms;
+      const start=events.findLast(e=>e.type==='node.start'&&e.data.node===card.id);
+      const shouldStall=node.status==='running'&&!ask&&latest!=null&&scene.now-latest>=300000;
+      if(shouldStall)assert.equal(card.state,'stalled',context+' G2 stalled state');
+      if(ask)assert.equal(card.state,'awaiting',context+' G2 pending state');
+      const age=ask?.asked?Math.floor((scene.now-Date.parse(ask.asked))/60000):
+        shouldStall?Math.floor((scene.now-latest)/60000):null;
+      assert.equal(card.minutes,age==null?null:String(age),context+' G2 idle or pending minutes '+card.id);
+      if(age!=null&&ko)assert.equal(card.age,ask?'· '+age+'분째':age+'분',context+' G2 age words');
+      assert.equal(card.ordinal, start?.data.attempt>1?(ko?'· '+start.data.attempt+'번째':'· Attempt '+start.data.attempt):null,
+        context+' G2 current attempt vs ledger');
+      const boundary=attempt&&events.filter(e=>e.seq>=start?.seq&&e.data.node===card.id&&
+        ['node.start','check.red','check.result','node.submit','review.submit'].includes(e.type));
+      const measured=groups.size?durationFromCalls(groups):new Map();
+      if(!groups.size&&boundary?.length){
+        const checks=boundary.filter(e=>['check.red','check.result'].includes(e.type));
+        const duration=boundary.reduce((value,e)=>value+(e.data.duration_ms||0),0);
+        if(checks.length||duration)measured.set('gf',duration);
+      }
+      const totals=[...measured].sort(([a,x],[b,y])=>y-x||a.localeCompare(b)).slice(0,3)
+        .map(([category,duration])=>({category,duration,word:activityWords[category],durationWord:format(duration),pattern:category}));
+      assert.deepEqual(card.names,totals,context+' G2 descending, named duration rows '+card.id);
+      if(attempt&&attempt.status!=='observed')assert(card.observation,context+' G4 explicit observation state '+card.id);
+    }
   }
-  assert.deepEqual(result.fallback,expected,name+' F1 SVG mirrors scene geometry');
-  if(await evaluate("document.querySelector('#map').dataset.renderer==='webgl'")){
-    const ink=await evaluate(`(${graphInk})()`);
-    assert(ink.bands.some(sample=>sample.visible),name+' F1 visible segments');
-    assertGraphInk(name,ink);
-    assert.equal(await evaluate("document.querySelector('#map').graphDrawing.motionFrames"),0,name+' F4 initially reduced motion');
-  }
-  return result.cues;
+  return {cards:graph.cards.length,tags:graph.tags.length,visibleTags:graph.tags.filter(tag=>tag.visible).length};
 }
 
 const workScene = "document.querySelector('.work-summary')?.activityScene";
@@ -656,7 +746,7 @@ async function assertWorkSummary(screen, base, values, svg, webgl2) {
         for(let y=Math.max(0,Math.floor(t*ratio));y<Math.min(height,Math.ceil(b*ratio));y++){
           for(let x=Math.max(0,Math.floor(l*ratio));x<Math.min(width,Math.ceil(r*ratio));x++){
             const offset=((height-1-y)*width+x)*4;
-            if(bytes[offset]+bytes[offset+1]+bytes[offset+2]<650){
+            if(Math.max(...bytes.subarray(offset,offset+3))>55){
               ink++;minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);
             }
           }
@@ -680,7 +770,7 @@ async function assertWorkSummary(screen, base, values, svg, webgl2) {
       assert.equal(differences.length,21);
       assert(differences.every(pair=>pair.difference>=.10),screen.name+' A9 raster silhouette margin '+JSON.stringify(differences));
       scope.silhouettes=differences;
-      assert(geometry.frames>1&&geometry.elapsed<=5000,screen.name+' A8 playback reaches final frame');
+      assert.equal(geometry.frames,1,screen.name+' A8 first paint is static before playback');
     }else{
       assert.equal(geometry.frames,1,screen.name+' A8 reduced-motion final frame only');
       assert(scope.buttons.every(([w,h])=>w===0&&h===0));
@@ -774,36 +864,74 @@ async function recordPlayback(filename, start, step, interval=250) {
   return movie;
 }
 
-async function verifyGraphProgress(name) {
-  const graphFrames="document.querySelector('#map').graphDrawing.motionFrames";
-  const control="document.querySelector('.graph-motion')";
-  await until(`${graphFrames} > 0 && !${control}.hidden`);
-  const from=await evaluate(graphFrames);
-  await delay(500);
-  const progress=await evaluate(graphFrames)-from;
-  assert(progress>0&&progress<=7,name+' F4 progress frame cap '+progress);
-  await evaluate(control+'.focus()');
-  const space={key:' ',code:'Space',windowsVirtualKeyCode:32};
-  await send('Input.dispatchKeyEvent',{type:'keyDown',...space});
-  await send('Input.dispatchKeyEvent',{type:'keyUp',...space});
-  const paused=await evaluate(graphFrames);
-  await delay(2200);
-  assert.equal(await evaluate(graphFrames),paused,name+' F4 keyboard pause survives polling');
-  assert.equal(await evaluate(control+'.textContent'),'그래프 움직임 재개');
-  await evaluate(control+'.click()');
-  await until(`${graphFrames}>${paused}`);
-  await evaluate("Object.defineProperty(document,'hidden',{value:true,configurable:true});document.dispatchEvent(new Event('visibilitychange'))");
-  const hidden=await evaluate(graphFrames);
-  await delay(300);
-  assert.equal(await evaluate(graphFrames),hidden,name+' F4 hidden page stops motion');
-  await evaluate("delete document.hidden;document.dispatchEvent(new Event('visibilitychange'))");
-  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
-  await until(`${control}.hidden`);
-  const reduced=await evaluate(graphFrames);
-  await delay(300);
-  assert.equal(await evaluate(graphFrames),reduced,name+' F4 reduced motion stops motion');
-  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
-  await until(`${graphFrames}>${reduced}`);
+const graphTest="document.querySelector('#map').graphTest";
+const step=(time)=>evaluate(graphTest+'.step('+time+')');
+const refreshRecords=()=>evaluate("document.dispatchEvent(new Event('visibilitychange'))");
+const motionControl="document.querySelector('.graph-motion')";
+const ledgerPath=(fixture,file)=>path.join(fixture.project,'.graph-flow/runs',fixture.run,file);
+async function nativePause(){
+  await evaluate(motionControl+'.focus()');
+  for(const type of ['keyDown','keyUp'])await send('Input.dispatchKeyEvent',{type,key:' ',code:'Space',windowsVirtualKeyCode:32});
+}
+
+async function recordCalls(name,filename,fixture) {
+  const ledger=ledgerPath(fixture,'activity.jsonl'), original=readFileSync(ledger);
+  const previous=JSON.parse(original.toString().trim().split('\n').findLast(row=>JSON.parse(row).node==='rich'));
+  const record={ts:new Date().toISOString(),phase:'start',category:'session',tool:'Agent',
+    session:previous.session,via:previous.via,node:'rich',attempt:2,call:'5'.repeat(32)};
+  const selector="#map .node-card[data-node=rich]";
+  const dom=()=>evaluate(`(()=>{
+    const card=document.querySelector(${JSON.stringify(selector)});
+    const dot=card.querySelector('.call-dot[data-call="${record.call}"]'), head=card.querySelector('.strip-head');
+    return {dot:dot&&getComputedStyle(dot).transform,head:head?.dataset.category,
+      widths:[...card.querySelectorAll('.strip-segment')].map(e=>getComputedStyle(e).width)};
+  })()`);
+  const baseline=await step(1000);
+  assert.deepEqual(baseline,[],name+' G6 no history motion');
+  const samples=[];
+  try {
+    return await recordPlayback(filename,async()=>{
+      writeFileSync(ledger,Buffer.concat([original,Buffer.from(JSON.stringify(record)+'\n')]));
+      await refreshRecords();
+      await until(`${graphTest}.frame().some(e=>e.kind==='dot'&&e.record===${JSON.stringify(record.call)})`);
+    },async i=>{
+      const frame=await step(1000+i*40);
+      const sampled=await dom();samples.push(sampled);
+      assert.equal(sampled.head,'session',name+' G6 recorded current-category head');
+      assert.equal(frame.filter(e=>e.kind==='dot').length,i*40<180?1:0);
+      assert.equal(frame.filter(e=>e.kind==='session').length,1);
+      if(i===15){
+        assert(new Set(samples.map(x=>x.dot)).size>2,name+' G6 painted dot pops');
+        assert(new Set(samples.map(x=>x.widths.join(','))).size>2,name+' G6 strip grows');
+      }
+    },65);
+  } finally { writeFileSync(ledger,original); }
+}
+
+async function recordAnswer(name,filename,fixture) {
+  const ledger=ledgerPath(fixture,'events.jsonl'), original=readFileSync(ledger);
+  assert.deepEqual(await step(1000),[],name+' G6 answer and drift baseline');
+  const samples=[];
+  try {
+    return await recordPlayback(filename,async()=>{
+      cli(fixture,['start','next']);
+      cli(fixture,['decide','ask','--kind','information','--question','추가 자료를 함께 확인할까요?','--node','waiting']);
+      await refreshRecords();
+      await until(`${graphTest}.frame().some(e=>e.kind==='halo'&&e.id==='waiting')`);
+    },async index=>{
+      if(index===12)await nativePause();
+      const frame=await step(1000+index*250);
+      const loops=frame.filter(e=>e.loop);
+      if(index<12){
+        assert.deepEqual(loops.map(e=>e.kind).sort(),['drift','halo'],name+' G6 only answer and eligible target loop');
+        samples.push(loops.find(e=>e.kind==='halo').strength);
+      }else assert.deepEqual(frame,[],name+' G6 keyboard pause stops both channels within one frame');
+      if(index===15){
+        assert(Math.max(...samples)>=.8&&samples.filter(value=>value===0).length>=3,name+' G6 three pulses');
+        assert.equal(await evaluate(motionControl+'.getAttribute("aria-pressed")'),'true');
+      }
+    },75);
+  } finally { writeFileSync(ledger,original); }
 }
 
 async function assertFlowRecords(name, fixture) {
@@ -842,40 +970,41 @@ async function assertFlowRecords(name, fixture) {
 }
 
 async function verifyHandoffPulse(name,filename,fixture) {
-  const drawing="document.querySelector('#map').graphDrawing";
-  const edge=await evaluate("document.querySelector('#map').graphScene.edges.find(e=>e.from==='waiting'&&e.to==='use').id");
-  const before=await evaluate(drawing+'.frames');
-  await delay(240);
-  assert.equal(await evaluate(drawing+'.frames'),before,name+' F4 no frames when no nodes running');
-  const ledger=path.join(fixture.project,'.graph-flow/runs',fixture.run,'events.jsonl');
+  const card="document.querySelector('#map').graphScene.edges.find(e=>e.from==='waiting'&&e.to==='use')";
+  const {id,key}=await evaluate(card);
+  assert.deepEqual(await step(1000),[],name+' no motion for the baseline');
+  const ledger=ledgerPath(fixture,'events.jsonl');
   const original=readFileSync(ledger), artifact=path.join(fixture.project,'waiting.txt');
   assert(!existsSync(artifact));
+  const positions=[], fills=[];
   try {
-    const positions=[];
     const movie=await recordPlayback(filename,async()=>{
       cli(fixture,['start','waiting']);
       writeFileSync(artifact,'추가 자료를 준비했어요.\n');
       cli(fixture,['submit','waiting']);
       cli(fixture,['gate','waiting']);
-      await evaluate("document.dispatchEvent(new Event('visibilitychange'))");
-      await until(`${drawing}.activePulses?.some(p=>p.id===${JSON.stringify(edge)})`);
-      const initial=await evaluate(`${drawing}.activePulses.find(p=>p.id===${JSON.stringify(edge)})`);
-      positions.push([initial.x,initial.y]);
-      await until(`${drawing}.activePulses?.some(p=>p.id===${JSON.stringify(edge)}&&p.progress>${initial.progress})`);
-      const next=await evaluate(`${drawing}.activePulses.find(p=>p.id===${JSON.stringify(edge)})`);
-      positions.push([next.x,next.y]);
+      await refreshRecords();
+      await until(`${graphTest}.frame().some(e=>e.kind==='handoff'&&e.id===${JSON.stringify(key)})`);
     },async index=>{
-      const pulses=await evaluate(drawing+'.activePulses');
-      if(index===12)assert.equal(pulses.length,0,name+' F4 pulse finished by 1.2 seconds');
-      positions.push(...pulses.map(p=>[p.x,p.y]));
-    },100);
-    const ended=await evaluate(drawing);
-    assert(new Set(positions.map(p=>p.join(','))).size>1,name+' F4 pulse moves along the relation');
-    assert.equal(ended.pulseStarts,1,name+' F4 plays once per recorded handoff');
-    assert.equal(ended.activePulses.length,0,name+' F4 no active pulse after recorded handoff');
-    await delay(2050);
-    assert.equal(await evaluate(drawing+'.pulseStarts'),1,name+' F4 handoff does not replay on polling');
-    assert.equal(await evaluate(drawing+'.frames'),ended.frames,name+' F4 no frames after handoff');
+      const frame=await step(1000+index*75);
+      const token=frame.find(e=>e.kind==='handoff'&&e.id===key);
+      if(!token)return;
+      const drawn=await evaluate(`(()=>{
+        const map=document.querySelector('#map');
+        const trace=map.querySelector('.route-fill:not([style*="display: none"])');
+        const token=map.querySelector('.route-token[data-direction=handoff]:not([style*="display: none"])');
+        return [trace?.style.strokeDasharray,token&&[token.getAttribute('cx'),token.getAttribute('cy')],map.dataset.transfers];
+      })()`);
+      assert(drawn[2].split(',').includes(id),name+' G6 dashed base while token is travelling');
+      assert(drawn[0]&&drawn[1],name+' G6 visible route wipe and token');
+      fills.push(parseFloat(drawn[0]));positions.push(drawn[1]);
+    },75);
+    assert(new Set(positions.map(p=>p.join(','))).size>=3,name+' G6 token travels along relation');
+    assert(fills.every((p,i)=>!i||p>fills[i-1]),name+' G6 solid fill grows behind token');
+    assert.deepEqual(await step(2400),[],name+' G6 no lingering handoff');
+    assert.equal(await evaluate('document.querySelector("#map").graphDrawing.pulseStarts'),1,name+' G6 one per delivery');
+    await refreshRecords();
+    assert.deepEqual(await step(4000),[],name+' G6 polling never replays a transfer');
     return movie;
   } finally {
     writeFileSync(ledger,original);
@@ -1139,20 +1268,19 @@ async function captureLaneCards(screen, filename) {
     const geometry=await evaluate(`(()=>{
       const card=document.querySelector(${JSON.stringify(selector)}),r=card.getBoundingClientRect();
       const v=document.querySelector('.map-viewport'),b=v.getBoundingClientRect();
-      const cue=card.querySelector('.lane-cue');
-      return {count:cue.childElementCount,visible:getComputedStyle(cue).visibility==='visible',
+      const cue=card.querySelector('.risk-level');
+      return {count:Number(cue.textContent.match(/\\d+$/)?.[0]),cut:Number(card.dataset.cut),visible:getComputedStyle(cue).visibility==='visible',
         clear:r.left>=b.left+v.clientLeft-.5&&r.right<=b.left+v.clientLeft+v.clientWidth+.5&&
           r.top>=b.top+v.clientTop-.5&&r.bottom<=b.top+v.clientTop+v.clientHeight+.5,
         rect:{x:Math.floor(r.x+scrollX),y:Math.floor(r.y+scrollY),width:Math.ceil(r.width),height:Math.ceil(r.height),scale:1}};
     })()`);
-    assert(geometry.count===i+1&&geometry.clear&&geometry.visible,screen.name+' R9 lane '+(i+1)+' '+JSON.stringify(geometry));
+    assert(geometry.count===i+1&&geometry.cut===5+3*(i+1)&&geometry.clear&&geometry.visible,screen.name+' R9 lane '+(i+1)+' '+JSON.stringify(geometry));
     const {data}=await send('Page.captureScreenshot',{format:'png',clip:geometry.rect});
     writeFileSync(path.join(verify,filename.replace('.png',`-lane-${i+1}.png`)),Buffer.from(data,'base64'));
   }
 }
 
 async function assertMinimapClear(name) {
-  await evaluate("document.querySelector('.map-key').open=false");
   await paint();
   const obstruction=await evaluate(`(async()=>{
     const v=document.querySelector('.map-viewport'),m=document.querySelector('.map-mini');
@@ -1210,20 +1338,36 @@ function graphAppearance() {
   const visible=e=>e.getClientRects().length>0&&getComputedStyle(e).visibility==='visible';
   const graph='#map, #phone-flow, #panel, #accessible, #phone-view-toggle';
   const roots=[...document.querySelectorAll(graph)];
-  const probes={text:[],marks:[],targets:[],unaligned:[]};
-  const rgb=value=>value.match(/[\d.]+/g).map(Number);
+  const probes={text:[],marks:[],targets:[],unaligned:[],yellowOutside:[]};
+  const rgb=value=>value.startsWith('#')?[1,3,5].map(i=>parseInt(value.slice(i,i+2),16)):
+    (value.match(/[\d.]+/g)||[]).map(Number);
   const blend=(front,back,opacity=1)=>{
     const a=(front[3]??1)*opacity;
     return back.map((channel,i)=>front[i]*a+channel*(1-a));
   };
   const background=e=>{
     const layers=[];
-    for(let p=e;p;p=p.parentElement)layers.unshift(rgb(getComputedStyle(p).backgroundColor));
-    return layers.reduce((back,front)=>blend(front,back),[255,255,255]);
+    for(let p=e;p;p=p.parentElement){
+      const card=p.matches('.node-card'), button=p.matches('button');
+      const pseudo=card?getComputedStyle(p.querySelector('.node-plate'),'::before'):
+        button?getComputedStyle(p,'::before'):null;
+      if(pseudo?.content==='""')layers.unshift(rgb(pseudo.backgroundColor));
+      layers.unshift(rgb(getComputedStyle(p).backgroundColor));
+    }
+    return layers.filter(layer=>layer.length>=3).reduce((back,front)=>blend(front,back),[7,9,13]);
   };
   const luminance=color=>color.map(v=>{const c=v/255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4;})
     .reduce((sum,c,i)=>sum+c*[.2126,.7152,.0722][i],0);
   const contrast=(a,b)=>{const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+  for(const e of document.body.querySelectorAll('*')){
+    if(!visible(e)||e.closest('.node-card[data-state="awaiting"],[data-human-wait]'))continue;
+    for(const type of [null,'::before','::after']){
+      const css=getComputedStyle(e,type);
+      if(type&&['none','normal'].includes(css.content))continue;
+      if([css.color,css.backgroundColor,css.backgroundImage,css.borderTopColor,css.borderLeftColor,css.stroke,css.fill]
+        .some(value=>value?.includes('252, 238, 10')))probes.yellowOutside.push(e.className?.baseVal||e.className||e.tagName);
+    }
+  }
   const opacity=e=>{let alpha=1;for(let p=e;p;p=p.parentElement)alpha*=Number(getComputedStyle(p).opacity);return alpha;};
   const context=e=>[e.closest('[data-node]')?.dataset.node,e.dataset.from&&e.dataset.from+' → '+e.dataset.to,
     e.closest('.node-card')?.dataset.state,e.className?.baseVal||e.className||e.id||e.tagName].filter(Boolean).join(' ');
@@ -1234,7 +1378,7 @@ function graphAppearance() {
   probes.scale=scale;
   for(const root of roots)for(const e of [root,...root.querySelectorAll('*')]){
     if(!(e instanceof HTMLElement)||!visible(e))continue;
-    if(e.matches('.map-stage,.node-position')||e.closest('.node-card,.edge-chip')) {
+    if(!e.matches('.card-strip,.strip-head')&&(e.matches('.map-stage,.node-position')||e.closest('.node-card,.edge-tag'))) {
       const matrix=new DOMMatrixReadOnly(getComputedStyle(e).transform);
       if(!matrix.is2D||matrix.b!==0||matrix.c!==0||matrix.a<=0||matrix.d<=0)probes.unaligned.push(context(e));
     }
@@ -1243,23 +1387,21 @@ function graphAppearance() {
     const item=probe(e,css.color,background(e),glyph?3:4.5);
     item.apparentSize=parseFloat(css.fontSize)*(stage.contains(e)?scale:1);
     item.text=e.textContent.trim().slice(0,70);
+    item.shadow=css.textShadow;
+    item.yellowAllowed=!!e.closest('.node-card[data-state="awaiting"],[data-human-wait]');
+    item.glyph=glyph;
     (glyph?probes.marks:probes.text).push(item);
   }
-  for(const e of document.querySelectorAll('.type-icon path,.edge-path,.relation-fill,.relation-stroke,.node-card.expanded,.graph-path .node-card')){
+  for(const e of document.querySelectorAll('.type-icon path,.edge-path,.flow-mark,.relation-fill,.relation-stroke,.node-card.expanded,.graph-path .node-card')){
     if(!visible(e)&&!(e.closest('defs')&&visible(e.closest('.edge-layer'))))continue;
     const css=getComputedStyle(e);
-    const property=e.matches('.node-card')?'outlineColor':e.classList.contains('relation-fill')?'fill':'stroke';
-    if(property==='outlineColor'&&(css.outlineStyle==='none'||parseFloat(css.outlineWidth)===0)){
-      throw Error(context(e)+' selected outline absent');
-    }
-    if(css[property]==='none')continue;
-    const bg=background(property==='outlineColor'?e.parentElement:e);
-    probes.marks.push(probe(e,css[property],bg,3));
-  }
-  for(const e of document.querySelectorAll('.lane-cue i'))if(visible(e)){
-    const item=probe(e,getComputedStyle(e).backgroundColor,background(e.parentElement),3);
-    const rect=e.getBoundingClientRect(),next=e.nextElementSibling?.getBoundingClientRect();
-    item.laneMark={height:rect.height,width:rect.width,gap:next?next.left-rect.right:null};
+    const property=e.matches('.node-card')?'rim':e.classList.contains('relation-fill')?'fill':'stroke';
+    const color=property==='rim'?getComputedStyle(e).getPropertyValue('--rim').trim():css[property];
+    if(color==='none')continue;
+    const bg=background(property==='rim'?e.parentElement:e);
+    const item=probe(e,color,bg,3);
+    item.yellowAllowed=!!e.closest('.node-card[data-state="awaiting"],[data-human-wait]');
+    item.trace=e.matches('.edge-path,.flow-mark,.relation-fill,.relation-stroke');
     probes.marks.push(item);
   }
   if(innerWidth===390)for(const e of document.querySelectorAll('#attention :is(button,summary,a[href]),#flow :is(button,summary,a[href]),#accessible :is(button,summary,a[href]),#decision :is(button,summary,a[href],label:has(input[type=checkbox]))')){
@@ -1267,33 +1409,20 @@ function graphAppearance() {
     const {width,height}=e.getBoundingClientRect();
     probes.targets.push({id:context(e)+' '+e.textContent.trim().slice(0,50),width,height,floor:e.matches('.ref')?24:44});
   }
-  probes.legend=Array.from(document.querySelectorAll('.map-key[open] .line-sample:has(.edge-path)'),e=>({
-    caption:e.lastElementChild.textContent,dash:getComputedStyle(e.querySelector('.edge-path')).strokeDasharray,
-    shape:e.querySelector('.relation-fill,.relation-stroke')?.getAttribute('d') ?? null,
-  }));
+  probes.forced=matchMedia('(forced-colors:active)').matches;
   return probes;
 }
-function assertLegend(name, language, edges, items) {
-  const relations=[...new Set(edges.map(edge=>edge[2]))],gates=[...new Set(edges.map(edge=>edge[3]))];
-  assert.equal(items.length,relations.length+gates.length,name+' P2 legend entry count');
-  for(const relation of relations){
-    const caption=relationNames[language][relation], item=items.find(e=>e.caption===caption&&e.shape);
-    assert(item&&markerShapes[relation].test(item.shape),name+' P2 legend expected '+caption+' marker, observed '+JSON.stringify(items));
-  }
-  for(const gate of gates){
-    const caption=gateNames[language][gate], item=items.find(e=>e.caption===caption&&!e.shape);
-    assert.equal(item?.dash,dashPatterns[gate],name+' P2 legend '+caption+' gate pattern');
-  }
-}
-
 function assertAppearance(name, appearance) {
   assert.deepEqual(appearance.unaligned,[],name+' R3 labels stay screen-aligned');
+  if(!appearance.forced)assert.deepEqual(appearance.yellowOutside,[],name+' G5 yellow is reserved for answers');
   for(const item of [...appearance.text,...appearance.marks]){
-    assert(item.ratio>=item.threshold,name+' Psi2 '+item.id+' '+(item.text||'')+' expected contrast ≥ '+item.threshold+', observed '+item.ratio.toFixed(2)+' ('+item.color+' on '+item.background+')');
-    if(item.laneMark){
-      const {height,width,gap}=item.laneMark;
-      assert(height>=15.99&&width>=3&&!(gap!==null&&gap<3),name+' R9 lane mark size and separation '+JSON.stringify(item));
-    }
+    if(!appearance.forced)assert(item.ratio>=item.threshold,name+' Psi2 '+item.id+' '+(item.text||'')+' expected contrast ≥ '+item.threshold+', observed '+item.ratio.toFixed(2)+' ('+item.color+' on '+item.background+')');
+    if(!appearance.forced&&item.color==='rgb(252, 238, 10)')assert(item.yellowAllowed,name+' G5 yellow role escaped answer marks: '+item.id);
+    if(item.shadow!=null)assert.equal(item.shadow,'none',name+' G5 flat text '+item.id);
+    if(item.trace&&!appearance.forced)assert(['rgb(63, 216, 232)','rgb(138, 162, 173)',
+      'rgb(255, 79, 168)','rgb(255, 118, 109)'].includes(item.color),name+' G5 trace role '+item.color);
+    if(item.glyph&&!appearance.forced)assert(['rgb(138, 162, 173)','rgb(220, 236, 241)','rgb(255, 79, 168)',
+      'rgb(255, 118, 109)','rgb(252, 238, 10)'].includes(item.color),name+' G5 state role '+item.color);
     if(item.apparentSize!==undefined)assert(item.apparentSize>=11.99,name+' Psi3 '+item.id+' '+item.text+' expected ≥ 12 CSS px, observed '+item.apparentSize);
   }
   for(const {id,width,height,floor} of appearance.targets){
@@ -1312,7 +1441,7 @@ function compareGrayGlyphs(name, png, boxes) {
     const pixels=spawnSync(ffmpeg,['-v','error','-i',png,'-vf',`crop=${width}:${height}:${x}:${y},scale=24:24:flags=neighbor,format=gray`,'-frames:v','1','-f','rawvideo','pipe:1']);
     assert.equal(pixels.status,0,name+' Psi1 '+id+' '+pixels.stderr.toString());
     assert.equal(pixels.stdout.length,576,name+' Psi1 '+id+' normalized crop pixel count');
-    return [id,pixels.stdout.map(p=>p<128?1:0)];
+    return [id,pixels.stdout.map(p=>p>112?1:0)];
   });
   return masks.flatMap(([id,a],i)=>masks.slice(i+1).map(([other,b])=>{
     const difference=a.reduce((sum,p,j)=>sum+Number(p!==b[j]),0)/a.length;
@@ -1321,32 +1450,6 @@ function compareGrayGlyphs(name, png, boxes) {
   }));
 }
 
-function assertAttentionInk(name,png,cards) {
-  function measure({rect:[x,y,width,height],stroke:outline}) {
-    const raster=spawnSync(ffmpeg,['-v','error','-i',png,'-vf',`format=gray,crop=${width}:${height}:${x}:${y}`,
-      '-frames:v','1','-f','rawvideo','pipe:1']);
-    assert.equal(raster.status,0,raster.stderr.toString());
-    assert.equal(raster.stdout.length,width*height,name+' F3 painted cue bounds');
-    const ink=raster.stdout.map(pixel=>Number(pixel<128));
-    let stroke=0;
-    for(let row=0;row<height;row++)for(let col=0;col<width;col++){
-      for(let side=stroke+1;side<=width-col&&side<=height-row;side++){
-        if(!Array.from({length:side},(_,dy)=>ink.subarray((row+dy)*width+col,(row+dy)*width+col+side).every(Boolean)).every(Boolean))break;
-        stroke=side;
-      }
-    }
-    return {area:ink.reduce((sum,pixel)=>sum+pixel,0),stroke:outline??stroke};
-  }
-  const tier1=measure(cards.find(card=>card.tier===1).answer);
-  const tier2=cards.filter(card=>card.tier===2).map(card=>measure(card.marks.at(-1)));
-  const tier3=cards.flatMap(card=>card.marks.filter(mark=>!['stalled','repeating'].includes(mark.key)).map(measure));
-  for(const metric of ['area','stroke']){
-    assert(tier1[metric]>Math.max(...tier2.map(cue=>cue[metric])) &&
-      Math.min(...tier2.map(cue=>cue[metric]))>Math.max(...tier3.map(cue=>cue[metric])),
-      name+' F3 '+metric+' '+JSON.stringify({tier1,tier2,tier3}));
-  }
-  return {tier1,tier2,tier3};
-}
 const derivedNumbers = new Set([1,2,3,5,7,10,15,17,18,19,20,21,22,23,24,29,33,34,37,38,41,44,52,53,58,59,61,62,63,64,65,66,67,68,69,...manifest.filter(s=>s.number>=70).map(s=>s.number)]);
 try {
   chrome = start(chromePath, ['--headless=new','--use-angle=swiftshader','--enable-unsafe-swiftshader',
@@ -1370,7 +1473,7 @@ try {
   console.log('Chrome WebGL2 context:',webgl2?'available':'unavailable');
   for (const screen of manifest.filter(row => !only || only.has(row.number))) {
     const fixture = fixtures[screen.scenario];
-    const svg = forceSVG || screen.activity_view==='fallback';
+    const svg = forceSVG || screen.activity_view==='fallback' || screen.forced_colors;
     const filename = String(screen.number).padStart(2,'0')+'-'+screen.name+'.png';
     const record = {number:screen.number,name:screen.name,scenario:screen.scenario,filename,group:screen.group};
     records = records.filter(row => row.number !== screen.number);
@@ -1388,11 +1491,14 @@ try {
       record.deepLink = relative.replace(encodeURIComponent(values.token), '{token}');
       errors.length = 0;
       requests.length = 0;
-      await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:screen.activity_view==='playing'||screen.graph_progress||screen.graph_flow?'no-preference':'reduce'}]});
+      await send('Emulation.setEmulatedMedia',{features:[
+        {name:'prefers-reduced-motion',value:screen.activity_view==='playing'||screen.graph_progress||screen.graph_flow||screen.answer_motion?'no-preference':'reduce'},
+        {name:'forced-colors',value:screen.forced_colors?'active':'none'},
+      ]});
       await send('Emulation.setDeviceMetricsOverride', {width:screen.viewport.width,height:screen.viewport.height,deviceScaleFactor:1,mobile:false});
       const dashboard=new URL(relative,base.origin);
       dashboard.searchParams.set('graphTest','1');
-      if(svg)dashboard.searchParams.set('renderer','svg');
+      if(svg&&!screen.forced_colors)dashboard.searchParams.set('renderer','svg');
       const navigation=await send('Page.navigate', {url:dashboard.href});
       assert(!navigation.errorText,navigation.errorText);
       const language=screen.language||'ko';
@@ -1400,8 +1506,10 @@ try {
       await delay(450);
       for(const action of screen.interactions) await interaction(action, fixture);
       await evaluate('document.fonts.ready');
+      // The DOM selection commits before its invalidated WebGL frame.
+      await paint();
       if(screen.activity_view)record.activity=await assertWorkSummary(screen,base,values,svg,webgl2);
-      if(screen.edge_detail)record.edge=await assertEdgeSelection(screen.edge_detail,fixture);
+      if(screen.edge_detail){record.edge=await assertEdgeSelection(screen.edge_detail,fixture);await paint();}
       const dom = await evaluate(`({title:document.querySelector('#title').textContent,language:document.documentElement.lang,text:document.body.innerText,level:document.querySelector('#map').dataset.level,scale:document.querySelector('#map').dataset.scale,scrollY,buttons:[...document.querySelectorAll('button')].filter(b=>b.getBoundingClientRect().width).map(b=>({text:b.textContent,disabled:b.disabled}))})`);
       assert.equal(dom.language,language);
       assert(dom.text.length > 100 && !/서버에 연결할 수 없|ERR_CONNECTION|사이트에 연결할 수 없/.test(dom.text), 'blank or connection error page');
@@ -1433,23 +1541,24 @@ try {
         return {shown,firstSentence:panel.hidden||panel.dataset.trunk==='true'||!!sentence&&sentence.parentElement.children[1]===sentence&&sr.top>=0&&sr.bottom<=innerHeight,scroll:{left:v.scrollLeft,top:v.scrollTop},visibleTitles,
           toolbar:!shown||count.scrollWidth<=count.clientWidth+1&&count.getBoundingClientRect().left>=toolbar.getBoundingClientRect().left,
           panel:panel.hidden||bar.getBoundingClientRect().bottom<=body.getBoundingClientRect().top+.5,
-          panelTitle:bar?.querySelector('strong')?.textContent,
+          panelTitle:bar?.querySelector('strong')?.textContent,panelFirstRect:sr?.toJSON(),
           panelScroll:body?[body.scrollTop,body.clientHeight,body.scrollHeight,body.getBoundingClientRect().top]:null,
           panelFirstLines:leafRects.filter(r=>r.rect.bottom>body.getBoundingClientRect().top&&r.rect.top<body.getBoundingClientRect().top),
-          contentFits:!shown||cards.every(c=>c.scrollHeight<=c.clientHeight+1&&c.getBoundingClientRect().height<=c.parentElement.getBoundingClientRect().height+1),
+          contentFits:!shown?[]:cards.filter(c=>c.scrollHeight>c.clientHeight+1||c.getBoundingClientRect().height>c.parentElement.getBoundingClientRect().height+1)
+            .map(c=>[c.dataset.node,c.scrollHeight,c.clientHeight,c.offsetHeight,c.parentElement.offsetHeight]),
           selectedVisible:!selected||(()=>{const r=selected.getBoundingClientRect();return r.left>=vr.left-.5&&r.right<=vr.right+.5&&r.top>=vr.top-.5&&r.bottom<=vr.bottom+.5})(),
           changeTitles:[...document.querySelectorAll('.plan-change-list>details>summary')].map(e=>e.textContent.split(' · ').slice(1).join(' · ')).sort(),
           markedTitles:cards.filter(c=>c.querySelector('.change-mark')).map(c=>c.querySelector('.node-title').textContent).sort()};
       })()`);
-      assert(audit.firstSentence,'U1 first explanation is visible below the title');
+      assert(audit.firstSentence,'U1 first explanation is visible below the title '+JSON.stringify(audit.panelFirstRect));
       assert(audit.toolbar,'E1 count phrases must not be clipped');
       assert(audit.panel,'E2 panel body starts below its pinned title');
       assert.equal(audit.panelFirstLines.length,0,'E2 no text is sliced at the top of the panel scroll area: '+JSON.stringify([audit.panelScroll,audit.panelFirstLines]));
-      assert(audit.contentFits,'E6 content must fit the measured card');
+      assert.deepEqual(audit.contentFits,[],'E6 content must fit the measured card');
       const expected=graphRecords(fixture), graph=await evaluate(`(${graphDOM})()`);
       const metrics=assertGraphRecords(screen.name,language,expected,graph,audit.shown?audit.visibleTitles.length:undefined);
       if(graph.scene.edges.length&&ratchets[screen.number])
-        assert(!exceedsRatchet(metrics,ratchets[screen.number]),screen.name+' M2 route ratchet '+metrics+' exceeds '+ratchets[screen.number]);
+        assert(!exceedsRatchet(metrics,ratchets[screen.number]),screen.name+' M2 route ratchet '+metrics+' exceeds '+ratchets[screen.number]+' '+JSON.stringify(graph.scene.edges.map(({from,to,points})=>({from,to,points}))));
       if(audit.shown&&graph.scene.edges.length) {
         if(!svg&&webgl2)await until("document.querySelector('#map').dataset.renderer==='webgl'");
         const drawing=await evaluate("document.querySelector('#map').graphDrawing");
@@ -1531,7 +1640,7 @@ try {
       if(screen.number===66){assert(dom.text.includes('허락하지 않은 결정'));assert(!dom.text.includes('내가 돌려보낸 결정'));}
       if(screen.number===67)assert(audit.selectedVisible,'E3 fit keeps selected card visible');
       if(screen.number===63){assert(/허락하기로 답했어요|받아들이기로 답했어요|받아들이지 않기로 답했어요/.test(dom.text));assert(dom.text.includes('이 안내를 시험 환경에 공개할까요?'));}
-      if(screen.number===19)assert(await evaluate("getComputedStyle(document.querySelector('#accessible')).visibility==='hidden' && !!document.querySelector('#panel .planned-command')?.textContent"),'E4 opaque overlay and a real command');
+      if(screen.number===19)assert(await evaluate("getComputedStyle(document.querySelector('#accessible')).visibility==='visible' && !!document.querySelector('#panel .planned-command')?.textContent"),'E4 phone sheet and a real command');
       if(screen.decision_screen) {
         const questionAudit=await evaluate(`(()=>{
           const root=document.querySelector('#decision:not([hidden])')||document.querySelector('#attention');
@@ -1557,21 +1666,30 @@ try {
         await delay(2200);
         assert.deepEqual(await evaluate(`({scrollY,level:document.querySelector('#map').dataset.level,focus:document.activeElement?.id,text:document.querySelector('#decision')?.textContent})`),before,'polling preserves the open question');
       }
-      if(screen.activity_macro)dom.activityCues=await assertActivityCues(screen.name,base,values);
+      dom.instrument=await assertInstrument(screen,fixture,base,values,audit.shown);
       if(screen.graph_flow)dom.flowRecords=await assertFlowRecords(screen.name,fixture);
       dom.audit=audit;
       assert(requests.length, screen.name+' expected network observations');
       assert(requests.every(url=>new URL(url).origin===base.origin),screen.name+' off-origin dashboard request');
-      if(svg)assert(!requests.some(url=>new URL(url).pathname.startsWith('/static/vendor/')),screen.name+' R7 forced SVG loads no vendor modules');
+      if(svg)assert(!requests.some(url=>new URL(url).pathname.startsWith('/static/vendor/three/')),screen.name+' R7 forced SVG loads no vendor modules');
       const shot = await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
       const bytes = Buffer.from(shot.data,'base64');
       writeFileSync(path.join(final,filename),bytes);
       copyFileSync(path.join(final,filename),path.join(verify,filename));
-      if(screen.activity_macro)dom.activityInk=assertAttentionInk(screen.name,path.join(final,filename),dom.activityCues['#map']);
       if(screen.graph_progress&&!svg&&webgl2){
-        await verifyGraphProgress(screen.name);
-        record.video=await recordPlayback(filename,async()=>{},index=>index===8&&evaluate("document.querySelector('.graph-motion').click()"));
+        record.video=await recordCalls(screen.name,filename.replace('.png','-call-strip.png'),fixture);
       }
+      if(screen.reduced_graph || screen.forced_colors){
+        const mode=await evaluate(`(()=>{
+          const map=document.querySelector('#map'),area=map.querySelector('.map-area');
+          return {motion:map.graphTest.step(18000),canvas:map.dataset.renderer,textures:getComputedStyle(area).backgroundImage,
+            halo:getComputedStyle(map.querySelector('.node-card'),'::before').display,pause:map.querySelector('.graph-motion').hidden};
+        })()`);
+        assert.deepEqual(mode.motion,[],screen.name+' G6 static scene');
+        assert(mode.pause,screen.name+' G6 pause is unnecessary');
+        if(screen.forced_colors)assert.deepEqual([mode.canvas,mode.textures,mode.halo],['svg','none','none']);
+      }
+      if(screen.answer_motion&&!svg&&webgl2)record.video=await recordAnswer(screen.name,filename.replace('.png','-halo-pause.png'),fixture);
       if(screen.graph_flow&&!svg&&webgl2)record.video=await verifyHandoffPulse(screen.name,filename.replace('.png','-handoff.png'),fixture);
       if(screen.activity_view==='playing'&&!svg&&webgl2){
         record.playback=await checkPlayback();
@@ -1592,12 +1710,6 @@ try {
           const result = spawnSync(ffmpeg,['-hide_banner','-loglevel','error','-y','-i',path.join(final,filename),'-vf',filter,'-frames:v','1',path.join(verify,filename.replace('.png','-'+suffix+'.png'))],{encoding:'utf8'});
           assert.equal(result.status,0,result.stderr);
         }
-      }
-      if(audit.shown){
-        await evaluate("document.querySelector('.map-key').open=true");
-        const appearance=await evaluate(`(${graphAppearance})()`);
-        dom.graphVerification.legend=assertAppearance(screen.name+' legend',appearance);
-        assertLegend(screen.name,language,expected.edges,appearance.legend);
       }
       if(grayBoxes)dom.graphVerification.grayDifferences=compareGrayGlyphs(screen.name,path.join(verify,filename.replace('.png','-gray.png')),grayBoxes);
       if(screen.lane_crops)await captureLaneCards(screen,filename);

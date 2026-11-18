@@ -165,7 +165,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.httpd.server_address[0], "127.0.0.1")
 
     def test_static_allowlist_and_host_without_token(self):
-        vendor = server.STATIC_ROOT / "vendor/three"
+        vendor = server.STATIC_ROOT / "vendor"
         self.assertEqual(set(server.STATIC_TYPES), {
             "page.js", "graph-webgl.js", "activity-webgl.js",
             *("assets/frog-%s.png" % p for p in ("wave", "walk-a", "walk-b", "report")),
@@ -224,6 +224,17 @@ class ServerTests(unittest.TestCase):
         })
         self.assertLess(body.index(opening), body.index(b'<script type="module"'))
         self.assertNotIn("unsafe-", csp)
+        self.assertIn("font-src 'self'", csp)
+        fonts = server.STATIC_ROOT / "vendor/fonts"
+        font_manifest = json.loads((fonts / "manifest.json").read_text())
+        self.assertEqual(font_manifest["license"], "OFL-1.1")
+        self.assertEqual(set(font_manifest["upstream"]), set(font_manifest["sha256"]))
+        self.assertEqual(len([name for name in font_manifest["sha256"] if name.endswith("-OFL.txt")]), 4)
+        for name, digest in font_manifest["sha256"].items():
+            self.assertEqual(hashlib.sha256((fonts / name).read_bytes()).hexdigest(), digest)
+            if name.endswith(".ttf"):
+                self.assertEqual(server.STATIC_TYPES["vendor/fonts/" + name], "font/ttf")
+                self.assertIn(("/static/vendor/fonts/" + name).encode(), body)
 
     def test_authentication_regressions(self):
         status, headers, body = self.request("HEAD", "/static/page.js", token=False)
@@ -546,6 +557,7 @@ class ServerTests(unittest.TestCase):
         data["view"].pop("recovery_identity")
         self.assertEqual(data["view"].pop("run_contract"), {})
         self.assertEqual(data["view"].pop("integrity"), [])
+        self.assertIsInstance(data["view"].pop("observed_at_ms"), int)
         self.assertEqual(data["view"], {"title": "", "summary": "", "context": {}, "requirements": [], "language": "en", "nodes": [], "edges": [], "decisions": [], "answered": [],
                                       "goal_flows": {},
                                       "lessons": [], "notices": [], "stale_decisions": [], "complete": False, "final_result": None, "run": "empty",
@@ -625,7 +637,7 @@ class ServerTests(unittest.TestCase):
         view = data["view"]
         self.assertEqual(set(view), {"title", "summary", "context", "requirements", "language", "nodes", "edges", "decisions", "answered", "lessons", "counts", "complete", "final_result",
                                      "run", "project", "timeline", "plan_approval", "plan_counts", "plan_error", "key_mismatch", "location_mismatch", "has_work", "goal_flows",
-                                 "goal", "planned_questions", "integration_checks", "promoted_checks", "superseded", "constraints", "key_recovery", "legacy", "replaced_unverifiable", "stale_decisions", "recovery_identity", "run_contract", "integrity", "notices"})
+                                 "goal", "planned_questions", "integration_checks", "promoted_checks", "superseded", "constraints", "key_recovery", "legacy", "replaced_unverifiable", "stale_decisions", "recovery_identity", "run_contract", "integrity", "notices", "observed_at_ms"})
         self.assertEqual(view["title"], raw["title"])
         self.assertFalse(view["complete"])
         self.assertEqual([n["id"] for n in view["nodes"]], [n["id"] for n in current["nodes"]])
@@ -998,7 +1010,7 @@ class ServerTests(unittest.TestCase):
             csp = headers["Content-Security-Policy"]
             nonce = csp.split("'nonce-")[1].split("'")[0]
             self.assertEqual(csp, "default-src 'none'; script-src 'nonce-%s' 'self'; style-src 'nonce-%s'; "
-                             "connect-src 'self'; img-src 'self' data: blob:; base-uri 'none'; form-action 'none'" % (nonce, nonce))
+                             "connect-src 'self'; font-src 'self'; img-src 'self' data: blob:; base-uri 'none'; form-action 'none'" % (nonce, nonce))
             path.parent.mkdir()
             path.write_text('<style nonce="__NONCE__"></style><script nonce="__NONCE__"></script>', encoding="utf-8")
             status, headers, body = self.request("GET", "/")

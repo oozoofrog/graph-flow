@@ -585,10 +585,23 @@ def summaries(activity, events, nodes, now_ms):
     result = {}
     for node, attempts in by_attempt.items():
         current = nodes[node]
-        result[node] = [
-            dict(attempt=number, **condense(observed.get((node, number), []), rows, now_ms,
-                 current["status"] == "running" and current["attempts"] == number,
-                 activity["status"] == "unreadable"))
-            for number, rows in attempts.items()
-        ]
+        result[node] = []
+        for number, rows in attempts.items():
+            observations = observed.get((node, number), [])
+            summary = condense(observations, rows, now_ms,
+                               current["status"] == "running" and current["attempts"] == number,
+                               activity["status"] == "unreadable")
+            boundaries = [_boundary_time(event) for event in rows]
+            last = [stamp for stamp in boundaries if stamp is not None]
+            last.extend(_milliseconds(record["ts"]) for record in observations)
+            # Only the recorded endpoints leave the server. Call arguments, names and inferred starts
+            # are unnecessary for the flat strip.
+            calls = [{"id": call["key"], "category": call["category"],
+                      "start_ms": call["recorded_start"], "end_ms": call["recorded_end"]}
+                     for call in _calls(observations)]
+            result[node].append(dict(attempt=number, started_ms=boundaries[0],
+                                     last_ms=max(last, default=None), calls=calls,
+                                     boundaries=[{"kind": event["type"], "seq": event.get("seq"), "time_ms": stamp}
+                                                 for event, stamp in zip(rows, boundaries) if stamp is not None],
+                                     **summary))
     return result

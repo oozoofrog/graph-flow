@@ -1,6 +1,37 @@
 // UI_STRINGS_START
 const STRINGS = {
   "ko": {
+    "cardKind_work": "일",
+    "cardKind_review": "검토",
+    "cardKind_decision": "결정",
+    "cardKind_goal": "전체 결과",
+    "cardState_notStarted": "시작 전",
+    "cardState_running": "진행 중",
+    "cardState_reviewing": "검토 중",
+    "cardState_retrying": "다시 진행 중",
+    "cardState_submitted": "확인 대기",
+    "cardState_passed": "끝남",
+    "cardState_awaiting": "답이 필요함",
+    "cardState_returned": "되돌아옴",
+    "cardState_stalled": "활동 없음",
+    "tag_delivered": "넘어감",
+    "tag_frontier": "쓰이는 중",
+    "tag_waiting": "기다리는 중",
+    "tag_unreachable": "차례 전",
+    "tag_blocked": "답 대기",
+    "tag_returned": "되돌아옴",
+    "cardSession": "세션 소통",
+    "cardChecks": "검사·제출",
+    "cardThinking": "생각(추정)",
+    "cardMinute": "{n}분",
+    "cardMinutes": "{n}분",
+    "cardSeconds": "{n}초",
+    "cardAttempt": "{n}번째",
+    "cardLane": "단계 {n}",
+    "cardWaiting": "· {age}째",
+    "cardNow": "지금 {category}",
+    "cardUnobserved": "세부 활동 관측 안 됨",
+    "cardUnreadable": "활동 기록을 읽을 수 없음",
     "activityNameTool": "도구",
     "activityNameSkill": "스킬",
     "activityNameMcp": "MCP",
@@ -95,7 +126,6 @@ const STRINGS = {
     "waiting": "앞 일을 기다림",
     "needs_you": "내가 할 일",
     "returned": "고치러 돌아옴",
-    "legend": "기호 안내",
     "received": "받는 것",
     "outputs": "넘기는 것",
     "noHandoffs": "기록된 주고받기가 없어요.",
@@ -767,6 +797,37 @@ const STRINGS = {
     "qBeforeWorkCount": "작업 전에 이미 통과한 검사 {n}개가 있어요."
   },
   "en": {
+    "cardKind_work": "Work",
+    "cardKind_review": "Review",
+    "cardKind_decision": "Decision",
+    "cardKind_goal": "Overall result",
+    "cardState_notStarted": "Not started",
+    "cardState_running": "Running",
+    "cardState_reviewing": "Reviewing",
+    "cardState_retrying": "Retrying",
+    "cardState_submitted": "Awaiting check",
+    "cardState_passed": "Done",
+    "cardState_awaiting": "Needs your answer",
+    "cardState_returned": "Returned",
+    "cardState_stalled": "No activity",
+    "tag_delivered": "Delivered",
+    "tag_frontier": "In use",
+    "tag_waiting": "Waiting",
+    "tag_unreachable": "Not yet",
+    "tag_blocked": "Answer pending",
+    "tag_returned": "Returned",
+    "cardSession": "Session messages",
+    "cardChecks": "Checks and submission",
+    "cardThinking": "Thinking (inferred)",
+    "cardMinute": "{n} min",
+    "cardMinutes": "{n} mins",
+    "cardSeconds": "{n} s",
+    "cardAttempt": "Attempt {n}",
+    "cardLane": "Level {n}",
+    "cardWaiting": "· {age} waiting",
+    "cardNow": "Now: {category}",
+    "cardUnobserved": "Activity not observed",
+    "cardUnreadable": "Activity unreadable",
     "activityNameTool": "Tools",
     "activityNameSkill": "Skills",
     "activityNameMcp": "MCP",
@@ -861,7 +922,6 @@ const STRINGS = {
     "waiting": "Waiting to begin",
     "needs_you": "Your turn",
     "returned": "Returned for changes",
-    "legend": "Legend",
     "received": "Receives",
     "outputs": "Hands over",
     "noHandoffs": "No handoff is recorded.",
@@ -1727,6 +1787,45 @@ export const FLOW_MARKS = {
   blocked: [[[-3,-4],[-3,4]],[[3,-4],[3,4]]],
   returned: [[[-1,-4],[-7,0],[-1,4]],[[7,-4],[1,0],[7,4]]],
 };
+const toneForFlow = (cue) => cue==='returned'?'failure':cue==='frontier'?'live':
+  cue==='unreachable'||cue==='waiting'?'quiet':'structure';
+export const cardStateWord = (state, language) => STRINGS[language]['cardState_'+state] || stateWords(state,language).name;
+const runningCard = state => ['running','reviewing','retrying'].includes(state);
+const clamp = n => Math.max(0,Math.min(1,n));
+
+export function edgeTag(edge, language = 'en') {
+  const cue = flowCue(edge.flow) || (edge.gate==='open'?'delivered':'unreachable');
+  const kind = {reviews:'review',waits_for_decision:'decision'}[edge.relation];
+  return {cue, text:[kind && STRINGS[language]['cardKind_'+kind], STRINGS[language]['tag_'+cue]].filter(Boolean).join(' '),
+    tone:toneForFlow(cue)};
+}
+
+function graphAttempt(node) {
+  return node.activity?.findLast(attempt => attempt.attempt == null || attempt.attempt===node.attempts);
+}
+
+export function cardFacts(node, decisions, now, language = 'en') {
+  const kind=node.kind || 'work';
+  const attempt=graphAttempt(node);
+  const recordedState=displayState(node,decisions);
+  const state=runningCard(recordedState)&&attempt?.stalled?'stalled':recordedState;
+  const observed=attempt?.status==='observed';
+  const ask=decisions.filter(d=>d.node===node.id).map(d=>Date.parse(d.asked))
+    .filter(at=>Number.isFinite(at)&&at<=now).sort((a,b)=>b-a)[0];
+  const stamp=call=>call.start_ms??call.end_ms;
+  const calls=observed ? (attempt.calls||[]).filter(call=>stamp(call)<=now)
+    .sort((a,b)=>stamp(a)-stamp(b)||a.id.localeCompare(b.id)) : [];
+  const active=runningCard(state) ? calls.findLast(c=>c.start_ms!=null && (c.end_ms==null||c.end_ms>now)) : null;
+  const totals=Object.entries(attempt?.totals||{}).filter(([,total])=>total.count||total.duration_ms)
+    .sort(([a,x],[b,y])=>y.duration_ms-x.duration_ms||a.localeCompare(b)).slice(0,3)
+    .map(([category,total])=>({category,duration:total.duration_ms}));
+  return {kind,state,word:cardStateWord(state,language),kindWord:STRINGS[language]['cardKind_'+kind],
+    attempt:node.attempts>1?node.attempts:null,lane:(node.effective_lane??node.lane)||null,
+    now:active?.category||null,activeCall:active?.id||null,calls,totals,ask,
+    unread:attempt&&!observed?attempt.status:null,
+    age:state==='awaiting'&&ask!=null?Math.floor((now-ask)/60000):
+      state==='stalled'&&attempt?.last_ms!=null?Math.max(0,Math.floor((now-attempt.last_ms)/60000)):null};
+}
 const flowCue = flow => flow?.frontier ? 'frontier' : flow?.state;
 const edgeKey = edge => JSON.stringify([edge.from,edge.to,edge.relation,edge.label||'']);
 const RELATION_MARKS = {
@@ -1787,7 +1886,7 @@ export function displayState(node, decisions = []) {
   return 'notStarted';
 }
 export function statusGlyph(state) {
-  return {planRevisionState:'↻',preapprovalSubmitted:'⇥', passed:'✓', reviewing:'⌕', running:'▶', retrying:'↪', submitted:'◷', awaiting:'◆', returned:'↩', notStarted:'○', exhausted:'!', held:'Ⅱ', verificationPending:'…', failedFinal:'✕'}[state];
+  return {planRevisionState:'↻',preapprovalSubmitted:'⇥', passed:'✓', reviewing:'⌕', running:'▶', retrying:'↪', submitted:'↥', awaiting:'◆', returned:'↩', stalled:'◴', notStarted:'○', exhausted:'!', held:'Ⅱ', verificationPending:'…', failedFinal:'✕'}[state];
 }
 export function commandTitle(check) {
   const command = check.command || check.run;
@@ -2031,7 +2130,7 @@ export function layeredLayout(nodes, edges, decisions = [], sort = true, options
   const overview = options.level === 'overview', portGap = 20, inset = overview ? 12 : 26;
   const byId = new Map(nodes.map(n => [n.id, n])), vertices = new Map(), links = [];
   const routes = edges.filter(e => byId.has(e.from) && byId.has(e.to)).map((e,index) => {
-    return {...e,index,text:overview?'':edgeChipText({...e,label:e.displayLabel ?? e.label}),chip:null,gateState:e.gate || 'closed'};
+    return {...e,index,text:overview||options.instrument?'':edgeChipText({...e,label:e.displayLabel ?? e.label}),chip:null,gateState:e.gate || 'closed'};
   });
   const parents = id => routes.filter(e => e.to === id).map(e => e.from);
   const depths = new Map();
@@ -2083,13 +2182,12 @@ export function layeredLayout(nodes, edges, decisions = [], sort = true, options
       else [ids[i-1],ids[i]]=[ids[i],ids[i-1]];
     }
   }
-  const widths=layers.map(ids=>overview?156:Math.min(options.maxCardWidth ?? Infinity,Math.max(264,...ids.filter(id=>byId.has(id)).map(id=>Math.max((byId.get(id).summary||byId.get(id).goal||'').length>180?480:0,Math.min(280,Math.ceil(textWidth(byId.get(id).title,18,9))+40))))));
+  const widths=layers.map(ids=>overview?Math.min(options.maxCardWidth ?? Infinity,options.instrument?208:156):Math.min(options.maxCardWidth ?? Infinity,Math.max(264,...ids.filter(id=>byId.has(id)).map(id=>Math.max((byId.get(id).summary||byId.get(id).goal||'').length>180?480:0,Math.min(280,Math.ceil(textWidth(byId.get(id).title,18,9))+40))))));
   for(const v of vertices.values()) {
     v.width=widths[v.layer];
     const degree=Math.max(links.filter(e=>e.from===v.id).length,links.filter(e=>e.to===v.id).length);
     const portHeight=40+portGap*(degree+2*Math.max(0,degree-3));
     v.height=overview ? (v.dummy ? 28 : Math.max(v.node?.planned_checks?.some(c=>c.runs_own_files)?104:80,portHeight)) : v.dummy?44:Math.max(detailCardHeight(v.node),portHeight)+Math.max(0,Math.ceil(textWidth(v.node.title,18,9)/(v.width-40))-1)*26;
-    if(!overview&&v.node?.activity?.at(-1)?.phases?.length)v.height+=ACTIVITY_GUTTER;
   }
   for(const v of vertices.values())if(!v.dummy && options.measure)v.height=Math.max(v.height,options.measure(v.node,v.width));
   const gap=overview?16:18,margin=20;
@@ -2102,7 +2200,10 @@ export function layeredLayout(nodes, edges, decisions = [], sort = true, options
     for(const d of order) {
       const ids=layers[d];let floor=margin;
       for(const id of ids){const v=vertices.get(id),near=links.filter(e=>sweep%2?e.from===id:e.to===id).map(e=>vertices.get(sweep%2?e.to:e.from));
-        const centre=near.length?near.reduce((s,n)=>s+n.y+n.height/2,0)/near.length:v.y+v.height/2;
+        // The whole-result card can align to direct predecessors while long routes use the dummy slots.
+        const direct=overview&&options.instrument&&v.node?.runLevel&&near.length===2?near.filter(n=>!n.dummy):[];
+        const anchors=direct.length?direct:near;
+        const centre=anchors.length?anchors.reduce((s,n)=>s+n.y+n.height/2,0)/anchors.length:v.y+v.height/2;
         v.y=Math.max(floor,centre-v.height/2);floor=v.y+v.height+gap;
       }
       let ceiling=margin+tallest;
@@ -2155,8 +2256,8 @@ export function layeredLayout(nodes, edges, decisions = [], sort = true, options
     }
   }
   if(overview && options.wrapLongChains && layers.length>8 && layers.every(ids=>ids.length===1 && byId.has(ids[0]))) {
-    const columns=7, rowHeight=Math.max(80,...Object.values(positions).map(p=>p.height))+40;
-    layers.forEach((ids,i)=>{Object.assign(positions[ids[0]],{x:margin+(i%columns)*212,y:margin+Math.floor(i/columns)*rowHeight});});
+    const columns=7, step=widths[0]+56, rowHeight=Math.max(80,...Object.values(positions).map(p=>p.height))+40;
+    layers.forEach((ids,i)=>{Object.assign(positions[ids[0]],{x:margin+(i%columns)*step,y:margin+Math.floor(i/columns)*rowHeight});});
     for(const r of routes){const a=positions[r.from],b=positions[r.to],start={x:a.x+a.width,y:a.y+a.height/2},end={x:b.x,y:b.y+b.height/2};
       r.start=start;r.end=end;r.chip=null;
       r.points=a.y===b.y?[start,end]:[start,{x:start.x+18,y:start.y},{x:start.x+18,y:b.y-24},{x:b.x-12,y:b.y-24},{x:b.x-12,y:end.y},end];}
@@ -2174,7 +2275,7 @@ export function compactOverview(layout,width) {
   // Only a genuine single chain may use the compact row router.
   if(layout.routes.length!==layout.order.length-1 || layout.order.some(id=>layout.routes.filter(r=>r.from===id).length>1 || layout.routes.filter(r=>r.to===id).length>1))return layout;
   if(layout.bounds.width*MIN_FIT_SCALE<=width)return layout;
-  const margin=20,gap=36,cardWidth=156,columns=Math.max(1,Math.floor((width/MIN_FIT_SCALE-margin*2+gap)/(cardWidth+gap)));
+  const margin=20,gap=36,cardWidth=layout.cardRects[0]?.width||156,columns=Math.max(1,Math.floor((width/MIN_FIT_SCALE-margin*2+gap)/(cardWidth+gap)));
   const height=Math.max(80,...layout.cardRects.map(r=>r.height)),rowHeight=height+36;
   const positions={};layout.order.forEach((id,i)=>{positions[id]={...layout.positions[id],x:margin+(i%columns)*(cardWidth+gap),y:margin+Math.floor(i/columns)*rowHeight,width:cardWidth,height};});
   const routes=layout.routes.map((r,i)=>{
@@ -2282,6 +2383,98 @@ export function pointAlongRoute(points, progress) {
   return points.at(-1);
 }
 
+const MOTION_DURATIONS = {dot:180,strip:220,glyph:280,pass:620,return:620,
+  flicker:320,session:700};
+const motionEase = t => t*t*(3-2*t);
+
+export function createGraphMotion() {
+  let baseline=null, effects=new Map(), halos=new Map(), drifting=new Set();
+  const add=(kind,id,record,time,duration=MOTION_DURATIONS[kind],extra={})=>{
+    effects.set(JSON.stringify([kind,id,record]),{kind,id,record,time,duration,...extra});
+  };
+  function observe(scene,time,enabled,reset=false) {
+    if(reset){effects.clear();halos.clear();drifting.clear();baseline=null;}
+    const previous=baseline;
+    baseline=scene;
+    if(!scene||!previous)return;
+    for(const id of halos.keys())if(scene.positions[id]?.state!=='awaiting')halos.delete(id);
+    const eligible=new Set(scene.edges.filter(edge=>edge.targetRunning&&edge.flow?.state==='delivered').map(edge=>edge.key));
+    for(const key of drifting)if(!eligible.has(key))drifting.delete(key);
+    if(!enabled)return;
+    frame(time,true);
+    const dirty=new Set();
+    for(const card of scene.cards){
+      const old=previous.positions[card.id];
+      if(!old)continue;
+      const {facts}=card;
+      if(card.state!==old.state){
+        const record=card.state+':'+card.recordedAttempt;
+        add('glyph',card.id,record,time);
+        if(card.state==='passed')add('pass',card.id,record,time);
+        if(card.state==='returned'||card.state==='failedFinal'){
+          add('return',card.id,record,time);
+          add('flicker',card.id,record,time);
+        }
+        if(card.state==='awaiting'&&facts.ask!=null)halos.set(card.id,{time,record:facts.ask});
+        dirty.add(card.id);
+      }
+      if(card.state==='awaiting'&&facts.ask!=null&&facts.ask!==old.facts.ask)
+        halos.set(card.id,{time,record:facts.ask});
+      if(card.state!=='awaiting')halos.delete(card.id);
+      const prior=new Set(old.facts.calls.map(call=>call.id));
+      const dots=facts.calls.filter(call=>!prior.has(call.id));
+      for(const call of dots){
+        add('dot',card.id,call.id,time);
+        if(call.category==='session'&&call.start_ms!=null)add('session',card.id,call.id,time);
+      }
+      if(facts.activeCall && old.facts.activeCall!==facts.activeCall && !dots.some(call=>call.id===facts.activeCall) &&
+        !old.attemptHistory.some(attempt=>attempt.calls?.some(call=>call.id===facts.activeCall&&call.start_ms!=null)) &&
+        facts.now==='session')
+        add('session',card.id,facts.activeCall,time);
+      if(dots.length||old.recordedAttempt!==card.recordedAttempt||
+        JSON.stringify(old.attemptHistory)!==JSON.stringify(card.attemptHistory)){
+        const record=dots.at(-1)?.id || facts.activeCall || facts.calls.at(-1)?.id || card.recordedAttempt;
+        if(card.strip)add('strip',card.id,record,time,undefined,{before:old.strip});
+        if(dots.length)dirty.add(card.id);
+      }
+    }
+    const oldEdges=new Map(previous.edges.map(edge=>[edge.key,edge]));
+    let travelling=[...effects.values()].filter(e=>e.kind==='handoff'||e.kind==='reverse').length;
+    for(const edge of scene.edges){
+      const old=oldEdges.get(edge.key);
+      if(!old)continue;
+      const delivery=edge.flow?.delivery, returned=edge.flow?.state==='returned'&&edge.flow.record;
+      const forward=delivery && delivery.seq!==old.flow?.delivery?.seq;
+      const reverse=returned && (old.flow?.state!=='returned'||returned.seq!==old.flow?.record?.seq);
+      if((forward||reverse)&&travelling<4){
+        const length=edge.points.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-edge.points[i].x,p.y-edge.points[i].y),0);
+        add(reverse?'reverse':'handoff',edge.key,(reverse?returned:delivery).seq,time,
+          Math.max(400,Math.min(1000,length*2.5)));
+        travelling++;
+      }
+      if(!edge.targetRunning||edge.flow?.state!=='delivered')drifting.delete(edge.key);
+      else if(!old.targetRunning||forward||dirty.has(edge.to))drifting.add(edge.key);
+    }
+  }
+  function frame(time,enabled) {
+    if(!enabled)return [];
+    const result=[];
+    for(const [key,event] of effects){
+      if(time>=event.time+event.duration){effects.delete(key);continue;}
+      result.push({...event,progress:clamp((time-event.time)/event.duration)});
+    }
+    for(const [id,{time:start,record}] of halos){
+      const elapsed=Math.max(0,time-start);
+      const phase=elapsed<3000?elapsed%1000:(elapsed%12000);
+      const progress=clamp(phase/650);
+      result.push({kind:'halo',id,record,loop:true,progress,strength:Math.sin(Math.PI*progress)**2});
+    }
+    for(const id of drifting)result.push({kind:'drift',id,loop:true,progress:(time%1000)/1000,distance:time*.038});
+    return result;
+  }
+  return {observe,frame,settle(){effects.clear();},active:()=>!!(effects.size||halos.size||drifting.size)};
+}
+
 export function pickGraphEdges(scene, point, scale) {
   // The hit corridor is 24 CSS pixels wide independently of the stage scale.
   let nearest = null;
@@ -2305,26 +2498,98 @@ export function pickGraphEdges(scene, point, scale) {
 }
 
 // Geometry is already measured in stage CSS pixels. Renderers share this data, not DOM or layout internals.
-export function createGraphScene(nodes, layout, decisions, level) {
+export function routeTags(edges, strokes, cards, bounds, language) {
+  const height=20;
+  const occupied=[...cards];
+  const overlaps=(a,b,pad)=>a.x<b.x+b.width+pad&&a.x+a.width+pad>b.x&&
+    a.y<b.y+b.height+pad&&a.y+a.height+pad>b.y;
+  const segments=new Map(edges.map(edge=>[edge.id,[]]));
+  for(const stroke of strokes){
+    if(stroke.members.length!==1)continue;
+    const parts=segments.get(stroke.members[0]);
+    stroke.points.slice(1).forEach((b,i)=>{
+      const a=stroke.points[i];
+      if(a.x!==b.x || a.y!==b.y)parts.push({a,b,branch:stroke.id,length:Math.hypot(b.x-a.x,b.y-a.y)});
+    });
+  }
+  // Place the most constrained branches first. A tag may sit alongside its own trace.
+  const sorted=[...edges].sort((a,b)=>Math.max(0,...segments.get(a.id).map(s=>s.length))-
+    Math.max(0,...segments.get(b.id).map(s=>s.length)));
+  return sorted.flatMap(edge=>{
+    const tag=edgeTag(edge,language),width=Math.ceil(textWidth(tag.text,13,8))+14;
+    const parts=segments.get(edge.id).sort((a,b)=>b.length-a.length);
+    for(const offset of [0,-14,14,-26,26,-38,38,-50,50,-64,64,-78,78,'start','end']){
+      for(const {a,b,branch} of parts)for(const fraction of [.5,.35,.65,.2,.8,.05,.95]){
+        const x=a.x+(b.x-a.x)*fraction, y=a.y+(b.y-a.y)*fraction;
+        const vertical=a.x===b.x;
+        const rect={x:x-width/2,y:y-height/2,width,height};
+        if(typeof offset==='number')rect[vertical?'x':'y']+=offset;
+        else rect[vertical?'x':'y']=offset==='start'?0:vertical?bounds.width-width:bounds.height-height;
+        if(rect.x<0||rect.y<0||rect.x+width>bounds.width||rect.y+height>bounds.height)continue;
+        if(occupied.some(other=>overlaps(rect,other,typeof offset==='number'?1:0)))continue;
+        occupied.push(rect);
+        return [{id:edge.id,...tag,...rect,branch,anchor:{x,y}}];
+      }
+    }
+    return [];
+  });
+}
+
+export function activityStrip(attempt, facts, now) {
+  if(!attempt?.phases?.length)return null;
+  const phases=attempt.phases.filter(phase=>phase.start_ms!=null&&phase.start_ms<=now)
+    .sort((a,b)=>a.start_ms-b.start_ms);
+  if(!phases.length)return null;
+  const start=attempt.status==='observed'?phases[0].start_ms:Math.min(attempt.started_ms??now,phases[0].start_ms);
+  const end=Math.max(start+1,Math.min(now,attempt.last_ms??now),facts.now?now:start);
+  // An open attempt has spare rail for the next observation, including polls with a long open call.
+  const length=Math.max(1000,(end-start)*(facts.now?1.25:1));
+  const position=stamp=>clamp((stamp-start)/length);
+  const known=new Set([...facts.totals.map(total=>total.category),facts.now]);
+  const segments=phases.map(phase=>{
+    const open=facts.now===phase.category && phase.id===attempt.current && phase.end_ms==null;
+    const stop=Math.min(now,open?now:phase.end_ms??phase.start_ms+phase.duration_ms);
+    return {id:phase.id,category:phase.category,pattern:known.has(phase.category)?phase.category:null,
+      left:Math.min(.982,position(phase.start_ms)),width:Math.max(.018,position(stop)-position(phase.start_ms))};
+  });
+  return {segments,dots:facts.calls.map(call=>({id:call.id,left:position(call.start_ms??call.end_ms)})),
+    head:facts.now?position(now):null};
+}
+
+export function createGraphScene(nodes, layout, decisions, level, now = 0, language = 'en') {
   const byId = new Map(nodes.map(node => [node.id, node]));
   const cards = layout.order.map((id, order) => {
     const node = byId.get(id);
     const {x, y, width, height, layer} = layout.positions[id];
-    const card = {id, kind:node.kind || 'work', state:displayState(node, decisions), level, x, y, width, height, layer, order,
-      lane:node.effective_lane??node.lane??null};
-    const band = activityBand(node, card);
-    const tier = card.state==='awaiting' ? 1 : activityCues(node).some(cue=>cue==='stalled'||cue==='repeating') ? 2 : band ? 3 : null;
-    return band || tier ? {...card, band, tier} : card;
+    const facts=cardFacts(node,decisions,now,language);
+    const card = {id, kind:facts.kind, state:facts.state, level, x, y, width, height, layer, order,
+      lane:facts.lane, facts, attemptHistory:node.activity || [], recordedAttempt:node.attempts||0};
+    card.strip=activityStrip(graphAttempt(node),facts,now);
+    card.tier=card.state==='awaiting'?1:card.state==='stalled'||graphAttempt(node)?.repeating?2:card.strip?3:null;
+    return card;
   });
   const positions = Object.fromEntries(cards.map(card => [card.id, card]));
   const edges = layout.routes.map(route => ({
     id:String(route.index), from:route.from, to:route.to, direction:'source-to-target',
     relation:route.relation, gate:route.gate, label:route.label || '', points:route.points, flow:route.flow,
     style:{gate:route.gateState, relation:route.relation || 'hands_over'},
-    chip:route.chip, text:route.text
+    chip:route.chip, text:route.text, key:edgeKey(route),
+    targetRunning:runningCard(positions[route.to]?.state),
+    transfer:route.flow?.delivery || (route.flow?.state==='returned'?route.flow.record:null)
   }));
   const {strokes,markers}=sceneStrokes(edges,layout.bundles||[]);
-  return {level, bounds:layout.bounds, cards, edges, strokes, markers, flowMarks:sceneFlowMarks(edges,strokes,cards),
+  for(const stroke of strokes){
+    const tags=stroke.members.map(id=>edgeTag(edges[Number(id)],language));
+    stroke.tone=tags.every(tag=>tag.tone===tags[0].tone)?tags[0].tone:'structure';
+    stroke.trace=tags.every(tag=>['delivered','frontier'].includes(tag.cue))?'open':
+      tags.every(tag=>tag.cue==='blocked')?'waiting_for_you':tags.every(tag=>tag.cue==='returned')?'returned':'closed';
+  }
+  for(const marker of markers){
+    const tones=marker.members.map(id=>edgeTag(edges[Number(id)],language).tone);
+    marker.tone=tones.every(tone=>tone===tones[0])?tones[0]:'structure';
+  }
+  return {level, now, bounds:layout.bounds, cards, edges, strokes, markers,
+    tags:routeTags(edges,strokes,cards,layout.bounds,language), flowMarks:sceneFlowMarks(edges,strokes,cards),
     positions, order:cards.map(card => card.id), chips:layout.chips};
 }
 
@@ -2384,59 +2649,6 @@ export function activityCues(node) {
   return [attempt.cue || attempt.latest, attempt.stalled && 'stalled', attempt.repeating && 'repeating'].filter(Boolean);
 }
 
-export const ACTIVITY_SHAPES = {
-  tool: [[[.25,1],[9.75,1],[9.75,9],[.25,9],[.25,1]],[[3,5],[7,5]]],
-  skill: [[[5,0],[6.5,3.5],[10,5],[6.5,6.5],[5,10],[3.5,6.5],[0,5],[3.5,3.5],[5,0]]],
-  mcp: [[[2.5,1],[7.5,1],[10,5],[7.5,9],[2.5,9],[0,5],[2.5,1]]],
-  session: [[[0,3],[9,3],[6,0]],[[10,7],[1,7],[4,10]]],
-  gf: [[[0,9],[5,1],[10,9],[0,9]],[[5,5],[5,7]]],
-  other: [[[5,0],[5,10]],[[0,5],[10,5]]],
-  thinking: [[[5,0],[8.5,1.5],[10,5],[8.5,8.5],[5,10],[1.5,8.5],[0,5],[1.5,1.5],[5,0]]],
-  stalled: [[[0,2.3],[0,7.7]],[[10,2.3],[10,7.7]],[[3.75,3.5],[3.75,6.5]],[[6.25,3.5],[6.25,6.5]]],
-  repeating: [[[0,2.3],[0,7.7]],[[10,2.3],[10,7.7]],[[3.5,3.5],[6.5,3.5],[5.5,2.5]],[[6.5,6.5],[3.5,6.5],[4.5,7.5]]],
-};
-const ACTIVITY_GUTTER = 42;
-const SEGMENT_MIN = 7;
-const GRAPH_FRAME_MS = 1000 / 12;
-const GRAPH_PERIOD_MS = 2400;
-const HANDOFF_PULSE_MS = 1000;
-
-export function activityBand(node, card) {
-  const attempt = node.activity?.at(-1), phases = attempt?.phases;
-  if (!phases?.length) return null;
-  const left = card.x + 10, right = card.x + card.width - 10;
-  let remaining = right - left, duration = phases.reduce((sum, phase) => sum + phase.duration_ms, 0);
-  const lengths = new Map();
-  for (const phase of [...phases].sort((a,b) => a.duration_ms - b.duration_ms)) {
-    if (duration && phase.duration_ms * remaining / duration >= SEGMENT_MIN) break;
-    const share = remaining / (phases.length - lengths.size);
-    const width = duration ? Math.min(SEGMENT_MIN, share) : share;
-    lengths.set(phase, width);
-    remaining -= width;
-    duration -= phase.duration_ms;
-  }
-  const current = phases.find(phase=>phase.id===attempt.current) || phases.at(-1);
-  let x = left;
-  const y = card.y + card.height - 13;
-  const segments = phases.map(phase => {
-    const width = lengths.get(phase) ?? phase.duration_ms * remaining / duration;
-    const end = x + width - 1;
-    const shape = ACTIVITY_SHAPES[phase.category].map(path => path.map(([u,v]) => ({
-      x:x + width / 2 - 2.4 + u * .48, y:y - 3 + v * .6,
-    })));
-    const rail = [{x,y:y+6},{x:end,y:y+6}];
-    const center = x + width / 2;
-    const errors = phase.errors ? [[{x:center-2.5,y:y-5},{x:center+2.5,y:y-10}],
-      [{x:center-2.5,y:y-10},{x:center+2.5,y:y-5}]] : [];
-    const segment = {id:phase.id, category:phase.category, x, y, width, errors:phase.errors,
-      paths:[rail,...shape,...errors], animate:phase===current && !!attempt.latest &&
-        node.status==='running' && !attempt.stalled && !attempt.repeating && card.state!=='awaiting'};
-    x += width;
-    return segment;
-  });
-  return {x:left, y:y-11, width:right-left, height:22, segments};
-}
-
 if (typeof document !== 'undefined') {
 let language = viewLanguage(null, navigator.language);
 const t = (key, values = {}) => Object.entries({...values,...(values.new?{newParticle:particle(values.new,'으로/로')}:{}),...(values.who?{whoSubject:particle(values.who)}:{})}).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), STRINGS[language][key]);
@@ -2463,7 +2675,7 @@ function translate() {
   document.querySelectorAll('[data-i18n-label]').forEach(e=>e.setAttribute('aria-label',t(e.dataset.i18nLabel)));
 }
 translate();
-let chosen = null, projects = [], view = null, fingerprint = '', mode = 'flow', selected = null;
+let chosen = null, projects = [], view = null, fingerprint = '', ageFingerprint = '', mode = 'flow', selected = null;
 let selectedEdge = null, edgeChoices = [], edgeOrigin = null;
 function flowNode(id) { return planFlow(view,language).nodes.find(n => n.id === id); }
 let queuedRefresh = false;
@@ -2876,8 +3088,10 @@ function createWorkSummary() {
   canvas.setAttribute('aria-hidden','true');
   const visual = el('div',undefined,'work-visual'), labels = el('div',undefined,'work-solid-labels');
   visual.append(canvas,labels);
-  const replay = button(t('activityReplay'),()=> scene?.play(),'small');
+  const globallyPaused=()=>document.body.classList.contains('graph-paused');
+  const replay = button(t('activityReplay'),()=>{if(!globallyPaused())scene?.play();},'small');
   const pause = button(t('activityPause'),()=> {
+    if(globallyPaused())return;
     if(scene.describe().playing) scene.pause();
     else scene.play(false);
   },'small');
@@ -2893,14 +3107,15 @@ function createWorkSummary() {
   const phone = matchMedia('(max-width:760px)');
   const forceSVG = startup.searchParams.get('renderer') === 'svg';
   const capture = startup.searchParams.get('graphTest') === '1';
-  let scene, loading, disposed, unavailable, signature, activities = [], first = true, visible = true, active = null;
+  let scene, loading, disposed, unavailable, signature, activities = [], visible = true, active = null;
   const rowsById=new Map(), labelsById=new Map();
   Object.defineProperty(section,'activityScene',{get:()=>scene?.describe() || null});
   if(capture)Object.defineProperty(section,'activitySilhouettes',{get:()=>scene?.silhouettes()});
 
   function motion() {
-    scene?.mode(reduced.matches);
-    controls.hidden = !scene || reduced.matches;
+    if(globallyPaused())scene?.pause();
+    scene?.mode(reduced.matches || globallyPaused());
+    controls.hidden = !scene || reduced.matches || globallyPaused();
   }
   function highlight(id) {
     active = id;
@@ -2911,7 +3126,7 @@ function createWorkSummary() {
     }
     scene?.select(active);
   }
-  function sync(autoplay = false) {
+  function sync() {
     const hasPhases = activities.some(attempt=>attempt.phases.length);
     if(phone.matches || !hasPhases) {
       scene?.pause();
@@ -2920,16 +3135,16 @@ function createWorkSummary() {
     }
     if(scene){
       visual.hidden = canvas.hidden = false;
-      controls.hidden = reduced.matches;
+      controls.hidden = reduced.matches || globallyPaused();
       return;
     }
-    if(loading || unavailable || forceSVG || !visible || typeof WebGL2RenderingContext === 'undefined')return;
+    if(loading || unavailable || forceSVG || matchMedia('(forced-colors: active)').matches || !visible || typeof WebGL2RenderingContext === 'undefined')return;
     loading = import('./activity-webgl.js').then(({createActivityScene})=>{
       if(disposed || phone.matches || !activities.some(attempt=>attempt.phases.length) || !visible)return;
       const scroller = section.closest('.panel-body');
       const scroll = scroller?.scrollTop;
       visual.hidden = canvas.hidden = false;
-      scene = createActivityScene(canvas,{attempts:activities,reduced:reduced.matches,autoplay,capture,
+      scene = createActivityScene(canvas,{attempts:activities,reduced:reduced.matches||globallyPaused(),autoplay:false,capture,
         onState:(playing,canPause)=>{
           pause.textContent = t(playing || !canPause ? 'activityPause' : 'activityResume');
           pause.disabled = !canPause;
@@ -2939,7 +3154,7 @@ function createWorkSummary() {
       if(!scene){unavailable = true;visual.hidden = canvas.hidden = true;return;}
       scene.select(active);
       pause.disabled = !scene.describe().playing;
-      controls.hidden = reduced.matches;
+      controls.hidden = reduced.matches || globallyPaused();
       if(scroller)scroller.scrollTop = scroll;
     }).catch(()=>{
       scene?.dispose();
@@ -3043,13 +3258,12 @@ function createWorkSummary() {
     scene?.update(data);
     highlight(rowsById.has(active)?active:null);
     if (focused) $(focused)?.focus({preventScroll:true});
-    sync(first);
-    first = false;
+    sync();
   }
   const onPhone = () => sync();
   reduced.addEventListener('change',motion);
   phone.addEventListener('change',onPhone);
-  return {section,render,visible(value){visible=value;if(!visible)scene?.pause();else sync();},dispose(){
+  return {section,render,globalMotion:motion,visible(value){visible=value;if(!visible)scene?.pause();else sync();},dispose(){
     disposed = true; scene?.dispose();
     reduced.removeEventListener?.('change',motion);
     phone.removeEventListener?.('change',onPhone);
@@ -3099,6 +3313,16 @@ function recordReference(labelKey, record) {
   return row;
 }
 
+function openDrawer(shell){
+  const entering=shell.hidden;
+  shell.hidden=false;$('flow').classList.add('has-selection');
+  if(entering && !reduced.matches && !document.body.classList.contains('graph-paused')){
+    const phone=matchMedia('(max-width:760px)').matches;
+    shell.animate?.([{transform:phone?'translateY(100%)':'translateX(100%)'},{transform:'none'}],
+      {duration:280,easing:'cubic-bezier(.2,.8,.2,1)'});
+  }
+}
+
 function edgePanel(shell, flow, edges) {
   const edge=selectedEdge ? edges[0] : null;
   const signature=JSON.stringify([selectedEdge,edges,edges.map(item=>edgeDirection(item,flow)),language]);
@@ -3108,7 +3332,7 @@ function edgePanel(shell, flow, edges) {
   delete shell.dataset.node;
   shell.dataset.edge=edge ? edgeKey(edge) : '';
   shell.dataset.trunk=String(!edge);
-  shell.hidden=false;$('flow').classList.add('has-selection');
+  openDrawer(shell);
   const name=edge ? edgeDirection(edge,flow) : t('edgeChoose');
   shell.setAttribute('aria-label',name);
   const close=button('×',()=>closeEdge(true),'panel-close');close.setAttribute('aria-label',t('closeDetails'));
@@ -3169,15 +3393,12 @@ function panel() {
   const scroll=selected===panelNode?(shell.querySelector('.panel-body')?.scrollTop||0):0;
   panelNode=selected;
   clear(shell);
-  shell.hidden = !node; $('flow').classList.toggle('has-selection', !!node);
+  if(node)openDrawer(shell);else{shell.hidden=true;$('flow').classList.remove('has-selection');}
   if (!node) {shell.onscroll=null;return;}
   const p=panelBody(shell);
   shell.dataset.node=node.id;
   shell.setAttribute('aria-label', title(node));
-  const close = button('×', () => {
-    const id = selected; selectNode(id);
-    [...document.querySelectorAll('.node-card')].find(e => e.dataset.node === id)?.querySelector('.node-header')?.focus({preventScroll:!matchMedia('(max-width:760px)').matches});
-  }, 'panel-close'); close.setAttribute('aria-label', t('closeDetails'));
+  const close = button('×',closeNode,'panel-close');close.setAttribute('aria-label',t('closeDetails'));
   const reference = el('p', undefined, 'ref-line'); reference.append(refChip(node.id, `${node.id} · ${title(node)}`));
   if(workedBy(node))reference.append(el('span',t('workedBy',{who:workedBy(node)})));
   const referenceDetails=el('details');referenceDetails.append(el('summary',t('nodeReference')),reference);
@@ -3362,7 +3583,7 @@ function home() {
   wrap.append(table); tasks.append(wrap); box.append(tasks);
   if (view.lessons.length) { const lessons = el('details'); lessons.open = !!rowOpen.get('lessons'); lessons.addEventListener('toggle', () => rowOpen.set('lessons', lessons.open)); lessons.append(el('summary', t('lessonsCount', {n:view.lessons.length}))); textList(lessons, view.lessons.map(l => l.node_title ? `${otherTitle(l.node_title)} · ${l.text}` : l.text)); box.append(lessons); }
   const marked = document.getElementById(mark || ''); if (marked) marked.classList.add('found');
-  if (found) { const target = document.getElementById(found); found = null; if (target) target.scrollIntoView({block:target.id === 'log' ? 'start' : 'center', behavior:reduced.matches ? 'auto' : 'smooth'}); }
+  if (found) { const target = document.getElementById(found); found = null; if (target) target.scrollIntoView({block:target.id === 'log' ? 'start' : 'center', behavior:reduced.matches||document.body.classList.contains('graph-paused') ? 'auto' : 'smooth'}); }
 }
 // Show one task's entries in the record, where the agent's words about it can be matched by time.
 function showNode(id) { if (!showMode('home')) return; logNode = id; logFilter = 'all'; mark = null; found = 'log'; home(); }
@@ -3387,7 +3608,7 @@ function accessible() {
   [...flow.nodes].sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id)).forEach(n => { const item = el('li', undefined, 'card'); item.dataset.node=n.id; item.append(button(title(n), () => selectNode(n.id)), el('p', status(n))); if(!n.runLevel)item.append(el('p', attempts(n), 'muted')); if(planBlocked()){if(flow.nodes.length>20){const more=el('details');more.open=$('node-list').children.length===(repeated?1:0);more.append(el('summary',t('moreDetails')));planFacts(more,n);item.append(more);}else planFacts(item,n);} else item.append(el('p', n.runLevel?view.goal:n.summary)); if (n.returned_reasons.length) textList(item, n.returned_reasons.flatMap((reasons,i)=>reasons.map(reason=>t('earlierFailure',{n:i+1,reason}))), 'noReason'); $('node-list').append(item); });
   function edgeButton(edge, cls) {
     const key=edgeKey(edge);
-    const b=button([edgeDirection(edge,flow),relationText(edge),gateText(edge),edge.flow&&flowText(edge)].filter(Boolean).join(' · '),
+    const b=button([edgeDirection(edge,flow),relationText(edge),gateText(edge),edgeTag(edge,language).text].filter(Boolean).join(' · '),
       event=>selectEdge(key,event.currentTarget),cls);
     b.dataset.edgeKey=key;b.setAttribute('aria-pressed',String(selectedEdge===key));
     return b;
@@ -3438,6 +3659,11 @@ function refreshEdgeSelection() {
   for(const b of document.querySelectorAll('#edge-list button, #phone-flow .phone-handoff')){
     b.setAttribute('aria-pressed',String(b.dataset.edgeKey===selectedEdge));
   }
+  for(const card of $('phone-flow').querySelectorAll('.node-card')){
+    const expanded=card.dataset.node===selected;
+    card.classList.toggle('expanded',expanded);
+    card.querySelector('.node-header').setAttribute('aria-expanded',String(expanded));
+  }
   renderer?.select(selected);
 }
 function closeEdge(returnFocus) {
@@ -3463,6 +3689,13 @@ function chooseEdge(keys, origin) {
   refreshEdgeSelection();
   $('panel').querySelector('.edge-choices button')?.focus({preventScroll:true});
 }
+function closeNode(){
+  const id=selected;
+  selectNode(id);
+  const card=[...document.querySelectorAll('.node-card')].find(element=>element.dataset.node===id&&
+    element.getBoundingClientRect().width&&element.parentElement?.style.visibility!=='hidden');
+  card?.querySelector('.node-header')?.focus({preventScroll:true});
+}
 function selectNode(id) {
   if (!showMode('flow')) return;
   selected = selected === id ? null : id;
@@ -3470,9 +3703,15 @@ function selectNode(id) {
   refreshEdgeSelection();
   if(selected)readPlanChange(selected);
   planBanner?.update?.();
-  if(selected){
-    const intro=$('panel').querySelector('.panel-intro'),r=intro.getBoundingClientRect();
-    if(r.top<0||r.bottom>innerHeight)intro.scrollIntoView({block:'nearest'});
+  if(selected&&!matchMedia('(max-width:760px)').matches){
+    const reveal=()=>{
+      if(selected!==id||$('panel').hidden)return;
+      const r=$('panel').querySelector('.panel-intro').getBoundingClientRect();
+      if(r.top<0||r.bottom>innerHeight)
+        window.scrollBy(0,r.top<0?r.top-12:r.bottom-innerHeight+12);
+    };
+    reveal();
+    document.fonts?.ready.then(reveal);
   }
 }
 function focusHeading(heading) { heading.tabIndex = -1; heading.focus({preventScroll:true}); }
@@ -3722,14 +3961,21 @@ function applyView(next) {
     planSeen={identity,id:next.plan_approval.id,nodes:next.nodes,contract:next.run_contract};
   }
   closeInvalidDecision(chosen, next.decisions, next);
-  const nextFingerprint = JSON.stringify(next); if (nextFingerprint === fingerprint) return;
+  const {observed_at_ms: stamp,...recorded}=next;
+  const ages=next.decisions.filter(d=>d.node&&d.asked).map(d=>Math.floor((stamp-Date.parse(d.asked))/60000));
+  for(const node of next.nodes){
+    const attempt=graphAttempt(node);
+    if(attempt?.stalled)ages.push(Math.floor((stamp-attempt.last_ms)/60000));
+  }
+  const nextFingerprint=JSON.stringify(recorded),nextAgeFingerprint=JSON.stringify(ages);
+  if(nextFingerprint===fingerprint&&(mode!=='flow'||nextAgeFingerprint===ageFingerprint))return;
   const active=document.activeElement,focusId=active?.id,focusLabel=active?.getAttribute?.('aria-label');
   const focusHeader=active?.className==='node-header',phoneFocus=!!active?.closest?.('#phone-flow'),focusNode=active?.closest?.('[data-node]')?.dataset.node;
   const pageScroll=typeof scrollY==='number'?{left:scrollX,top:scrollY}:null;
   const languageChanged=language!==viewLanguage(next,navigator.language);
   language = viewLanguage(next, navigator.language); translate();
   if(languageChanged && projects.length)chooseRuns({projects});
-  view = next; fingerprint = nextFingerprint;
+  view = next; fingerprint = nextFingerprint; ageFingerprint=nextAgeFingerprint;
   const flow=planFlow(view,language), keys=new Set(flow.edges.map(edgeKey));
   if(!flow.nodes.some(n=>n.id===selected))selected=null;
   if(!keys.has(selectedEdge))selectedEdge=null;
@@ -3744,7 +3990,7 @@ function applyView(next) {
   view.nodes.forEach(n=>n.plan_revision_wait=sentBack);
   updateSubtitle();
   if(view.complete){const resultNode=[...view.nodes].reverse().find(n=>n.kind==='work'&&view.timeline.some(r=>r.node===n.id&&r.files?.length));if(resultNode){const files=[...new Set(view.timeline.filter(r=>r.node===resultNode.id).flatMap(r=>r.files||[]))];$('subtitle').append(button(t('results'),()=>selectNode(resultNode.id),'primary result-action'),el('span',t('runResultSummary',{files:files.join(', ')}),'result-summary'));}}
-  accessible(); attention(); panel(); home(); showMode(mode); if (renderer && mode === 'flow') renderer.update(view, selected);
+  accessible(); attention(); panel(); home(); showMode(mode);
   if (mode === 'decision' && decisionController.session) openDecision(decisionController.session.target.id, false);
   if(active && active.isConnected===false){
     const scope=phoneFocus?$('phone-flow'):document;
@@ -3794,7 +4040,7 @@ $('home-tab').addEventListener('click', () => { if (view) goHome(); });
 $('flow-tab').addEventListener('click', () => { if (view) showGraph(); });
 $('find').addEventListener('submit', event => { event.preventDefault(); if (find($('find-text').value)) $('find-text').value = ''; });
 addEventListener('hashchange', readFragment);
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !e.isComposing && view) { if (mode === 'decision') leaveDecision(); else if (mode === 'flow' && selected) selectNode(selected); else if(mode==='flow'&&(selectedEdge||edgeChoices.length))closeEdge(true); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !e.isComposing && view) { if (mode === 'decision') leaveDecision(); else if (mode === 'flow' && selected) closeNode(); else if(mode==='flow'&&(selectedEdge||edgeChoices.length))closeEdge(true); } });
 document.addEventListener('visibilitychange', () => { clearTimeout(timer); if (renderer) renderer.wake(); if (!document.hidden) refresh(true); });
 reduced.addEventListener('change', () => { if (renderer) renderer.wake(); });
 notice('loading'); readFragment(); refresh();
@@ -3808,30 +4054,12 @@ function edgeMarker(relation) {
   const d=paths.map(path=>'M'+path.flat().join(' ')).join(' ')+(fill?'Z':'');
   return svg('path',{d,class:fill?'relation-fill':'relation-stroke'});
 }
-function lineSample(kind, text, relation) {
-  const sample=el('span',undefined,'line-sample');
-  const icon=svg('svg',{viewBox:'0 0 48 16','aria-hidden':'true'});
-  icon.append(svg('path',{d:'M1 8H'+(relation?36:47),class:'edge-path '+kind}));
-  if(relation){
-    const mark=edgeMarker(relation);
-    mark.setAttribute('transform','translate(36 3)');
-    icon.append(mark);
-  }
-  sample.append(icon,el('span',text));
-  return sample;
-}
 function typeIcon(kind) {
   const bounds={work:'4 3 16 18',review:'2 2 20 20',decision:'1 2 22 20',goal:'4 2 17 20'};
   const icon=svg('svg',{viewBox:bounds[kind]||bounds.work,'aria-hidden':'true',class:'type-icon','data-kind':kind});
   const paths={work:'M5 4H19V20H5Z M8 8H16 M8 12H16 M8 16H12',review:'M10 3A7 7 0 1 0 10 17A7 7 0 1 0 10 3 M15 15L21 21 M7 10L9 12L13 8',decision:'M12 3L22 12L12 21L2 12Z M12 7V13 M12 16V17',goal:'M5 21V3 M5 4H20L16 9L20 14H5'};
   icon.append(svg('path',{d:paths[kind]||paths.work,fill:'none',stroke:'currentColor','stroke-width':1.6,'stroke-linejoin':'round','stroke-linecap':'round'}));
   return icon;
-}
-function laneCue(lane) {
-  const cue=el('span',undefined,'lane-cue');
-  cue.dataset.lane=String(lane);cue.title=t('riskLane',{n:lane});cue.setAttribute('aria-hidden','true');
-  for(let tick=0;tick<lane;tick++)cue.append(el('i'));
-  return cue;
 }
 function cardTone(n, state = displayState(n,view.decisions)) {if(['returned','failedFinal'].includes(state))return 'returned-card';return needs(n)||['held','awaiting_approval'].includes(n.status)?'waiting_for_you':n.status==='passed'||n.answered?'passed':['running','submitted','unverified'].includes(n.status)?'current':'unused';}
 // A stable play mark is legible in a still frame and without colour.
@@ -3844,63 +4072,108 @@ const ACTIVITY_MARKS = Object.freeze({
   thinking:['◌','activityThinking'], stalled:['⊣','activityNameStalled'], repeating:['≋','activityNameRepeating'],
 });
 const activityName = key => t(ACTIVITY_MARKS[key][1]);
-const activityCueName = key => key === 'thinking' ? t('activityBoundedGap') : activityName(key);
+const graphNow = () => graphTestClock?.wall ?? Date.now();
+const graphTestClock = new URL(location.href).searchParams.get('graphTest')==='1' ? {time:null,wall:null} : null;
+const shortActivity = category => {
+  const key={session:'cardSession',gf:'cardChecks',thinking:'cardThinking'}[category];
+  return key?t(key):activityName(category);
+};
+const minutesWord = n => t(n===1?'cardMinute':'cardMinutes',{n});
+const durationWord = ms => ms>=60000 ? minutesWord(Math.round(ms/6000)/10) :
+  ms>=1000 ? t('cardSeconds',{n:Math.round(ms/100)/10}) : ms+' ms';
+const attemptWord = n => t('cardAttempt',{n});
+const laneWord = n => t('cardLane',{n});
 
-function activityCue(keys, boundary) {
-  const group = el('span', undefined, 'activity-cue');
-  group.setAttribute('aria-hidden', 'true');
-  group.title = keys.map(activityCueName).join(' · ');
-  for (const key of keys) {
-    const mark = el('span', undefined, 'activity-mark');
-    mark.dataset.activity = key;
-    if (key === boundary) mark.classList.add('activity-boundary');
-    const icon = svg('svg',{viewBox:'-1 -1 12 12',fill:'none'});
-    for (const path of ACTIVITY_SHAPES[key]) {
-      icon.append(svg('path',{d:roundedRoute(path.map(([x,y])=>({x,y})),0)}));
+function appendStrip(root, strip, facts) {
+  if(strip){
+    const rail=el('div',undefined,'card-strip');
+    rail.setAttribute('aria-hidden','true');
+    for(const segment of strip.segments){
+      const mark=el('i',undefined,'strip-segment');mark.dataset.phase=segment.id;
+      if(segment.pattern)mark.dataset.pattern=segment.pattern;
+      mark.style.left=segment.left*100+'%';mark.style.width=segment.width*100+'%';
+      rail.append(mark);
     }
-    mark.append(icon);
-    group.append(mark);
+    for(const dot of strip.dots){
+      const mark=el('i',undefined,'call-dot');mark.dataset.call=dot.id;mark.style.left=dot.left*100+'%';rail.append(mark);
+    }
+    if(strip.head!=null){
+      const head=el('i',ACTIVITY_MARKS[facts.now][0],'strip-head');head.dataset.category=facts.now;
+      head.style.left=strip.head*100+'%';rail.append(head);
+    }
+    root.append(rail);
   }
-  return group;
+  if(facts.totals.length){
+    const rows=el('div',undefined,'card-totals');
+    const maximum=Math.max(1,facts.totals[0].duration);
+    for(const {category,duration} of facts.totals){
+      const row=el('div',undefined,'card-total');row.dataset.category=category;row.dataset.duration=String(duration);
+      const name=el('span',shortActivity(category),'total-name');
+      const track=el('span',undefined,'total-track'),bar=el('i',undefined,'total-bar');
+      bar.dataset.pattern=category;bar.style.width=duration/maximum*100+'%';track.append(bar);
+      row.append(name,track,el('span',durationWord(duration),'total-duration'));rows.append(row);
+    }
+    root.append(rows);
+  }
 }
-
-function nodeDescription(n,state) {const name=stateWords(state,language).name;return n.runLevel?`${t('runChecksTitle')}. ${name}. ${t('runChecksAfter')}`:`${t(n.kind||'work')}. ${title(n)}. ${name}. ${attempts(n)}. ${t('returnTimes',{n:cometCount(n)})}`;}
-function nodeCard(n, expanded = false, level = 'detail', state = displayState(n, view.decisions)) {
-  const root=el('article',undefined,'node-card '+cardTone(n,state)+(['running','reviewing','retrying'].includes(state)?' working':'')+(expanded?' expanded':''));root.dataset.node=n.id;root.dataset.state=state;if(planBlocked())root.classList.add('read-status');
+function nodeCard(n, expanded = false, level = 'detail', state, model) {
+  const now=graphTestClock?.wall ?? view?.observed_at_ms ?? graphNow(), facts=model?.facts || cardFacts(n,view.decisions,now,language);
+  state=facts.state;
+  const {kind,lane}=facts;
+  const root=el('article',undefined,'node-card '+cardTone(n,state)+(runningCard(state)?' working':'')+(expanded?' expanded':''));
+  Object.assign(root.dataset,{node:n.id,state,clip:kind,cut:String(5+3*(lane||1))});
+  root.style.setProperty('--cut-size',root.dataset.cut+'px');
+  const plate=el('div',undefined,'node-plate');
+  if(state==='awaiting')plate.dataset.hazard='answer';
+  root.append(plate);
+  if(planBlocked())root.classList.add('read-status');
   if(planBlocked())root.append(el('p',t('cardUnread'),'unread-mark'));
   const change=planChanges?.find(c=>c.id===n.id);if(change)root.append(el('p',t(change.kind),'change-mark'));
-  const header=button('',()=>{
-    selectNode(n.id);
-  },'node-header');
-  const lane=n.effective_lane??n.lane;
-  const attempt=n.activity?.at(-1), hasBand=!!attempt?.phases?.length;
-  const cues = state==='awaiting' ? [] : activityCues(n);
-  const boundary = !attempt?.latest && hasBand ? attempt.phases.at(-1).category : null;
-  const current = attempt?.cue || attempt?.latest || boundary;
-  if (current && current!==cues[0]) cues.unshift(current);
-  if(hasBand)root.classList.add('with-band');
-  const cueNames = cues.length ? ' · ' + cues.map(activityCueName).join(' · ') : '';
-  header.setAttribute('aria-label',nodeDescription(n,state)+cueNames+(lane?` · ${t('riskLane',{n:lane})}`:''));header.setAttribute('aria-expanded',String(expanded));
-  if (level === 'overview') {
-    root.classList.add('overview-card');
-    const marks = [];
-    if (cometCount(n) || state === 'returned') marks.push('↩');
-    if ((view.planned_questions || []).some(q=>q.node===n.id)) marks.push(t('questionsMark'));
-    header.title = title(n)+' · '+stateWords(state,language).name+(marks.length?' · '+marks.join(' · '):'')+(state==='returned'&&returnActor(n)?' · '+returnActor(n):'');
-    header.append(el('span',statusGlyph(state),'status-glyph'),typeIcon(n.kind || 'work'),el('strong',title(n),'node-title'));
-    if(lane)header.append(laneCue(lane));
-    if(cues.length)header.append(activityCue(cues, boundary));
-    root.append(header); return root;
-  }
-  const statusLine = el('span', stateWords(state,language).name, 'node-status');
-  statusLine.prepend(el('span', statusGlyph(state), 'status-glyph'));
-  if(cues.length)statusLine.append(activityCue(cues, boundary));
-  header.append(statusLine);
+  const header=button('',()=>selectNode(n.id),'node-header');
   const titleLine=el('span',undefined,'node-title-line');
-  titleLine.append(typeIcon(n.kind || 'work'));
-  titleLine.append(el('strong',title(n),'node-title'));
-  if(lane)titleLine.append(laneCue(lane));
-  header.append(titleLine);
+  titleLine.append(typeIcon(kind),el('strong',title(n),'node-title'));
+  if(lane)titleLine.append(el('span',laneWord(lane),'risk-level'));
+  const stateLine=el('span',undefined,'node-status');
+  const word=el('span',facts.word,'state-word');
+  const glyph=el('span',statusGlyph(state),'status-glyph');glyph.setAttribute('aria-hidden','true');
+  const stateValue=el('span',undefined,'state-value');stateValue.append(glyph,word);
+  stateLine.append(el('span',facts.kindWord,'kind-word'),stateValue);
+  const clauses=[title(n),facts.kindWord,facts.word];
+  if(facts.age!=null){
+    const age=minutesWord(facts.age);
+    const wording=state==='awaiting'?t('cardWaiting',{age}):age;
+    const mark=el('span',wording,'card-age');mark.dataset.minutes=String(facts.age);
+    if(state==='awaiting')mark.dataset.humanWait='';
+    stateLine.append(mark);clauses.push(wording);
+  }
+  if(facts.attempt){
+    const word=attemptWord(facts.attempt);
+    const caption=el('span','· '+word,'card-attempt');caption.dataset.ordinal=String(facts.attempt);
+    stateLine.append(caption);clauses.push(word);
+  }
+  if(lane)clauses.push(laneWord(lane));
+  header.append(titleLine,stateLine);
+  if(facts.now){
+    const text=t('cardNow',{category:shortActivity(facts.now)});
+    const current=el('span',text,'card-now');current.dataset.category=facts.now;
+    header.append(current);clauses.push(text);
+  }
+  if(facts.unread){
+    const text=t(facts.unread==='unreadable'?'cardUnreadable':'cardUnobserved');
+    header.append(el('span',text,'card-unobserved'));clauses.push(text);
+  }
+  if(graphAttempt(n)?.repeating){
+    header.append(el('span',t('activityNameRepeating'),'card-repeating'));clauses.push(t('activityNameRepeating'));
+  }
+  clauses.push(...facts.totals.map(({category,duration})=>shortActivity(category)+' '+durationWord(duration)));
+  const marks = [];
+  if (cometCount(n) || state === 'returned') marks.push('↩');
+  if ((view.planned_questions || []).some(q=>q.node===n.id)) marks.push(t('questionsMark'));
+  header.title = clauses.join(' · ')+(marks.length?' · '+marks.join(' · '):'')+(state==='returned'&&returnActor(n)?' · '+returnActor(n):'');
+  header.setAttribute('aria-label',clauses.join(' · '));header.setAttribute('aria-expanded',String(expanded));
+  root.append(header);
+  appendStrip(root,model?.strip ?? activityStrip(graphAttempt(n),facts,now),facts);
+  if (level === 'overview') {root.classList.add('overview-card');return root;}
   const reference=el('div',undefined,'ref-line node-reference');
   if(n.planned_checks?.some(c=>c.runs_own_files)){const mark=el('span',t('ownCheckMark'),'own-check-mark');mark.title=t('ownCheckEffect');reference.append(mark);}
   if(n.status==='passed'&&cometCount(n))reference.append(el('span',t('returnTrace',{n:cometCount(n)})));
@@ -3941,7 +4214,7 @@ function nodeCard(n, expanded = false, level = 'detail', state = displayState(n,
   if(questions.length)essentials.append(el('p',t('planCardQuestion',{n:questions.length,question:questions.map(q=>answered?q.question:plannedQuestion(q)).join(' · ')}),'planned-question'));
   if(answered){const answer=el('details',undefined,'answered-result');answer.append(el('summary',t('answerExpand')),el('p',t('answerOutcome',{outcome:t(answered.outcome==='approved'?(answered.kind==='authorization'?'answeredPermission':'answeredApproval'):answered.outcome==='rejected'?'answeredRejection':answered.outcome==='revision_requested'?'answeredRevision':'evAnswered'),answer:answered.answer||''})));essentials.append(answer);}
   if(n.notices?.some(item=>item.code==='passes_before_work'))essentials.append(el('p',t('qBeforeWorkCount',{n:n.notices.filter(item=>item.code==='passes_before_work').length}),'check-notice'));
-  root.append(header,essentials,footer,reference);
+  root.append(essentials,footer,reference);
   const answer=essentials.querySelector('.answered-result');if(answer)answer.addEventListener('toggle',()=>{if(root.isConnected&&!root.classList.contains('card-measure'))renderer?.remeasure();});
   return root;
 }
@@ -3954,7 +4227,7 @@ function titleTextRect(title){
 }
 // The scroll edge may hide whole lines, but never bisect their letters.
 function wholeMapLines(card,viewport,scale) {
-  wholeTextLines(card.querySelectorAll('.node-title,.node-status,.node-essentials p,.node-footer>span,.node-reference>span,.unread-mark,.change-mark,summary'),viewport,scale);
+  wholeTextLines(card.querySelectorAll('.node-title,.node-status,.card-now,.card-unobserved,.card-repeating,.card-total,.node-essentials p,.node-footer>span,.node-reference>span,.unread-mark,.change-mark,summary'),viewport,scale);
 }
 function wholeTextLines(texts,viewport,scale) {
   if(!document.createRange)return;
@@ -3970,10 +4243,10 @@ function wholeTextLines(texts,viewport,scale) {
 
 const MINIMAP_WIDTH=142, MINIMAP_HEIGHT=88, MINIMAP_PAD=7;
 const MINI_KINDS={
-  work:{color:'#335cad',points:[[-1,-1],[1,-1],[1,1],[-1,1]]},
-  review:{color:'#23654e',points:Array.from({length:12},(_,i)=>[Math.cos(i*Math.PI/6),Math.sin(i*Math.PI/6)])},
-  decision:{color:'#9e4d04',points:[[-1,0],[-.5,-1],[.5,-1],[1,0],[.5,1],[-.5,1]]},
-  goal:{color:'#6f4f91',points:[[-1,1],[0,-1],[1,1]]},
+  work:{color:'#3fd8e8',points:[[-1,-1],[1,-1],[1,1],[-1,1]]},
+  review:{color:'#3fd8e8',points:Array.from({length:12},(_,i)=>[Math.cos(i*Math.PI/6),Math.sin(i*Math.PI/6)])},
+  decision:{color:'#3fd8e8',points:[[-1,0],[-.5,-1],[.5,-1],[1,0],[.5,1],[-.5,1]]},
+  goal:{color:'#3fd8e8',points:[[-1,1],[0,-1],[1,1]]},
 };
 function createMinimap(area,viewport) {
   const mini=button('',()=>{},'map-mini');
@@ -4047,14 +4320,14 @@ function createMap() {
   const map=$('map');map.tabIndex=0;
   const toolbar=el('div',undefined,'map-toolbar'),viewport=el('div',undefined,'map-viewport'),spacer=el('div',undefined,'map-spacer'),stage=el('div',undefined,'map-stage');
   viewport.tabIndex=0;viewport.setAttribute('aria-label',t('mapHelp'));spacer.append(stage);viewport.append(spacer);map.append(toolbar);
-  const key=el('div',undefined,'line-key'), overflow=el('div',undefined,'map-overflow'); overflow.setAttribute('aria-label',t('graphEdges'));overflow.dataset.i18nLabel='graphEdges';
+  const overflow=el('div',undefined,'map-overflow');
+  overflow.setAttribute('aria-label',t('graphEdges'));overflow.dataset.i18nLabel='graphEdges';
   const area=el('div',undefined,'map-area');
-  const legend=el('details',undefined,'map-key');legend.append(el('summary',t('legend')),key);toolbar.append(legend);area.append(viewport);map.append(area);
-  legend.addEventListener('toggle',()=>{toolbar.style.marginBottom=legend.open?key.offsetHeight+'px':'0px';size();if(automatic)fit();else{panIntent=true;snapTitles();}});
+  area.append(viewport);map.append(area);
   const visibleCount=el('span',undefined,'map-visible'),overflowButtons=new Map();overflow.append(visibleCount);
   let data={nodes:[],edges:[],decisions:[]},chosenNode=null,layout=null,scale=1,automatic=true,level='detail',layouts=null,rawData=null;
   Object.defineProperty(map, 'graphScene', {get:() => layout && structuredClone(layout)});
-  const nodes=new Map(),chips=new Map();let drawing=null,bandDrawing=null,placed=false,initialFitPending=false,layoutKey='',origin={x:0,y:0};
+  const nodes=new Map(),chips=new Map();let drawing=null,fxLayer=null,tagLeads=null,placed=false,initialFitPending=false,layoutKey='',origin={x:0,y:0};
   const surface=el('div',undefined,'graph-webgl'),canvas=el('canvas');surface.hidden=true;
   surface.setAttribute('aria-hidden','true');surface.append(canvas);area.prepend(surface);
   const mini=createMinimap(area,viewport);
@@ -4062,70 +4335,153 @@ function createMap() {
   const capture=startup.searchParams.get('graphTest')==='1';
   let gpu=null, gpuRequested=startup.searchParams.get('renderer')==='svg'||typeof WebGL2RenderingContext==='undefined';
   let lastDraw, drawPending=false, svgStrokes=[], svgMarkers=[], keyboardNode=null, focusId=null, focus;
-  let motionPaused=false, motionTimer, motionTime=null, motionFrames=0, lastMotionFrame=-Infinity;
-  const pauseMotion=button('',()=>{motionPaused=!motionPaused;syncMotion();requestDrawing();},'graph-motion');
+  const forcedColors=matchMedia('(forced-colors: active)');
+  const highContrast=matchMedia('(prefers-contrast: more)');
+  let motionPaused=false, motionRAF=0, motionFrames=0, pulseStarts=0, lastMotion=[];
+  const fx=createGraphMotion(), marks=new Map(), edgeEffects=new Map();
+  const motionClock=()=>graphTestClock?.time ?? performance.now();
+  const pauseMotion=button('',()=>{
+    motionPaused=!motionPaused;
+    document.body.classList.toggle('graph-paused',motionPaused);
+    $('panel').getAnimations?.().forEach(animation=>animation.cancel());
+    workSummary?.globalMotion();
+    syncMotion();
+  },'graph-motion');
   const attentionCount=el('span',undefined,'map-activity-count');
   const flowCount=el('span',undefined,'map-flow-count');
-  const deliveries=new Map(), pulses=new Map();
-  let pulseStarts=0;
-  const hasProgress = () => layout?.cards.some(card=>card.band?.segments.some(segment=>segment.animate));
-  const progressVisible = () => graphDetail(level,scale)!=='far' && hasProgress();
-  const motionAllowed = () => gpu && !document.hidden && !reduced.matches && !motionPaused && viewport.clientWidth;
-  function syncMotion(schedule=true) {
-    pauseMotion.hidden=!gpu || reduced.matches || !hasProgress() && !layout?.edges.some(edge=>edge.flow);
-    pauseMotion.textContent=t(motionPaused?'graphResume':'graphPause');
-    if(!motionAllowed()){
-      pulses.clear();
+  const motionAllowed = () => gpu && !forcedColors.matches && !document.hidden && !reduced.matches &&
+    !motionPaused && viewport.clientWidth && graphDetail(level,scale)!=='far';
+  function applyMotion() {
+    if(!layout||!fxLayer)return;
+    const now=motionClock(), frame=fx.frame(now,motionAllowed());
+    const seen=new Set(), traces=new Map(), busy=new Set();
+    const style=(element,property,value)=>{
+      if(!element)return;
+      if(!seen.has(element)){
+        for(const old of marks.get(element)||[])element.style.removeProperty(old);
+        seen.add(element);element.dataset.motionPaint='';
+      }
+      element.style.setProperty(property,value);
+    };
+    for(const element of marks.keys())if(!element.isConnected)marks.delete(element);
+    for(const event of frame){
+      const {id,kind,progress}=event, p=motionEase(progress);
+      const card=nodes.get(id)?.firstElementChild;
+      if(card&&kind!=='halo'&&kind!=='dot'&&kind!=='strip') {
+        const glyph=card.querySelector('.status-glyph');
+        if(kind==='glyph')style(glyph,'--glyph-scale',String(progress<.6 ? .4+1.5*progress : 1.3-.75*(progress-.6)));
+        if(kind==='flicker')style(card,'--flicker',String(Math.sin(Math.PI*progress)*.38));
+        if(['pass','return','session'].includes(kind)){
+          style(card,'--sweep-opacity',String((1-p)*.95));
+          style(card,'--sweep-scale',String(1+p*.18));
+          style(card,'--sweep-color',kind==='return'?'var(--coral)':kind==='session'?'var(--violet)':'var(--muted)');
+        }
+      }
+      if(card&&kind==='halo')style(card,'--halo',String(event.strength));
+      if(card&&kind==='dot'){
+        const dot=[...card.querySelectorAll('.call-dot')].find(dot=>dot.dataset.call===String(event.record));
+        style(dot,'--dot-scale',String(progress<.6 ? .1+1.9*progress : 1.24-.6*(progress-.6)));
+      }
+      if(card&&kind==='strip'){
+        const current=layout.positions[id].strip;
+        if(current){
+          const prior=new Map((event.before?.segments||[]).map(segment=>[segment.id,segment]));
+          for(const segment of current.segments){
+            const from=prior.get(segment.id);
+            const mark=[...card.querySelectorAll('.strip-segment')].find(el=>el.dataset.phase===segment.id);
+            const width=(from?.width||0)+(segment.width-(from?.width||0))*p;
+            style(mark,'--render-width',width*100+'%');
+          }
+          if(current.head!=null)style(card.querySelector('.strip-head'),'--render-left',
+            ((event.before?.head??current.head)+(current.head-(event.before?.head??current.head))*p)*100+'%');
+        }
+      }
+      if(['handoff','reverse','drift'].includes(kind)){
+        const edge=layout.edges.find(edge=>edge.key===id);
+        if(!edge||edge.points.length<2)continue;
+        if(kind==='drift'){if(!traces.has(id))traces.set(id,{edge,event});continue;}
+        const reverse=kind==='reverse',point=pointAlongRoute(edge.points,reverse?1-p:p);
+        const path=edgeEffects.get(id)?.path, token=edgeEffects.get(id)?.token;
+        if(path&&token){
+          path.hidden=reverse;
+          path.style.strokeDasharray=p+' 1';
+          token.setAttribute('cx',point.x);token.setAttribute('cy',point.y);
+          token.dataset.direction=kind;
+          token.style.display='';
+          if(!reverse)busy.add(edge.id);
+        }
+        traces.set(id,{edge,event});
+      }
     }
-    if(!motionAllowed() || !progressVisible() && !pulses.size){
-      clearTimeout(motionTimer);
-      motionTimer=undefined;
-      motionTime=null;
-    }else if(schedule && motionTimer===undefined){
-      motionTimer=setTimeout(()=>{
-        motionTimer=undefined;
-        if(!motionAllowed())return;
-        const now=performance.now();
-        if(now-lastMotionFrame>=GRAPH_FRAME_MS){
-          for(const [key,start] of pulses)if(now-start>=HANDOFF_PULSE_MS)pulses.delete(key);
-          motionTime=now;
-          requestDrawing();
-        }else syncMotion();
-      },Math.ceil(GRAPH_FRAME_MS));
+    for(const [element,properties] of marks){
+      if(seen.has(element))continue;
+      for(const property of properties)element.style.removeProperty(property);
+      delete element.dataset.motionPaint;
+      marks.delete(element);
+    }
+    for(const element of seen){
+      const properties=Array.from(element.style).filter(key=>key.startsWith('--')&&key!=='--cut-size');
+      marks.set(element,properties);
+    }
+    for(const [id,{path,token,arrows}] of edgeEffects){
+      const trace=traces.get(id);
+      if(trace?.event.kind!=='handoff')path.style.display='none';
+      else path.style.display='';
+      if(!trace||trace.event.kind==='drift')token.style.display='none';
+      if(trace?.event.kind!=='drift'||busy.has(trace.edge.id)){
+        arrows.style.display='none';
+        continue;
+      }
+      const {edge,event}=trace;
+      const length=edge.points.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-edge.points[i].x,p.y-edge.points[i].y),0);
+      const count=Math.max(1,Math.min(3,Math.floor(length/55)));
+      let d='';
+      for(let i=0;i<count;i++){
+        const u=(event.distance+i*length/count)%length/length;
+        const a=pointAlongRoute(edge.points,Math.max(0,u-.01)),b=pointAlongRoute(edge.points,Math.min(1,u+.01));
+        const c=pointAlongRoute(edge.points,u), angle=Math.atan2(b.y-a.y,b.x-a.x);
+        const dx=Math.cos(angle)*4,dy=Math.sin(angle)*4;
+        d+=`M${c.x-dx-dy} ${c.y-dy+dx}L${c.x} ${c.y}L${c.x-dx+dy} ${c.y-dy-dx}`;
+      }
+      arrows.setAttribute('d',d);arrows.style.display='';
+    }
+    const transfer=[...busy].join(',');
+    if(map.dataset.transfers!==transfer){map.dataset.transfers=transfer;requestDrawing();}
+    if(frame.length)motionFrames++;
+    pulseStarts+=frame.filter(event=>['handoff','reverse'].includes(event.kind)&&
+      !lastMotion.some(old=>old.kind===event.kind&&old.id===event.id&&old.record===event.record)).length;
+    lastMotion=frame;
+  }
+  function syncMotion() {
+    pauseMotion.hidden=!gpu || reduced.matches || forcedColors.matches || !layout?.cards.length;
+    pauseMotion.textContent=t(motionPaused?'graphResume':'graphPause');
+    pauseMotion.setAttribute('aria-pressed',String(motionPaused));
+    if(!motionAllowed()){
+      fx.settle();
+      if(motionRAF)cancelAnimationFrame(motionRAF);motionRAF=0;
+    }
+    applyMotion();
+    if(motionAllowed()&&fx.active()&&!motionRAF&&graphTestClock?.time==null){
+      motionRAF=requestAnimationFrame(()=>{motionRAF=0;syncMotion();});
     }
   }
   overflow.append(flowCount,attentionCount,pauseMotion);
   flowCount.hidden=attentionCount.hidden=pauseMotion.hidden=true;
-  function addDeliveries(edges,initial) {
-    const now=performance.now();
-    for(const edge of edges){
-      const record=edge.flow?.delivery;
-      if(!record || edge.flow.state!=='delivered')continue;
-      const key=edgeKey(edge);
-      if(!deliveries.has(key))deliveries.set(key,new Set());
-      const seen=deliveries.get(key);
-      if(seen.has(record.seq))continue;
-      seen.add(record.seq);
-      if(!initial&&motionAllowed()){
-        pulses.set(key,now);
-        pulseStarts++;
-      }
-    }
-  }
-  const pulsePositions=()=>layout.edges.flatMap(edge=>{
-    const start=pulses.get(edgeKey(edge));
-    if(motionTime===null||start===undefined)return [];
-    const progress=(motionTime-start)/HANDOFF_PULSE_MS;
-    const point=progress>=0&&progress<1&&pointAlongRoute(edge.points,progress);
-    return point ? [{id:edge.id,...point,progress}] : [];
-  });
+  if(capture)Object.defineProperty(map,'graphTest',{value:{
+    step(time,wall=graphTestClock.wall){
+      graphTestClock.time=time;graphTestClock.wall=wall;syncMotion();
+      return structuredClone(lastMotion);
+    },
+    updateTime(time,wall){
+      graphTestClock.time=time;graphTestClock.wall=wall;update(rawData,chosenNode);
+      return structuredClone(lastMotion);
+    },
+    frame:()=>structuredClone(lastMotion),
+  }});
   const viewBox=()=>({width:viewport.clientWidth,height:viewport.clientHeight,scale,
     x:origin.x-viewport.scrollLeft,y:origin.y-viewport.scrollTop,dpr:globalThis.devicePixelRatio||1,
     insetX:viewport.clientLeft,insetY:viewport.clientTop,focusId,
-    bandVisible:graphDetail(level,scale)!=='far',
-    bandMotion:motionTime===null || !progressVisible() ? 0 : .45*(1-Math.cos(motionTime*2*Math.PI/GRAPH_PERIOD_MS)),
-    pulseTick:pulses.size ? motionTime : null,
-    background:$('flow').classList.contains('sent-plan')?'#e8ecf0':'#f5f7f9'});
+    transfers:map.dataset.transfers || '', highContrast:highContrast.matches, background:'#080b10'});
   function updateFocus() {
     if(!layout)return;
     const keys=new Set(selectedEdge?[selectedEdge]:edgeChoices);
@@ -4148,7 +4504,8 @@ function createMap() {
     for(const {model,line} of svgMarkers){
       const {weight,ink}=order.markers.get(model.id);
       line.dataset.weight=weight;
-      line.setAttribute('marker-end',`url(#arrow-${model.relation}${weight==='context'?'-context':''})`);
+      const tone=weight==='context'&&model.tone==='structure'?'quiet':model.tone;
+      line.dataset.role=tone;line.setAttribute('marker-end',`url(#arrow-${model.relation}-${tone})`);
       layers.push([ink,line]);
     }
     for(const [rank,element] of layers.sort((a,b)=>a[0]-b[0])){
@@ -4170,29 +4527,23 @@ function createMap() {
   }
   function requestDrawing() {
     if(!layout||!viewport.clientWidth||!viewport.clientHeight)return;
-    if(!gpuRequested&&(layout.edges.length||layout.cards.some(card=>card.band))) {
+    if(!gpuRequested&&!forcedColors.matches&&(layout.edges.length||layout.cards.some(card=>card.strip))) {
       gpuRequested=true;
       import('./graph-webgl.js').then(({createWebGLGraph})=>{
         gpu=createWebGLGraph(canvas,useSVG,capture,mini.canvas);
         if(gpu){syncMotion();requestDrawing();}
       }).catch(useSVG);
     }
-    if(!gpu||drawPending)return;
+    if(!gpu||drawPending||forcedColors.matches)return;
     const box=viewBox();
     if(lastDraw?.layout===layout&&Object.keys(box).every(key=>lastDraw.box[key]===box[key]))return;
     drawPending=true;
     requestAnimationFrame(()=>{
       drawPending=false;
       if(!gpu||document.hidden||!viewport.clientWidth||!viewport.clientHeight)return;
-      syncMotion(false);
       const next=viewBox();
       try {
-        if(motionTime!==null&&(lastDraw?.box.bandMotion!==next.bandMotion||
-          next.pulseTick!==null&&lastDraw?.box.pulseTick!==next.pulseTick)){
-          lastMotionFrame=performance.now();
-          motionFrames++;
-        }
-        gpu.draw(layout,next,RELATION_MARKS,graphInkOrder(layout,focusId,focus),pulsePositions());
+        gpu.draw(layout,next,RELATION_MARKS,graphInkOrder(layout,focusId,focus));
         if(lastDraw?.layout!==layout || ['width','height','x','y','scale','dpr'].some(key=>lastDraw.box[key]!==next[key]))
           mini.setGPU(gpu.drawMinimap(mini.frame()));
         lastDraw={layout,box:next};
@@ -4205,7 +4556,7 @@ function createMap() {
   Object.defineProperty(map,'graphDrawing',{get:()=>{
     if(!layout)return null;
     const box=viewBox(), rect=contentRect(viewport);
-    if(gpu&&lastDraw)return {renderer:'webgl',box:{...lastDraw.box},...gpu.describe(),
+    if(gpu&&lastDraw&&!forcedColors.matches)return {renderer:'webgl',box:{...lastDraw.box},...gpu.describe(),
       minimapMarks:gpu.describeMinimap(),motionFrames,pulseStarts,...gpu.diagnostics()};
     const inspect=({model,line,underlay})=>{
       const matrix=line.getScreenCTM();
@@ -4230,7 +4581,9 @@ function createMap() {
     const rect=contentRect(viewport),screenPoint=point?{x:rect.left+point.x,y:rect.top+point.y}:null;
     point ||= {x:viewport.clientWidth/2,y:viewport.clientHeight/2};
     const before=layout, anchor={x:(viewport.scrollLeft+point.x-origin.x)/scale,y:(viewport.scrollTop+point.y-origin.y)/scale};
-    const next=zoomLevel(level,scale,amount), changed=level!==next.level;
+    const next=zoomLevel(level,scale,amount);
+    const changed=level!==next.level || next.scale!==scale&&
+      (graphDetail(level,scale)==='far'||graphDetail(next.level,next.scale)==='far');
     level=next.level;scale=next.scale;
     if(changed)update(rawData,chosenNode);else size();
     const mapped=changed?mapAnchor(before,layout,anchor):anchor;
@@ -4298,7 +4651,8 @@ function createMap() {
       if(horizontal&&titleVisibility(rect,w,h))visible++;
       if(element){element.style.visibility=horizontal&&intersectsViewport({x,y,width:p.width*scale,height:p.height*scale},w,h)?'visible':'hidden';wholeMapLines(element,vr,scale);}
     }
-    for(const c of layout.chips){const chip=chips.get(c.first);if(chip)chip.hidden=scale<1 || !!chip.dataset.tooWide || !!offscreenDirection({x:c.x*scale+ox-viewport.scrollLeft,y:c.y*scale+oy-viewport.scrollTop,width:c.width*scale,height:c.height*scale},w,h);}
+    if(tagLeads)tagLeads.style.display=far?'none':'';
+    for(const tag of layout.tags){const element=chips.get(tag.id);if(element)element.hidden=far || !!offscreenDirection({x:tag.x*scale+ox-viewport.scrollLeft,y:tag.y*scale+oy-viewport.scrollTop,width:tag.width*scale,height:tag.height*scale},w,h);}
     // The viewport clips routes naturally: an off-screen neighbour leaves a visible continuing stub.
     recordGraphRead();
     updateCounts(visible);
@@ -4343,17 +4697,15 @@ function createMap() {
     if(map.getBoundingClientRect){
       const phone=matchMedia('(max-width:760px)').matches;
       const selectedHeight=(layout.positions[chosenNode]?.height||0)*scale;
-      const legendHeight=parseFloat(toolbar.style.marginBottom)||0;
       // Size the scrolling area independently of wrapping navigation controls.
       const minimum=Math.max(phone?214:230,selectedHeight+48);
-      const available=Math.max(minimum,innerHeight-map.getBoundingClientRect().top-38-(phone?120:60)-legendHeight);
+      const available=Math.max(minimum,innerHeight-map.getBoundingClientRect().top-38-(phone?120:60));
       const scrollbar=viewport.offsetHeight-viewport.clientHeight||0;
       const dock=mini.reserve(layout,scale,available-scrollbar);
       area.style.height=Math.max(minimum,available-dock)+dock+'px';
       map.style.height='auto';
-      const panel=$('panel');
-      const headingHeight=panel.querySelector('.panel-bar')?.offsetHeight||0;
-      panel.style.height=Math.max(map.offsetHeight,headingHeight+80)+'px';
+      map.parentElement.style.setProperty('--drawer-top',(map.offsetTop+toolbar.offsetHeight+8)+'px');
+      map.parentElement.style.setProperty('--drawer-height',Math.max(230,map.offsetHeight-toolbar.offsetHeight-16)+'px');
     }
     const w=viewport.clientWidth||900,h=viewport.clientHeight||600;
     if(!placed)origin={x:Math.max(0,(w-layout.bounds.width*scale)/2),y:Math.max(0,(h-layout.bounds.height*scale)/2)};
@@ -4361,7 +4713,6 @@ function createMap() {
     stage.style.setProperty('--map-text',Math.max(14,12/scale)+'px');
     stage.style.setProperty('--kind-size',Math.max(20,20/scale)+'px');
     stage.style.setProperty('--status-size',Math.max(20,16/scale)+'px');
-    stage.style.setProperty('--lane-mark-height',Math.max(17,17/scale)+'px');
     // Keep the final card clear of the reserved scrollbar gutter at minimum zoom.
     Object.assign(spacer.style,{
       width:layout.bounds.width*scale>w?Math.ceil(layout.bounds.width*scale+(viewport.clientLeft||0))+'px':'100%',
@@ -4375,28 +4726,30 @@ function createMap() {
   const setRect=(element,rect)=>Object.assign(element.style,{left:rect.x+'px',top:rect.y+'px',width:rect.width+'px',height:rect.height+'px'});
   function update(next,id) {
     const initial=next.run!==rawData?.run || next.project!==rawData?.project;
-    if(initial){deliveries.clear();pulses.clear();}
+    if(initial)fx.observe(null,motionClock(),false,true);
     rawData=next;next=planFlow(next,language);
-    addDeliveries(next.edges,initial);
     toolbar.style.minHeight='';
     if(layout)size();
     const planKey=JSON.stringify([next.nodes.map(n=>[n.id,n.title,n.kind,n.target]),next.edges.map(e=>[e.from,e.to,e.relation,e.label])]);
     if(planKey!==layoutKey){layoutKey=planKey;if(!placed){automatic=true;level='detail';}}
-    const reveal=id&&id!==chosenNode;data=next;chosenNode=id;
+    data=next;chosenNode=id;
     measuredWidth=maxCardWidth();
-    layouts=Object.fromEntries(['detail','overview'].map(level=>[level,layeredLayout(data.nodes,data.edges.map(e=>({...e,displayLabel:e.label?label(e.label):''})),data.decisions,true,{level,language,wrapLongChains:true,maxCardWidth:measuredWidth,measure:(n,width)=>{
-      const sample=nodeCard(n,n.id===id,level);sample.classList.add('card-measure');sample.style.width=width+'px';sample.style.setProperty('--map-text','14px');
+    layouts=Object.fromEntries(['detail','overview'].map(level=>[level,layeredLayout(data.nodes,data.edges.map(e=>({...e,displayLabel:e.label?label(e.label):''})),data.decisions,true,{level,language,instrument:true,wrapLongChains:true,maxCardWidth:measuredWidth,measure:(n,width)=>{
+      const sample=nodeCard(n,n.id===id,level);sample.classList.add('card-measure');sample.style.width=width+'px';
+      const fontSize=graphDetail(level,scale)==='far'?Math.max(14,12/scale):14;
+      sample.style.setProperty('--map-text',fontSize+'px');
       sample.style.setProperty('--kind-size',20/MIN_FIT_SCALE+'px');stage.append(sample);
       if(nodes.get(n.id)?.querySelector('.answered-result')?.open && sample.querySelector('.answered-result'))sample.querySelector('.answered-result').open=true;
       const height=sample.offsetHeight?Math.ceil(sample.getBoundingClientRect().height/scale):0;
       sample.remove();return height;
     }})]));
     layouts.overview=compactOverview(layouts.overview,viewport.clientWidth-24);
-    for(const name of ['detail','overview'])layouts[name]=createGraphScene(data.nodes,layouts[name],data.decisions,name);
+    const now=graphTestClock?.wall ?? next.observed_at_ms ?? graphNow();
+    for(const name of ['detail','overview'])layouts[name]=createGraphScene(data.nodes,layouts[name],data.decisions,name,now,language);
     layout=layouts[level];
     size();
     if(!placed && viewport.clientWidth){const fitted=fitGraph(layouts,viewport.clientWidth-24,viewport.clientHeight-24);level=fitted.level;scale=fitted.scale;layout=layouts[level];}
-    const focused=document.activeElement?.closest?.('[data-node]')?.dataset.node,focusedChip=document.activeElement?.dataset?.chip;
+    const focused=document.activeElement?.closest?.('[data-node]')?.dataset.node;
     const activeIds=new Set(layout.cards.map(card=>card.id));
     for(const [key,element] of nodes)if(!activeIds.has(key)){element.remove();nodes.delete(key);}
     const byId = new Map(data.nodes.map(n => [n.id, n]));
@@ -4404,62 +4757,17 @@ function createMap() {
       const n = byId.get(model.id);
       const expanded=n.id===chosenNode;
       const {activity, ...cardContent}=n;
-      const last=activity?.at(-1);
-      const signature=JSON.stringify([level,cardContent,model.tier,last?.cue,last?.latest,last?.phases.at(-1)?.category,activityCues(n),data.decisions.filter(d=>d.node===n.id),planChanges?.find(c=>c.id===n.id)]);
+      const signature=JSON.stringify([level,cardContent,model.facts,model.strip,graphAttempt(n)?.repeating,data.decisions.filter(d=>d.node===n.id),planChanges?.find(c=>c.id===n.id)]);
       let element=nodes.get(n.id);
       if(!element){element=el('div',undefined,'node-position');nodes.set(n.id,element);stage.append(element);}
       if(element.dataset.signature!==signature) {
-        const card=nodeCard({...n,kind:model.kind},expanded,model.level,model.state);
+        const card=nodeCard({...n,kind:model.kind},expanded,model.level,model.state,model);
         element.replaceChildren(card);element.dataset.signature=signature;
       }
     }
-    clear(key);
     name.textContent=planCounts(data.plan_counts||{work:data.nodes.filter(n=>n.kind==='work').length,review:data.nodes.filter(n=>n.kind==='review').length,decision:data.nodes.filter(n=>n.kind==='decision').length},language);mapTitle.classList.toggle('returned-title',$('flow').classList.contains('sent-plan'));
-    for(const relation of Object.keys(RELATION_MARKS)){
-      if(layout.edges.some(edge=>edge.style.relation===relation))key.append(lineSample('open',edgeRelationLabel({relation},language),relation));
-    }
-    for(const [gate,word] of Object.entries(GATE_LABELS)){
-      if(layout.edges.some(edge=>edge.style.gate===gate))key.append(lineSample(gate,t(word)));
-    }
-    for(const [cue,word] of Object.entries(FLOW_LABELS)){
-      if(!layout.flowMarks.some(mark=>mark.cue===cue))continue;
-      const item=el('span',undefined,'line-sample');
-      const icon=svg('svg',{viewBox:'-12 -8 24 16','aria-hidden':'true'});
-      icon.append(svg('path',{d:FLOW_MARKS[cue].map(path=>roundedRoute(path.map(([x,y])=>({x,y})),0)).join(' '),
-        class:'flow-mark '+cue}));
-      item.append(icon,el('span',t(word)));key.append(item);
-    }
-    const states=el('div',undefined,'state-legend');
-    for(const state of [...new Set(layout.cards.map(card=>card.state))]) states.append(el('span',`${statusGlyph(state)} ${stateWords(state,language).name}`,'state-key state-'+state));
-    if(data.nodes.some(n=>cometCount(n)>0)&&!data.nodes.some(n=>displayState(n,data.decisions)==='returned'))states.append(el('span','↩ '+t('returned'),'state-key'));
-    if(data.nodes.some(n=>n.kind==='review')) { const mark=el('span',undefined,'state-key review-key'); mark.append(typeIcon('review'),el('span',t('review')));states.append(mark); }
-    if(data.planned_questions?.length)states.append(el('span',t('questionsMark'),'state-key'));
-    const lanes=[...new Set(layout.cards.map(card=>card.lane).filter(Boolean))].sort();
-    if(lanes.length){
-      const legend=el('span',t('riskLegend'),'state-key lane-key');
-      for(const lane of lanes)legend.append(laneCue(lane),el('span',String(lane)));
-      states.append(legend);
-    }
-    key.append(states);
-    if(layout.cards.some(card=>card.band||card.tier===2)){
-      const marks=el('div',undefined,'state-legend activity-legend');
-      for(const id of Object.keys(ACTIVITY_MARKS)){
-        const item=el('span',undefined,'state-key');
-        item.append(activityCue([id]),el('span',activityName(id)));marks.append(item);
-      }
-      key.append(marks);
-    }
     // Reorder existing controls without replacing them: tab order follows the drawing.
     for(const card of layout.cards){const e=nodes.get(card.id);setRect(e,card);stage.append(e);}
-    bandDrawing?.remove();
-    bandDrawing=svg('svg',{width:layout.bounds.width,height:layout.bounds.height,class:'activity-layer','aria-hidden':'true'});
-    for (const card of layout.cards) {
-      for (const segment of card.band?.segments ?? []) {
-        bandDrawing.append(svg('path',{'data-card':card.id,'data-phase':segment.id,'data-category':segment.category,
-          d:segment.paths.map(path=>roundedRoute(path,0)).join(' ')}));
-      }
-    }
-    stage.append(bandDrawing);
     const tierTwo=layout.cards.filter(card=>card.tier===2).length;
     attentionCount.hidden=!tierTwo;
     attentionCount.textContent=t('activityAttentionCount',{n:tierTwo});
@@ -4471,23 +4779,20 @@ function createMap() {
     if(drawing)drawing.remove();drawing=svg('svg',{width:layout.bounds.width,height:layout.bounds.height,class:'edge-layer','aria-hidden':'true'});
     svgStrokes=[];svgMarkers=[];
     const defs=svg('defs');
-    for(const relation of Object.keys(RELATION_MARKS)) {
-      for(const context of [false,true]) {
-        const marker=svg('marker',{id:'arrow-'+relation+(context?'-context':''),viewBox:'0 0 10 10',refX:10,refY:5,markerWidth:7,markerHeight:7,orient:'auto'});
-        if(context)marker.classList.add('graph-context');
-        marker.append(edgeMarker(relation));defs.append(marker);
-      }
+    for(const relation of Object.keys(RELATION_MARKS))for(const tone of ['structure','quiet','live','failure']){
+      const marker=svg('marker',{id:'arrow-'+relation+'-'+tone,viewBox:'0 0 10 10',refX:10,refY:5,markerWidth:7,markerHeight:7,orient:'auto','data-role':tone});
+      marker.append(edgeMarker(relation));defs.append(marker);
     }
     drawing.append(defs);stage.prepend(drawing);
     for(const {id,cue,paths} of layout.flowMarks){
-      drawing.append(svg('path',{'data-flow-id':id,'data-flow':cue,class:'flow-mark '+cue,
+      drawing.append(svg('path',{'data-flow-id':id,'data-flow':cue,class:'flow-mark '+cue,'data-role':toneForFlow(cue),
         d:paths.map(path=>roundedRoute(path,0)).join(' ')}));
     }
     for(const element of chips.values())element.remove();chips.clear();
     for(const model of layout.strokes){
       const d=roundedRoute(model.points,0);
-      const underlay=svg('path',{d,class:'edge-underlay'});
-      const line=svg('path',{d,class:'edge-path '+model.gate,'data-stroke-id':model.id,'stroke-dashoffset':-model.distance});
+      const underlay=svg('path',{d,class:'edge-underlay '+model.trace,'data-role':model.tone,'stroke-dashoffset':-model.distance});
+      const line=svg('path',{d,class:'edge-path '+model.trace,'data-role':model.tone,'data-stroke-id':model.id,'stroke-dashoffset':-model.distance});
       svgStrokes.push({model,line,underlay});
     }
     const edgesById=new Map(layout.edges.map(edge=>[edge.id,edge]));
@@ -4495,17 +4800,32 @@ function createMap() {
       const {relation,members}=model;
       const attributes=members.length===1?{...edgeAttributes(edgesById.get(members[0])),'data-edge-id':members[0]}:{};
       const line=svg('path',{d:roundedRoute(model.points,0),...attributes,class:'edge-marker',
-        'data-marker-id':model.id,'marker-end':`url(#arrow-${relation})`});
+        'data-marker-id':model.id,'data-role':model.tone,'marker-end':`url(#arrow-${relation})`});
       svgMarkers.push({model,line});
     }
-    for(const route of layout.edges) {
-      const {chip:c,style:{gate}}=route;
-      if(!c||chips.has(c.first))continue;
-      const chip=el('div',undefined,'edge-chip '+gate);
-      const source=data.nodes.find(n=>n.id===route.from),targets=layout.edges.filter(r=>r.chip===c).map(r=>title(data.nodes.find(n=>n.id===r.to))).join(', ');
-      chip.setAttribute('aria-label',`${edgeRelationLabel({...route,label:route.text},language)}. ${title(source)} → ${targets}`);
-      chip.append(el('span',route.text));chip.dataset.chip=c.key;setRect(chip,c);stage.append(chip);if(chip.firstElementChild.offsetWidth>c.width-20)chip.dataset.tooWide='true';chips.set(c.first,chip);
+    tagLeads?.remove();
+    tagLeads=svg('svg',{width:layout.bounds.width,height:layout.bounds.height,class:'tag-leads','aria-hidden':'true'});
+    for(const tag of layout.tags){
+      const {x,y}=tag.anchor;
+      const edgeX=Math.max(tag.x,Math.min(x,tag.x+tag.width)),edgeY=Math.max(tag.y,Math.min(y,tag.y+tag.height));
+      if(x!==edgeX||y!==edgeY)tagLeads.append(svg('path',{d:`M${x} ${y}L${edgeX} ${edgeY}`,'data-role':tag.tone}));
+      const element=el('span',tag.text,'edge-tag');
+      Object.assign(element.dataset,{edgeId:tag.id,flow:tag.cue,role:tag.tone});
+      element.setAttribute('aria-hidden','true');
+      setRect(element,tag);stage.append(element);chips.set(tag.id,element);
     }
+    stage.append(tagLeads);
+    fxLayer?.remove();
+    fxLayer=svg('svg',{width:layout.bounds.width,height:layout.bounds.height,class:'graph-fx','aria-hidden':'true'});
+    edgeEffects.clear();
+    for(const edge of layout.edges){
+      const path=svg('path',{class:'route-fill',d:roundedRoute(edge.points,0),pathLength:1});
+      const token=svg('circle',{class:'route-token',r:4});
+      const arrows=svg('path',{class:'route-drift'});
+      for(const mark of [path,arrows,token]){mark.style.display='none';fxLayer.append(mark);}
+      edgeEffects.set(edge.key,{path,arrows,token});
+    }
+    stage.append(fxLayer);
     const directionKey='mapDirection';
     direction.textContent=t(directionKey);direction.dataset.i18n=directionKey;
     mapTitle.classList.remove('map-complete');
@@ -4525,9 +4845,9 @@ function createMap() {
       }
     }
 
+    fx.observe(layout,motionClock(),motionAllowed());
     updateFocus();outside();syncMotion();
     if(focused)nodes.get(focused)?.querySelector('button')?.focus({preventScroll:true});
-    if(focusedChip)[...chips.values()].find(e=>e.dataset.chip===focusedChip&&e.tagName==='BUTTON')?.focus({preventScroll:true});
   }
   map.addEventListener('keydown',e=>{
     if(!['map-viewport','map'].includes(e.target.id||e.target.className))return;
@@ -4579,6 +4899,13 @@ function createMap() {
     if(w && measuredWidth!==maxCardWidth())update(rawData,chosenNode);
     else size();
   }
+  reduced.addEventListener('change',syncMotion);
+  highContrast.addEventListener('change',requestDrawing);
+  forcedColors.addEventListener('change',()=>{
+    map.dataset.renderer=forcedColors.matches?'svg':gpu?'webgl':'svg';
+    surface.hidden=forcedColors.matches||!gpu;mini.setGPU(!forcedColors.matches&&!!gpu&&!!mini.frame());
+    syncMotion();requestDrawing();
+  });
   new ResizeObserver(()=>resize()).observe(viewport);
   addEventListener('resize',requestDrawing);
   function revealSelection() {

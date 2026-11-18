@@ -45,7 +45,7 @@ Returns `text/html; charset=utf-8`, loading `page.html` beside `server.py`. If t
 Every response creates a fresh random nonce, replaces every literal `__NONCE__` in the file with that nonce, and sets this Content-Security-Policy (the same nonce for script and style):
 
 ```text
-default-src 'none'; script-src 'nonce-<nonce>' 'self'; style-src 'nonce-<nonce>'; connect-src 'self'; img-src 'self' data: blob:; base-uri 'none'; form-action 'none'
+default-src 'none'; script-src 'nonce-<nonce>' 'self'; style-src 'nonce-<nonce>'; connect-src 'self'; font-src 'self'; img-src 'self' data: blob:; base-uri 'none'; form-action 'none'
 ```
 
 The page puts `nonce="__NONCE__"` on its style, import map and entry module. The import map resolves `three` to the loopback server. It stores the startup query token in this tab's `sessionStorage`, under `graph-flow-token:<port>`, removes `t` with `history.replaceState`, and sends `X-GF-Token` on every API request. When `t` is absent it reads the stored token. Storage is scoped by origin and the key by port. All record text uses `textContent`. The policy permits nonce-authorized markup and same-origin modules. CSSOM/element.style changes position and scale the DOM cards and SVG routes.
@@ -56,7 +56,7 @@ An unauthenticated GET `/` returns HTTP 401 with `text/html; charset=utf-8`, `no
 
 ## GET /static/<name>
 
-The exact, case-sensitive `STATIC_TYPES` allowlist includes `page.js`, `graph-webgl.js`, `activity-webgl.js`, the four existing `assets/frog-*.png` files, and the individual vendored files listed under [vendor/three](../scripts/graphflow/vendor/three/manifest.json). JavaScript uses `text/javascript; charset=utf-8`, the manifest uses JSON, the licence uses plain text, and the artwork uses `image/png`. GET requires the same Host check and permits unauthenticated static imports. Unknown names, dot segments, percent-encoded names/separators, and traversal under `/static/` return 404 without decoding or normalizing the requested path. Static responses include `no-store` and the usual security headers. POST and other methods retain authentication.
+The exact, case-sensitive `STATIC_TYPES` allowlist includes `page.js`, `graph-webgl.js`, `activity-webgl.js`, the four existing `assets/frog-*.png` files, and the individual vendored files in the [three.js manifest](../scripts/graphflow/vendor/three/manifest.json) and [font manifest](../scripts/graphflow/vendor/fonts/manifest.json). JavaScript uses `text/javascript; charset=utf-8`, manifests use JSON, licences use plain text, fonts use `font/ttf`, and artwork uses `image/png`. The page CSP permits fonts only from its loopback origin. GET requires the same Host check and permits unauthenticated static imports. Unknown names, dot segments, percent-encoded names/separators, and traversal under `/static/` return 404 without decoding or normalizing the requested path. Static responses include `no-store` and the usual security headers. POST and other methods retain authentication.
 
 ## GET /api/projects
 
@@ -156,91 +156,107 @@ The to-do and log view reads top to bottom:
 4. **Tasks as a table**, closed by default: task and id, status, worker, attempts used, and what it still waits for. A task's name shows only that task's entries in the record.
 5. **Lessons**, closed by default and present only when some are recorded.
 
-Log entries use quiet borders without a separate colour code. Every entry states its event or outcome in words; answers say whether the person accepted the result, requested changes, rejected it, or answered a question. Dates are day-group headings and all timestamps use aligned 24-hour `HH:mm` text in the proportional UI font with tabular numbers. The phone log has no horizontal scroll; only the task table scrolls sideways inside its own box.
+Log entries use quiet borders without a separate colour code. Every entry states its event or outcome in words; answers say whether the person accepted the result, requested changes, rejected it, or answered a question. Dates are day-group headings and all timestamps use aligned 24-hour `HH:mm` text in IBM Plex Mono with tabular numbers. The phone log has no horizontal scroll; only the task table scrolls sideways inside its own box.
 
 The graph uses ordinary screen-aligned DOM cards and labels, a three.js orthographic WebGL2 edge layer, and the existing accessible HTML list. It starts with SVG and loads the bundled renderer on demand when a diagram with edges is visible. SVG also handles unsupported WebGL2, creation failure, context loss and `renderer=svg`.
 
-The visual language uses white cards on a cool off-white map (`#f5f7f9`), dark text (`#202b38`), readable secondary text (`#536174`), fine borders and restrained shadows. System fonts need no network. Graph titles are 18px; status, references and captions start at 14px. Text-bearing layouts fit down to 6/7 scale. Status and reference fonts grow inversely to preserve at least 12 rendered pixels, and edge labels are hidden below the normal reading scale. Unscaled text is at least 12px. Identifiers remain copyable text references without a button border or fixed button height. All primary actions share the same blue style; disabled controls have a flat grey fill and a nearby reason. Korean words stay together. The walking frog remains absent.
+The dashboard uses one dark control-room treatment across the graph, log,
+decision and reading surfaces. Cyan identifies structure, magenta identifies
+current work and selection, yellow identifies a needed answer, and red
+identifies a failure or return. Completed work uses quiet ink. Scanlines and
+the vignette sit beneath the stage grid, shadows belong to traces and plate
+backs, and text has no glow. Forced colors uses system colors and SVG paths,
+with textures and glow removed. The high-contrast preference also removes textures and decorative glow. The visual references are [Blade Runner 2049
+screen graphics](https://territorystudio.com/project/blade-runner-2049/) and
+[Territory's account of designing the screens](https://www.pushing-pixels.org/2018/09/27/the-art-and-craft-of-screen-graphics-interview-with-daniel-hojlund.html).
+The contrast and non-color requirements follow [WCAG text
+contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html),
+[non-text contrast](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html)
+and [use of color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html).
 
-Every card shows its kind in a non-color icon with at least 16 apparent CSS px and a state glyph. A page means work, a magnifier means review, an outlined diamond means decision, and a flag means the whole result. At far zoom those two marks carry the card. Mid zoom adds the title and a right-aligned badge with one, two or three separated bars for the effective risk lane. Each bar is at least 16 apparent CSS px tall and has at least 3:1 contrast against the badge. Three bars identify the lane whose gate requires a human answer. Near zoom and the phone list also show state words, recorded attempt count, outputs, planned checks and questions, and the current failed expectation where recorded. A return names its actor only when the record identifies a recognized role. A retry keeps earlier failures in its history. The whole-result card can show failure when the current final verdict failed. Node IDs appear in the selected panel and find box. One reading action per decision lives in the decision strip.
+Text uses IBM Plex Sans KR, data uses IBM Plex Mono, and titles of at least
+16 CSS px use Do Hyeon. Chakra Petch is used for short English control labels.
+The full OFL-1.1 faces and licence texts are shipped with
+[hashes and upstream paths](../scripts/graphflow/vendor/fonts/manifest.json).
+The browser uses system faces if it cannot load the local fonts.
 
-The layout computes longest-path layers from the forward relations. Each non-root card follows its deepest prerequisite, including a review's target. Long edges reserve slots in intermediate layers. Deterministic neighbor sweeps and adjacent swaps improve the order within each rank. Ports follow the opposite endpoint order, and tracks use the cost of actual perpendicular crossings to choose their order. Aligned ports remove bends when the channel can use a straight route. Tiered card widths, live card measurements and overview wrapping determine the stage coordinates. Detail limits widths on phones to preserve panning and the readable zoom floor. SVG and WebGL use the same orthogonal centerlines, with a background underlay to separate crossing strokes. A handoff label appears on the detail map when the full pill fits its own segment at reading scale. Readable labels remain in the relation lists regardless of space. Path-like labels and bare node IDs use generic handoff copy.
+Cards identify work, review, decision and the overall result using words and
+distinct chamfered silhouettes. The corner cut increases with the effective
+risk level, alongside its written level. The state glyph directly precedes its
+word. The filled diamond ◆ and diagonal hazard rim belong to a bound, open
+answer. A stalled attempt uses ◴, a broken quiet rim, muted ink and elapsed
+idle minutes. An open answer displays elapsed minutes from its recorded ask.
+Second and later attempts show their ordinal. The overall result has no risk
+label because it has no recorded lane. Existing plan reading and near-card
+evidence retain their original checks, questions, and result wording.
 
-The arrowhead identifies the relation. A filled triangle hands over, an open chevron waits for a decision, and a double chevron means reviewed by. Review flows from target to reviewer. An independent stroke pattern identifies the gate. Solid means delivered, long dashes mean pending, short dashes mean awaiting an answer, and a long-short pattern means returned. The legend shows the relation and gate entries present in the graph. The panel, accessible list and phone list use the same source and destination order, relation names, and gate words. Every relation has its own route identity, branch marker and list row. A channel can share an outgoing or incoming track between direct relations with the same common endpoint, relation kind, gate and recorded label. The other endpoints must be distinct. Separate direct relations between the same pair keep separate ports. Routes through intermediate layers keep separate tracks. The router compares individual, fan-out and fan-in tracks in each channel, preferring fewer crossings, then fewer straight runs when each vertical track is counted once, fewer bends and shorter routes. Each shared portion is drawn once with its group's gate pattern. A fan-out branch marks its destination port. Each fan-in branch marks its entry to the common track, and the common lead marks the destination port.
+The layout uses longest-path layers, reserving space in intervening layers
+for long relations. Neighbor sweeps and track ordering control crossings.
+Matching relations can share fan-in or fan-out shafts, and individual
+branches retain their own marker, route identity and word tag. Reviews run
+from target to reviewer. The filled triangle, open chevron and double chevron
+distinguish handoff, decision dependency and review. Tags report the existing
+flow state in words. Reviews and decision dependencies carry a kind prefix.
+The trace is solid for delivery and use, dashed for waiting or out of turn,
+short-dashed for a block, and long-short for a return. Gate words and record
+references remain available in the detail and edge lists.
 
-Fit picks Detail when the whole map fits at readable scale and otherwise tries Overview. Larger plans remain scrollable. Off-screen buttons can bring cards into view. Counts distinguish plan cards, the derived whole-result card when present, and the number of whole titles in view. The graph has no cards before a plan is posted. A clipped outline can remain visible while partial text lines are hidden. Selection uses a separate desktop panel and brings the selected card into view when it fits. The DOM follows layer and row order for Tab, including across a wrapped overview row.
-
-Zoom and fit controls stay outside the scaled stage. Readable layouts fit down to 6/7 scale and manual zoom reaches a 70% glyph-only mode. Detail extends to 160%. Mouse-wheel zoom with Control or Command anchors at the cursor. Drag pans the desktop background, and touch uses native scrolling. The viewport supports +, −, 0 and arrow keys. The minimap appears in a reserved strip below the graph viewport when the graph overflows and accepts click, drag and arrow navigation. Phone graphs start as a full-width list in dependency order and offer a diagram toggle. Phone cards clip naturally while scrolling. Plan choice controls remain in a sticky bottom bar. Graph and decision actions on phones have at least 44×44 CSS px hit boxes, including map cards at minimum zoom. Inline reference links and buttons keep the text treatment and have at least 24×24 CSS px hit boxes. Visible text is at least 12 CSS px after applying the stage scale.
-
-The filled diamond ◆ is reserved for a card with an open answer bound to it. It takes precedence over ordinary running, reviewing, or submission cues at every zoom. Working uses ▶, reviewing uses ⌕, retrying uses ↪, held uses Ⅱ, and awaiting a revised plan uses ↻. The intentional collapses are pending plus assigned (await work), passed plus an already answered decision (read the result or continue), held plus awaiting approval with no open answer to act on (await the next recorded event), the exhausted alias of replan (await replanning), and first and later running reviews (await review). An unknown or missing status falls back to the pending cue. Checking and verification pending use distinct marks. Changed cards can briefly fade in. Reduced motion removes that animation.
-
-Selection or keyboard focus outlines the card and its transitive prerequisites and dependents. Thicker strokes emphasize their recorded relations. The focus underlay clears context strokes wherever they cross the dependency path. Shared portions carry focus when any of their branches is on the path, and all focused strokes and markers are drawn above context. Context remains interactive with softer surfaces and strokes.
-
-Under an orthographic camera, a fixed tilt changed only a few pixels and carried nothing the flat view did not already show.
+Fit chooses Detail or Compact at the readable scale floor of 6/7. Manual
+zoom reaches 70%, where the title, strip, category rows and edge tags may
+drop while the kind and state remain readable. Larger maps scroll and offer
+a minimap with pointer and arrow-key navigation. Zoom can anchor to the
+pointer, and the viewport also accepts +, −, 0 and arrow keys. Native Tab
+follows dependency and wrapped-row order. Phone starts in the list and
+offers the diagram toggle. Phone cards clip naturally while scrolling. Selection opens a drawer over the right stage
+edge, or a phone bottom sheet, without reserving a graph column. Close and
+Escape return focus to the originating card or relation. The plan reading
+requirements and decision actions retain their existing rules.
 
 ### Work activity at a glance
 
-The graph reserves a strip along the bottom of each card with current-attempt
-phases. Seven monochrome shapes identify categories, including a hollow ring
-for inferred thinking. Crosses mark errors. Segment lengths use a common
-duration scale with a 7 stage px minimum, a 1 stage px gap between rails,
-and equal shares when all durations are zero. SVG uses the same geometry.
-At far zoom the strip shows the category mark in place of the segments.
-At mid and near zoom the painted category mark spans at least 16 CSS px.
-The card's accessible name includes the category and any attention state.
+The strip uses the current attempt's chronologically anchored phases.
+A dot represents a recorded call at its start, or at its recorded end when
+only that endpoint exists. An open observed call supplies the current
+category word and strip head. Up to three rows sort original category
+totals by measured time, with category name, patterned bar and duration.
+A phase whose category is outside the three rows and the current word
+keeps a quiet segment, and the drawer retains its category and details.
+Unobserved attempts show their explicit observation status and whatever
+check or submit boundaries prove. They produce no call dots or head.
+Thinking intervals retain the inferred label and require surrounding
+observations. The elapsed time for an open answer comes from its ask
+record, independent of the activity ledger.
 
-The filled answer diamond is the first attention tier. Heavier outlined
-marks for stalled or repeating activity form the second tier. Normal
-activity forms the third tier. The toolbar displays a second-tier count
-when one or more cards are in that tier. A running third-tier card varies
-only its current rail's stroke width from 1.3 to 2.2 CSS px over 2.4 seconds.
-One keyboard-reachable toolbar button pauses graph motion across polls.
-Graph animation runs at up to 12 frames per second while relevant activity
-or a live handoff is visible. SVG and reduced-motion views are static.
+The work or review drawer retains the ordered phases by attempt, reported
+durations and counts, tool names, errors, attribution and origin. Its
+three.js phase solids and corresponding native controls remain available
+on desktop, with explicit 3.6-second playback. Phone, forced SVG and
+WebGL loss retain the list and totals. The playback starts on request.
 
-The selected work or review panel starts with the recorded work summary
-after any pending question and its primary reading action. The scene and
-ordered list display the same phases and attempts. The full-width scene
-places solids in reading order with screen-aligned category buttons.
-Extrusion encodes known duration up to a common scale and a minimum.
-The scene gives each final silhouette at least 24 CSS px on both axes.
-Seven forms distinguish categories without hue, including the hollow form
-for inferred thinking. Crosses, brackets and parallel bars mark errors,
-stalled activity and repeated failures. The solid and its list row share
-selection through native buttons. Each attempt has aligned time and call
-bars. Rows include tool names and call counts, total and longest known
-duration, errors, observed times, attribution and origin.
+### Live graph motion
 
-Playback traces reading order for 3.6 seconds with a short turn of each
-solid. Pause and replay use native buttons. Polling preserves selection and
-playback order. Reduced motion draws the final scene once at selection.
-Phone, forced SVG and WebGL failure present the same list and totals chart.
+The first snapshot paints static. Fresh call records pop a dot and grow the
+strip, state changes pop their glyph, and pass, return or session
+communication starts sweep a ring once. A return also makes one brief
+change to the plate back. Fresh verified transfer records send a token
+along the route, filling it behind the token, and a recorded return sends
+a reverse token. Up to four transfers can paint concurrently. Delivered
+edges can drift toward a running target after a live update and stop when
+the target stalls. A newly bound answer pulses three times in its first
+three seconds and once every 12 seconds after that. These two effects are
+the only graph loops. One graph control pauses the live channels and
+drawer playback. Reduced motion, hidden documents, forced colors and SVG
+suppress graph motion. The [WCAG pause](https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html),
+[flash](https://www.w3.org/WAI/WCAG22/Understanding/three-flashes-or-below-threshold.html)
+and [interaction motion](https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html)
+criteria inform these bounds, and [Tversky et al.](https://hci.stanford.edu/courses/cs448b/papers/Tversky_AnimationFacilitate_IJHCS02.pdf)
+informs the event-to-motion mapping.
 
-Progressive disclosure follows Shneiderman (1996), and shapes plus plain
-text follow the channel guidance of Lohmann et al. (2016) and WCAG 2.2 SC
-1.4.1. The capture measurements verify the implementation. They do not
-establish a benefit of 3D for workflow comprehension. This display supports
-P5 and P12 with scoped, recorded work and P6 with deterministic condensation.
-P10 still requires the same existing answers. The activity view adds zero
-human stops, approval states, execution nodes, gates or sessions.
-
-### Relation flow
-
-The gate shaft pattern and relation arrowhead retain their meanings. Adjacent
-monochrome marks encode reachability, waiting for a source, delivery, a ready
-or running frontier, a block, and a return pointing toward the producer.
-The toolbar counts delivered relations, frontier relations in progress,
-waiting and unreachable relations, and blocked and returned relations.
-The page animates the first appearance of a delivering record on a relation
-with one 1-second pulse. A hidden page drops motion. Already displayed,
-paused or reduced-motion handoffs stay static.
-
-The drawn routes have a 24 CSS px pointer corridor. The accessible edge
-list and phone handoff list have native relation buttons. A shared segment
-opens a choice of the relations that traverse it. A relation selection
-highlights its two endpoints and the route. The panel names the direction,
-relation, item, and flow and gate records with their ids and times. A
-return names the recorded rejection. Escape and Close clear the selection.
+The relation route retains a 24 CSS px pointer corridor. The flat graph,
+phone list and accessible list share relation identity. A shared shaft can
+open a branch chooser. The drawer presents the direction, relation, item,
+gate and flow records with their IDs and times. These presentation changes
+serve P1, P3 and P6 and preserve the P10 human-stop baseline.
 
 ### Graph visualization verification
 
@@ -248,48 +264,55 @@ These checks implement Graph Flow principles P1, P3 and P6 by testing the data m
 
 | ID | Rationale and source | Checked against | Failing test or assertion |
 | --- | --- | --- | --- |
-| P1 | A recognizable shape keeps kind readable without hue (Lohmann et al., 2016). The 16 CSS px minimum is an internal invariant for the painted kind cue. | Stored plan and derived whole-result kinds against icon paths and their apparent bounds at all diagram zoom levels and in the phone list. | `assertGraphRecords` P1 |
-| P2 | Distinct relation encodings keep kinds readable without color (WCAG 2.2 SC 1.4.1). Shared routes preserve each relation’s direction, gate pattern and marker. | Stored `needs`, review `target`, run state, and the declared terminal-to-whole-result rule against the scene, SVG paths and markers, selected panel, accessible list, and phone rows. | `assertGraphRecords` P2, including the record-derived panel check formerly named E10 |
+| P1 | Restated for the card kind silhouette and adjacent kind word. | Stored and derived kinds against clip polygons and card words. The former 16px icon-size invariant is retired. | `assertGraphRecords`, `assertInstrument` G2/G3 |
+| P2 | Restated for separate direction, relation and current flow words. Traces now follow flow state. | Recorded needs and review targets against branch marks, paths, tag prefix, gate words and selected panel. | `assertGraphRecords`, `assertInstrument` G1 |
 | P3 | Internal invariant. Cards use the current record and history retains previous outcomes and their recorded attribution. | Final verdict, historical return actor, and attempt records against the current card and retained history. | `test_p3_current_record_and_retry_history`, `test_p3_current_final_uses_latest_valid_verdict`, graph-record captures P3 |
 | P4 | Internal invariant. Every card and relation has a stored or explicitly derived source. | Stored node IDs and relations plus the whole-result derivation against the scene, including an empty run and missing endpoints. | `test_p4_scene_has_no_cards_or_edges_without_records`, `assertGraphRecords` P4 |
-| M1 | Sugiyama et al. (1981) describe ordering vertices in layers. Path-based ranks and dependency-ordered Tab are internal invariants that preserve prerequisite direction across wrapped rows. | Scene edge endpoints and layers against card order, plus a native Tab crossing the wrapped chain's row break. | `LayoutTests.check_graph` M1, `graph-wrapped-order` M1 |
-| M2 | Separating cards and keeping routes traceable reduces ambiguity for path following (Ware et al., 2002). | Scene rectangles and routed segments for long edges, parallel relations, dense branches, and wrapped chains. A ratchet checks strict perpendicular crossings of drawn shafts and logical-route bends against pinned fixture and capture values. | `LayoutTests.check_graph` M2, `assertGraphRecords` and the capture route ratchet |
+| M1 | Dependency order follows longest-path layers. | Scene endpoints and layers, including native Tab across a wrapped row. | `LayoutTests.check_graph`, `graph-wrapped-order` |
+| M2 | Route and card separation is an internal invariant. | Dense, long, parallel and wrapped routes against pinned crossing, bend and length ratchets. | `LayoutTests.check_graph`, the capture route ratchet |
 | M3 | Internal invariant. Each reading scale presents the same inventory so a zoom change preserves the work it depicts. | Record and scene ID multisets against diagram, phone and accessible list IDs and rendered toolbar counts, including zero cards and duplicate titles. | `assertGraphRecords` M3 |
 | M4 | Internal invariant. Identical layout inputs reproduce the ranks and positions. | Two scene constructions from the same input and layout options. | `LayoutTests.check_graph` M4 |
-| Psi1 | State information remains readable through a non-color channel (WCAG 2.2 SC 1.4.1). | Full presentation vocabulary against rendered glyphs at both levels, plus three grayscale glyph crops in one recorded scene. | `test_psi1_psi4_state_glyphs_and_words_cover_the_vocabulary`, `compareGrayGlyphs` |
-| Psi2 | Text needs 4.5:1 contrast and state-bearing graphical marks need 3:1 (WCAG 2.2 SC 1.4.3 and 1.4.11). | Computed foregrounds and composited backgrounds for graph text and marks, including normal, selected, returned and sent-back cards, route strokes and the expanded legend. | `assertAppearance` Psi2 |
+| Psi1 | Restated for the instrument glyph and word vocabulary, including stalled ◴ and submitted ↥. | All card states, glyph adjacency and grayscale glyph differences. | `test_psi1_psi4_state_glyphs_and_words_cover_the_vocabulary`, `compareGrayGlyphs`, G1 |
+| Psi2 | WCAG 2.2 SC 1.4.3 and 1.4.11. The light and expanded-legend cases are retired with the light presentation and page legend. | Effective dark card plates and route contrast, including focused, returned and stalled states. | `assertAppearance`, G5 |
 | Psi3 | Reachable targets preserve access to graph actions (WCAG 2.2 SC 2.5.8). The text and phone target floors are internal invariants for the dashboard. | Actual 390px list, diagram and choice-control hit boxes against the dashboard floors, and computed font size multiplied by the stage scale. | `assertAppearance` Psi3, `graph-minimum-zoom-phone` Psi3 |
-| Psi4 | A single unique mark avoids requiring a conjunction to find a card waiting for an answer (Healey and Enns, 2012). | Bound open answers and all other presentation states against the presence of ◆ in the state glyph. | `test_psi1_psi4_state_glyphs_and_words_cover_the_vocabulary`, `assertGraphRecords` Psi4 |
+| Psi4 | A distinct glyph and hazard rim identify an urgent answer. | Bound answers against the filled diamond and hazard rim. | `test_psi1_psi4_state_glyphs_and_words_cover_the_vocabulary`, `assertInstrument` G3 |
 | R1 | Internal invariant. Both backends present the same relation inventory, shared shafts and branch markers. | Shaft and marker IDs, relation, gate, visibility and projected geometry against the scene within 0.5 CSS px. Layout checks independently cover every relation with its associated shafts and marker. | `assertRendererParity` |
 | R2 | Internal invariant. Visible geometry produces canvas ink along route segments and leaves card interiors clear. | Readback of the WebGL framebuffer in test mode, along visible projected routes and qualifying shaft lengths, and inside cards. | `assertGraphInk` |
 | R3 | Internal invariant. Text and edges share a coordinate transform so interaction preserves registration. | Screen-aligned labels, actual DOM rectangles and projected edge endpoints after pan, zoom, resize and level change within 0.5 CSS px. | `assertRegistration`, `assertAppearance` |
 | R4 | Retired. | | |
-| R5 | Focus facilitates inspection of recorded dependencies. Apply the 3:1 non-text floor to focused and dimmed marks (WCAG 2.2 SC 1.4.11). | Card outlines against the recorded dependency closure, stroke emphasis, focus underlays and ink above all context ink, and computed contrast including WebGL strokes. | `assertAppearance`, `assertDependencyFocus` |
-| R6 | Reactome uses zoom-dependent detail (Sidiropoulos et al., 2017). The exact cue inventory per level is an internal invariant so far zoom retains the answer cue. | Painted kind cue size, state glyph, title and full-card visibility at each zoom level. | `assertGraphRecords` R6 |
+| R5 | Focus facilitates inspection of recorded dependencies. Apply the 3:1 non-text floor to focused and dimmed marks (WCAG 2.2 SC 1.4.11). | Card outlines against the recorded dependency closure, stroke emphasis, focused halos and ink above context, and computed contrast including WebGL strokes. | `assertAppearance`, `assertDependencyFocus` |
+| R6 | Restated for readable kind and state words at far zoom. | Kind, state, title and risk cues by reading level. | `assertGraphRecords` |
 | R7 | Internal invariant. Renderer failure preserves access to the same graph and current selection. | The Stage A assertions and R1/R3 under forced SVG, plus simulated WebGL loss with a selected card. | `assertRendererParity`, `assertRegistration`, `exerciseGraph` R7 |
-| R8 | Automatic motion longer than five seconds needs a pause, stop or hide mechanism (WCAG 2.2 SC 2.2.2). Zero duration under reduced motion and idle frame counts are internal invariants. | Computed animation and transition durations, animation iterations, and settled frame count. | `assertMotion` |
-| R9 | Counting separated bars preserves risk information without hue (WCAG 2.2 SC 1.4.1). The minimap depicts the whole graph in its own strip. | Effective lane, bar count, height of at least 16 apparent CSS px and contrast of at least 3:1 at mid and near. Minimap marks, viewport indicator, hit area, keyboard access and separation from cards at desktop and phone scroll extremes. | `assertGraphRecords`, `assertAppearance`, `assertMinimap`, `assertMinimapClear` |
+| R8 | Restated for the single event clock and one global pause. The former computed loop and idle-frame numbers are retired. | Cold baseline, pause, reduced motion, flash cadence and settled state. | `assertMotion`, G6 |
+| R9 | Restated for the written effective lane and monotone cut. Counted bars and their size floor are retired. | Lane word and clip depth, minimap markers, keyboard access and clearance. | `assertInstrument`, `captureLaneCards`, `assertMinimap`, `assertMinimapClear` |
 | A1 | Internal invariant. Persist and serve only catalogued activity metadata. | A documented hook payload with secret-looking arguments, transcript path and tool output against the log, CLI, MCP and authenticated run response. | `test_a1_hook_secret_never_reaches_ledger_cli_mcp_or_served_view` |
 | A2 | Internal invariant. An ambiguous observation stays at run level. | Exact session and directory matches, one running attempt and ties against attribution outputs. | `test_a2_attribution_priority_and_ties` |
 | A3 | Internal invariant. Observation must succeed or fail silently outside tool execution. | Packaged asynchronous hook command and script under missing run, malformed payload and simulated disk exhaustion. | `test_a3_missing_run_malformed_payload_and_full_disk`, distribution hook test |
 | A4 | Internal invariant. Condensation preserves call counts, ordering and measured duration. | Generated and fixture observations against uncapped and capped deterministic output. | `test_a4_generated_and_fixture_condensation` |
 | A5 | Internal invariant. The scene and list are projections of the phase records. | IDs, categories, shape tokens, order, duration-derived lengths and flags against the list and read-only scene description. Framebuffer ink is required in each projected solid's bounds. Fallback and loss retain the same list. | `assertWorkSummary`, activity context-loss capture |
-| A6 | Internal invariant. Only a bounded interval can describe inferred thinking. | Disjoint observed starts and ends against gaps, hollow shape, glyph and accessible name. | `test_a6_only_bounded_gaps_and_repeating_and_stalled`, `assertWorkSummary` |
-| A7 | Healey and Enns (2012) support preserving a unique urgent mark. Activity size, contrast and static marks are internal invariants. | Running graph and phone cards, answer cue, observed category and attention labels. Graph motion has moved to the current rail so status changes leave marks static. | `test_a7_activity_cues_are_optional_and_quieter_than_answers`, `assertActivityCues` |
-| A8 | WCAG 2.2 SC 2.5.8 for the 24 CSS px target floor and SC 2.2.2 for pausing motion. Playback and idle frame limits are internal invariants. | Playback with 1, 10 and 12 phases, reduced-motion frame count, keyboard pause, replay and a stationary camera on append. The toolbar pause also covers both graph motion channels. | `assertWorkSummary`, `checkPlayback`, `verifyGraphProgress`, `verifyHandoffPulse` |
+| A6 | Internal invariant. Only a bounded interval can describe inferred thinking. | Disjoint observed starts and ends against gaps and the inferred label and pattern. | `test_a6_only_bounded_gaps_and_repeating_and_stalled`, `assertWorkSummary` |
+| A7 | Restated for observed category words, labelled patterns and explicit stalls. The previous 16px activity icons are retired. | Graph and phone observation status, current words and answer priority. | `assertInstrument` G1–G4 |
+| A8 | Restated for explicit drawer playback and the shared pause. Automatic first-play and graph rail cadence are retired. | Playback with 1, 10 and 12 phases, idle frame counts, reduced motion, keyboard pause and camera preservation. | `assertWorkSummary`, `checkPlayback`, G6 |
 | A9 | Shapes offer a non-color channel (WCAG 2.2 SC 1.4.1). The 10% raster margin is an internal invariant. | 64×64 grayscale silhouettes, pairwise symmetric difference divided by the union. This rendering check provides no evidence of human recognition. | `assertWorkSummary` silhouette readback |
 | A10 | Internal invariant. A host without observations still has verifiable boundary evidence. | Start, checks and submit events across boundary-only attempts and the explicit unobserved label. | `test_a10_boundary_only_and_unreadable`, `assertWorkSummary` |
-| F1 | Internal invariant. Bands project the current attempt without changing condensation. | Phase IDs, order, category, error counts, and proportional lengths within 1 stage px after the segment minimum. Compare SVG paths and sample WebGL ink. | `test_f1_activity_band_matches_phases_and_stays_inside_card`, `assertActivityCues`, `assertGraphInk` |
+| F1 | Restated for the record-time DOM strip shared by both backends. The bottom-rail width and SVG/WebGL ink checks are retired with that rail. | Phase order and time positions, call dots, and in-card pattern names. | `test_f1_activity_strip_preserves_order_timing_and_bounds`, `assertInstrument` |
 | F2 | Non-color flow marks follow WCAG 2.2 SC 1.4.1. The correspondence to records is an internal invariant. | All record-derived flow states and frontier, delivering event and time, and six distinct drawn marks. | `assertFlowRecords` |
-| F3 | Healey and Enns (2012) support an identifiable urgent mark. The exact size and weight order is an internal invariant. | Raster area, CSS stroke weight for outlines and solid-region thickness for the filled diamond in a mixed fixture. The first two tiers have zero animated segments. | `assertAttentionInk`, `assertActivityCues` |
-| F4 | WCAG 2.2 SC 2.2.2 supports one pause control for ongoing graph motion. Cadence and pulse lifetime are internal invariants. | Keyboard pause across polling, reduced motion, hidden page, idle frame count, 12 fps cap and one pulse per observed delivery. | `verifyGraphProgress`, `verifyHandoffPulse` |
+| F3 | Restated for the urgent diamond and exclusive hazard stripes. The prior raster tier-area and zero-motion thresholds are retired. | Answer and other states in a mixed fixture. | `assertInstrument` G3, G5, G6 |
+| F4 | Restated for event-derived motion and deterministic timing. The 2.4s rail oscillation, 12 fps cap and fixed 1s dot are retired. | Clock-stepped events, pause, baseline and delivery fill. | `test_g6_deterministic_event_clock_and_loop_inventory`, `recordCalls`, `recordAnswer`, `verifyHandoffPulse` |
 | F5 | A 24 CSS px route corridor supports WCAG 2.2 SC 2.5.8. Relation membership and provenance are internal invariants. | Native pointer and keyboard selection, shared-segment chooser, selected endpoints and exact record references under both renderers. | `assertEdgeSelection` |
 | F6 | Internal invariant. Phase controls, tool totals, category totals and solids agree with the condensed view. | Tool sums, chart inputs, keyboard selection in both directions and final-frame raster bounds of at least 24 CSS px. | `assertWorkSummary`, `test_a4_generated_and_fixture_condensation` |
 | F7 | Internal invariant. Flow and activity detail serve allowlisted metadata. | A1 secret arguments, transcript path, result and error fields against phase and edge surfaces. | `test_a1_hook_secret_never_reaches_ledger_cli_mcp_or_served_view`, `assertWorkSummary`, `assertEdgeSelection` |
 | F8 | The Codex hook contract defines session, turn and invocation IDs. Unknown input handling is an internal invariant. [Codex hook schemas](https://learn.chatgpt.com/docs/hooks) | Documented start/end payloads, unchanged activity schema and event bytes, and malformed shapes through the packaged hook. | `test_f8_documented_codex_calls_share_the_activity_schema` |
+| G1 | No global key is needed. | Adjacent glyph and word, matching local strip patterns and rows, and one state-word tag per logical edge. | `assertInstrument` |
+| G2 | Card facts come from records. | Both locales, kind, state, effective lane, ordinal, current category, idle and pending minutes, descending time rows. | `assertInstrument`, `test_f1_activity_strip_preserves_order_timing_and_bounds` |
+| G3 | Shape and wear convey kind, risk and a needed answer. | Polygon tokens, cut size and the hazard attribute against plan and open answers. | `assertInstrument`, `captureLaneCards` |
+| G4 | Calls appear at their recorded times. | Current-attempt call IDs, future calls, boundary-only and unreadable activity. | `assertInstrument`, `test_f1_activity_strip_preserves_order_timing_and_bounds` |
+| G5 | The four roles and text contrast are invariant in the dark theme. | Computed colors, effective plate backgrounds, glyphs, strokes and flat text, including selected, stalled, returned and awaiting states. | `assertAppearance` |
+| G6 | Only fresh events start motion. | Injected timestamps for the motion inventory, lifetime, pause, reduced motion, baseline and flash cadence. | `test_g6_deterministic_event_clock_and_loop_inventory`, `recordCalls`, `verifyHandoffPulse`, `recordAnswer` |
+| G7 | Labels have separate positions on individual branches. | Scene and DOM rectangles for cards and relation tags, including dense routes and shared trunks. | `assertInstrument` |
 
 
-Crossing priority follows Purchase (1997), path continuity follows Ware et al. (2002), and remaining crossings use the perpendicular angle recommended by Huang et al. (2014). The ratchet data lives in `tests/fixtures/routing_ratchets.json`. The measured quantities are strict shaft intersections, logical bends, summed Manhattan route length in stage CSS pixels, and drawn shaft segments with each shared piece counted once.
+The ratchet data lives in `tests/fixtures/routing_ratchets.json`. The measured quantities are strict shaft intersections, logical bends, summed Manhattan route length in stage CSS pixels, and drawn shaft segments with each shared piece counted once.
 
 The grayscale assertion crops the glyph by its DOM bounds, scales each crop to 24×24 pixels using nearest-neighbor sampling, and thresholds gray values below 128. Each pair must differ in at least 5% of mask pixels. This is a rendering regression check. It provides no evidence of human recognition speed.
 
@@ -327,9 +350,9 @@ GF_HOME=/tmp/gf-demo-home python3 -B plugins/graph-flow/skills/graph-flow/script
 
 ## Plan review
 
-Before initial approval the graph cards all say “시작 전이에요”. The compact desktop banner contains the plan question, one line of nonzero counts, and equal-width Start and Send back actions with one-line consequences. Run-level goal, integration checks, frozen promoted checks and constraints live in the final “전체 결과 검사” card, connected after every terminal task, and in its independently scrolling selection panel. On phones it is the last flow item. Counts everywhere use the same function; scheduled counts include decision nodes, human checks and lane-3 gates, excluding plan approval, unforeseen questions and retries.
+Before initial approval the graph cards all say “시작 전”. The compact desktop banner contains the plan question, one line of nonzero counts, and equal-width Start and Send back actions with one-line consequences. Run-level goal, integration checks, frozen promoted checks and constraints live in the final “전체 결과 검사” card, connected after every terminal task, and in its independently scrolling selection panel. On phones it is the last flow item. Counts everywhere use the same function; scheduled counts include decision nodes, human checks and lane-3 gates, excluding plan approval, unforeseen questions and retries.
 
-Selecting a task shows actual instructions, owned files, inputs, outputs, then each check title and labelled command; review cards also show their lens. Check commands serve as titles when no title was recorded. Cards show delivery, check count and first check, and scheduled-question marks. Long check text is one line on the card and complete in the panel. The one-line legend includes only present marks. All data comes from run records. After send-back the banner retains the person's text and the graph is dimmed under “돌려보낸 계획” until a replacement arrives. Mid-run plans preserve actual completed/running statuses.
+Selecting a task shows actual instructions, owned files, inputs, outputs, then each check title and labelled command; review cards also show their lens. Check commands serve as titles when no title was recorded. Cards show delivery, check count and first check, and scheduled-question marks. Long check text is one line on the card and complete in the panel. The cards and route tags supply their own words. All data comes from run records. After send-back the banner retains the person's text and the graph is dimmed under “돌려보낸 계획” until a replacement arrives. Mid-run plans preserve actual completed/running statuses.
 
 Plan consent uses the signed `/api/answer` path, bound to structural identity, random run nonce and pinned key. It does not use the attachment-reading gate because the reviewed artifact is the plan itself; all other reading gates remain. Polling preserves view, selection, scroll, focus and the plan-change draft. Plan decision deep links open this banner. Superseded decisions link to the current question. Unverified answers are labelled as unverified records everywhere and never attributed as the person's consent.
 
@@ -350,7 +373,7 @@ Agent questions are free direction/information requests. The tool authors approv
 
 If attachment bytes change, the entire decision surface becomes a waiting message with no answer controls. If an open plan changes, the page names both decision ids, shows changed fields before/after, lists added/removed cards, and unlocks start only after each change is opened. The change list remains readable after unlocking. Retained 0.2.1 submissions must be opened and their files read before continuing. Key recovery names its global effect, links to records, and labels the replacement approval as tool-generated, with a key-change explanation rather than a plan-change explanation.
 
-A title counts as visible only when its whole title rectangle lies inside the graph viewport. Every other title belongs to exactly one direction chip. Counts include the final result card explicitly. Panning snaps titles at rest. Cursor zoom preserves the anchor within the scroll range. Polling preserves the position. Selection has its own column and preserves a manually positioned graph; an untouched fitted graph may fit again. The legend reserves space. Tracks and ports have at least 20 CSS pixels of separation at 100 percent. Planned check titles describe expectations, while executed checks carry result words and symbols. Work, checking, human turns and warnings have separate colours and text.
+A title counts as visible only when its whole title rectangle lies inside the graph viewport. Every other title belongs to exactly one direction chip. Counts include the final result card explicitly. Panning snaps titles at rest. Cursor zoom preserves the anchor within the scroll range. Polling preserves the position. The selection drawer overlays the stage and preserves its position. The former selection column and legend space are retired. Tracks and ports have at least 20 CSS pixels of separation at 100 percent. Planned check titles describe expectations, while executed checks carry result words and symbols. State words and glyphs distinguish work, checks, human answers and failures within the fixed palette.
 
 Executable-file notes are informational static plan analysis: an owned command/script/build file or a working directory overlapping owned files is marked. Reading an owned data file with grep/test does not mean executing it. Shell indirection, generated commands and symlink targets cannot be resolved from a plan alone; the marker is not a sandbox or security classification. Full execution inputs and raw contract references remain available under details.
 

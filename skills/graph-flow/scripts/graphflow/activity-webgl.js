@@ -75,18 +75,18 @@ export function createActivityScene(canvas, {attempts, reduced, autoplay, captur
   if(!context) return null;
   const renderer = new WebGLRenderer({canvas,context,antialias:true,preserveDrawingBuffer:capture});
   const scene = new Scene();
-  scene.background = new Color(0xf3f5f8);
+  scene.background = new Color(0x080b10);
   const camera = new OrthographicCamera(-1,1,1,-1,.1,220);
   const solids = new Group();
   const light = new DirectionalLight(0xffffff, 2.1);
   light.position.set(5,8,5);
   scene.add(solids,new AmbientLight(0xffffff,1.7),light);
   const materials = {
-    body:new MeshLambertMaterial({color:0x6484a6}),
-    inferred:new MeshLambertMaterial({color:0x7c93aa,transparent:true,opacity:.53}),
-    focused:new MeshLambertMaterial({color:0x4174bd}),
-    edge:new LineBasicMaterial({color:0x24354a,transparent:true,opacity:.40}),
-    mark:new MeshBasicMaterial({color:0x233142}),
+    body:new MeshLambertMaterial({color:0x45a5b6}),
+    inferred:new MeshLambertMaterial({color:0x8aa2ad,transparent:true,opacity:.53}),
+    focused:new MeshLambertMaterial({color:0xff4fa8}),
+    edge:new LineBasicMaterial({color:0xb6dbe2,transparent:true,opacity:.40}),
+    mark:new MeshBasicMaterial({color:0xdcecf1}),
   };
   const marker = new BoxGeometry(1,1,1);
   const geometry = Object.fromEntries(Object.keys(SHAPES).map(kind => [kind,outline(kind)]));

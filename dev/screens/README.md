@@ -50,7 +50,7 @@ across a wrapped row, empty counts, long phone detail and minimum phone zoom.
 The capture checks the visible colors and geometry and records the number of routed
 segment crossings for each scene. Scene 102 also checks grayscale cue crops.
 
-Scenes 110–112 capture the 60-node chain and the dense three-layer fixture with and without a selected card. Scenes 113–114 capture and crop all three lane badges at mid and near zoom. The routing ratchet uses the fixture limits under `skills/graph-flow/tests/fixtures/routing_ratchets.json`. The default run probes headless Chrome with SwiftShader and requires
+Scenes 110–112 capture the 60-node chain and the dense three-layer fixture with and without a selected card. Scenes 113–114 capture the three written risk levels and their chamfer size at mid and near zoom. The routing ratchet uses the fixture limits under `skills/graph-flow/tests/fixtures/routing_ratchets.json`. The default run probes headless Chrome with SwiftShader and requires
 WebGL2 on eligible diagrams if the probe succeeds. Rebuild the fixtures in a
 second output directory and set `SCREENS_RENDERER=svg` for the forced fallback run.
 The capture records first-frame timing, observed pan frame intervals and
@@ -64,8 +64,10 @@ sessions, and the phone list. The rich WebGL capture also checks projected
 ink, raster silhouettes, playback bounds, keyboard pause and context loss
 and saves a short MP4. The fixture ledger is isolated from user runs.
 
-Scenes 124–127 exercise graph progress and pause, record-derived flow,
-edge selection and shared-shaft selection. The harness measures painted
-activity tiers, verifies native pointer and keyboard selection, and
-records graph motion and a handoff pulse as separate MP4s. The same
-static checks run with `SCREENS_RENDERER=svg`.
+Scenes 124–127 use recorded activity and transfers and select individual or
+shared relations. Scenes 128–136 add a branched running graph, answer drawer,
+stalled and returned cards, dense tags, a phone list, forced colors and reduced
+motion. Clock-stepped captures sample new call dots and strip growth, one
+handoff with route fill, and the answer halo with native keyboard pause. The
+three short clips are in the WebGL capture's `final/` directory. The SVG run
+checks the same static facts and layout.

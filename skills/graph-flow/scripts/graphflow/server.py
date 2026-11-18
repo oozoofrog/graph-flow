@@ -37,6 +37,13 @@ STATIC_TYPES.update({"vendor/three/" + name: STATIC_TYPES["page.js"] for name in
 )})
 STATIC_TYPES["vendor/three/LICENSE"] = "text/plain; charset=utf-8"
 STATIC_TYPES["vendor/three/manifest.json"] = "application/json; charset=utf-8"
+STATIC_TYPES.update({"vendor/fonts/" + name: "font/ttf" for name in (
+    "IBMPlexSansKR-Regular.ttf", "IBMPlexMono-Regular.ttf", "DoHyeon-Regular.ttf", "ChakraPetch-SemiBold.ttf",
+)})
+STATIC_TYPES.update({"vendor/fonts/" + family + "-OFL.txt": "text/plain; charset=utf-8" for family in (
+    "ibmplexsanskr", "ibmplexmono", "dohyeon", "chakrapetch",
+)})
+STATIC_TYPES["vendor/fonts/manifest.json"] = "application/json; charset=utf-8"
 STATIC_ROOT = pathlib.Path(__file__).parent
 MAX_BODY = 64 * 1024
 MAX_EVIDENCE = 200 * 1024
@@ -600,8 +607,9 @@ def _view(current, derived, events, project, activities=None):
         return {"role": _text(actor.get("role"), None), "node": _text(actor.get("node"), None),
                 "session": _text(actor.get("session"), None)}
 
+    view["observed_at_ms"] = int(time.time() * 1000)
     work = activity.summaries(activities or {"status": "ok", "records": []},
-                              events, derived["nodes"], int(time.time() * 1000))
+                              events, derived["nodes"], view["observed_at_ms"])
     gates = {}
     for nid, node in nodes.items():
         st = derived["nodes"][nid]
@@ -1001,7 +1009,7 @@ def _handler(token):
                                  ("default-src 'none'; script-src 'nonce-%s'; base-uri 'none'; form-action 'none'" % nonce)
                                  if recovery else
                                  "default-src 'none'; script-src 'nonce-%s' 'self'; style-src 'nonce-%s'; "
-                                 "connect-src 'self'; img-src 'self' data: blob:; base-uri 'none'; form-action 'none'"
+                                 "connect-src 'self'; font-src 'self'; img-src 'self' data: blob:; base-uri 'none'; form-action 'none'"
                                  % (nonce, nonce))
             self.end_headers()
             if self.command != "HEAD":
