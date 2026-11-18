@@ -98,6 +98,20 @@ for(let i=0;i<2;i++){
 }
 """)
 
+    def test_l6_open_work_does_not_enter_measured_aggregate(self):
+        self.run_js("""
+const {aggregateSegments}=spacetime;
+const short=(start,end,duration,closed=true)=>({
+  kind:'tool',attempt:1,count:1,ids:['activity:'+start],start,end,low:start,high:end,duration,closed,
+});
+const settled=[short(0,5,7),short(4,9,8),short(9,12,4)];
+const open=short(12,15,3,false);
+const [combined,stillOpen]=aggregateSegments([...settled,open],span=>span.end-span.start,15);
+assert.deepEqual(combined.members,settled);
+assert.deepEqual([combined.count,combined.duration,combined.start,combined.end],[3,19,0,12]);
+assert.equal(stillOpen,open);
+""")
+
     def run_js(self, script):
         result = subprocess.run(["node", "--input-type=module", "-e", """
             import assert from 'node:assert/strict';

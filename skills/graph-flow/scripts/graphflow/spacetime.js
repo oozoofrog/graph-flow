@@ -154,7 +154,7 @@ export function spaceHistory(layout,{at,index,axis},transfers,waitEnds={},resets
       let covered=null, open=false;
       for(const call of calls){
         const measured=callsByAttempt.get(attempt.number)?.get(call.id);
-        const options={point:true,observed:true,count:1,attempt:attempt.seq,
+        const options={point:true,observed:true,count:1,attempt:attempt.seq,closed:call.end!=null,
           duration:call.end!=null?measured?.duration_ms:undefined,failed:call.end!=null&&measured?.failed};
         if(covered && !open && call.start-covered.end>=1000)
           add(pillar,'thinking',covered.end,call.start,[...covered.ids,...call.ids]);
@@ -214,7 +214,7 @@ export function aggregateSegments(segments,scaledHeight,lineHeight) {
   let coveredUntil;
   for(const segment of work){
     const prior=groups.at(-1), last=prior?.at(-1);
-    if(last && last.kind===segment.kind && last.attempt===segment.attempt &&
+    if(last?.closed && segment.closed && last.kind===segment.kind && last.attempt===segment.attempt &&
         segment.start-coveredUntil<1000 && scaledHeight(last)<lineHeight && scaledHeight(segment)<lineHeight){
       prior.push(segment);coveredUntil=Math.max(coveredUntil,segment.end);
     }else{
@@ -454,7 +454,8 @@ function placeLabels(host,candidates,cards,inspected,width,height,openGroup) {
   const occupied=cards.map(element=>({rect:rectOf(element)}));
   const tooltip=inspected && {
     id:'inspection',kind:'inspection',point:inspected.point,text:inspected.text,rank:-1,clamp:true,
-    offsets:[[0,0],[0,-18],[0,18],[0,-36],[0,36],[0,-54],[0,54]],
+    offsets:[[0,0],[0,-18],[0,18],[0,-36],[0,36],[0,-54],[0,54],
+      [12-inspected.point.x,24-inspected.point.y]],
   };
   const ordered=[...candidates.filter(item=>item.id!==inspected?.key),...(tooltip?[tooltip]:[])].sort((a,b)=>a.rank-b.rank||(b.duration??0)-(a.duration??0));
   const pending=ordered.map(item=>{

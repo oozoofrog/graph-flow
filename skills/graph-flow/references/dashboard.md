@@ -311,8 +311,8 @@ precede shorter ones, with scene order breaking ties. Hover or focus can
 show a single callout in available space. The browser exposes the shown
 and withheld counts to the capture harness.
 
-Consecutive calls of the same category and attempt with less than a
-second between them are grouped when each maps to less than one line.
+Consecutive completed calls of the same category and attempt with less
+than a second between them are grouped when each maps to less than one line.
 The segment envelope covers its members. Its count and duration add
 the same measured call contributions used by activity condensation.
 Observed work shorter than 5 CSS px is drawn upward from its exact
