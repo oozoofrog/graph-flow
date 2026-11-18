@@ -190,7 +190,7 @@ class WordingTests(unittest.TestCase):
         translate = next(line for line in source.splitlines() if line.startswith('const t = '))
         renderer = 'function rowSentence' + source.split('function rowSentence', 1)[1].split('function rowTone', 1)[0]
         script = prelude + '\nlet language="ko";\n' + translate + '\n' + renderer + '\nconsole.log(rowSentence('+json.dumps(row, ensure_ascii=False)+'));'
-        rendered = subprocess.run([NODE, '--input-type=module', '-e', script], text=True, capture_output=True, check=True).stdout
+        rendered = subprocess.run([NODE, '--input-type=module', '-'], input=script, text=True, capture_output=True, check=True).stdout
         self.assertIn('질문에 쓰일 문구가 바뀌었어요', rendered)
         self.assertIn('새 안내 쓰기', rendered); self.assertIn('Choose', rendered)
         self.assertNotIn('(a)', rendered); self.assertNotIn('(q)', rendered)

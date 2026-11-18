@@ -1,0 +1,18 @@
+{
+  "name": "graph-flow",
+  "owner": {
+    "name": "oozoofrog",
+    "url": "https://github.com/oozoofrog"
+  },
+  "plugins": [
+    {
+      "name": "graph-flow",
+      "source": ".",
+      "description": "Use when a user asks to plan, split, delegate, verify, or track multi-step work with checks that can fail, per-node sub-session assignment, human decision points, or a progress dashboard, or explicitly invokes graph-flow. Exclude simple edits and ordinary questions that need no coordination.",
+      "category": "productivity"
+    }
+  ],
+  "metadata": {
+    "description": "Plan, verify, and track multi-step work as a graph."
+  }
+}

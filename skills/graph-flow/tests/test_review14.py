@@ -209,7 +209,7 @@ assert.equal(durationDiff({field:'timeout_s',before:600,after:9},'ko'),'600ì´ˆ â
 for(const state of Object.keys(STATE_VOCABULARY))for(const lang of ['ko','en']){const w=stateWords(state,lang);assert(w.name&&w.whoseMove);}
 assert(decisionQuestion({node:'a',purpose:'hold',failed:['Finding (Security)']},'en').includes('Finding (Security)'));
 """ % json.dumps(module)
-        result=subprocess.run([NODE,'--input-type=module','-e',script],capture_output=True,text=True)
+        result=subprocess.run([NODE,'--input-type=module', '-'], input=script,capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr[-2000:])
         strings=json.loads(source.split('const STRINGS = ',1)[1].split(';\n// UI_STRINGS_END',1)[0])
         self.assertEqual(set(strings['ko']),set(strings['en']))

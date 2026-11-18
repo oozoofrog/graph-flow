@@ -6,27 +6,20 @@ import shutil
 import signal
 import time
 import subprocess
-import tempfile
 import threading
 import unittest
-from unittest import mock
 import test_plan_approval as fixture
 from graphflow import server
+from human_support import CHROME
 
 NODE = shutil.which('node')
-CHROME = shutil.which('chromium') or shutil.which('google-chrome') or '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 @unittest.skipUnless(NODE and Path(CHROME).is_file(), 'headless Chrome and Node required')
 class Browser19Tests(unittest.TestCase):
     call = fixture.PlanApprovalTests.call
     set_plan = fixture.PlanApprovalTests.set_plan
 
-    def setUp(self):
-        output = Path('/Volumes/eyedisk/build/graph-flow-screens/r20')
-        output.mkdir(parents=True, exist_ok=True)
-        temporary = tempfile.TemporaryDirectory
-        with mock.patch.object(tempfile, 'TemporaryDirectory', side_effect=lambda: temporary(dir=output, prefix='browser-test-')):
-            fixture.PlanApprovalTests.setUp(self)
+    setUp = fixture.PlanApprovalTests.setUp
 
     def test_u1_u2_full_sentences_and_unclipped_cards_all_sizes_levels_modes(self):
         base = self.raw['nodes'][0]

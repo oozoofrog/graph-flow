@@ -13,7 +13,6 @@ SCREENS = Path(__file__).resolve().parents[3] / 'dev/screens'
 spec = importlib.util.spec_from_file_location('screen_fixtures20', SCREENS / 'build_fixtures.py')
 fixtures = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fixtures)
-OUTPUT = Path('/Volumes/eyedisk/build/graph-flow-screens/r20')
 
 class Question20Tests(unittest.TestCase):
     run_dom = test_page.PageTests.run_dom
@@ -45,8 +44,7 @@ get('decision').querySelector('.evidence-action').click();assert(!yes.disabled);
 """)
 
     def test_q4_facts_from_real_attempts_and_q3_exhaustion(self):
-        OUTPUT.mkdir(parents=True,exist_ok=True)
-        with tempfile.TemporaryDirectory(dir=OUTPUT) as scratch:
+        with tempfile.TemporaryDirectory() as scratch:
             data=fixtures.build(Path(scratch),'trajectory')
             with mock.patch.dict(os.environ,{'GF_HOME':data['home'],'GF_NO_OPEN':'1'},clear=True):
                 run=Path(data['project'])/'.graph-flow/runs'/data['run']
@@ -63,8 +61,7 @@ get('decision').querySelector('.evidence-action').click();assert(!yes.disabled);
                 self.assertNotIn('facts',decision['identity'])
 
     def test_q4_reapproval_changes_survive_reload_and_free_options_are_recorded(self):
-        OUTPUT.mkdir(parents=True,exist_ok=True)
-        with tempfile.TemporaryDirectory(dir=OUTPUT) as scratch:
+        with tempfile.TemporaryDirectory() as scratch:
             for scenario in ('reapproval','free'):
                 data=fixtures.build(Path(scratch),scenario)
                 with mock.patch.dict(os.environ,{'GF_HOME':data['home'],'GF_NO_OPEN':'1'},clear=True):

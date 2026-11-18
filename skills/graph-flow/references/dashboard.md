@@ -190,16 +190,17 @@ Every decision card, reading view and HTML list entry shows the node title and t
 
 `page.js` exports `createDecisionController`, which owns each bound target, draft, evidence-details-open state, successful-file-open state, explicit empty-evidence confirmation and busy state, and exposes open, close, refresh, openDetails, openFile, confirmBlind, canSubmit, buildRequest and onResult. All map, panel and list entry points use it. Importing the module without a DOM does not start the UI. `tests/test_page.py` drives the controller with Node when available and reports a clear skip when Node is absent; the existing static scans remain in place. Refresh updates the surrounding decision content in place without replacing the textarea or action buttons, preserving focus, caret and composition.
 
-From the repository root, this one line creates a fresh isolated demo project and starts its server (choose fresh paths if these already exist):
+From the repository root, create a fresh isolated demo project under `TMPDIR` and start its server:
 
 ```sh
-python3 -B -c 'import sys; sys.path.insert(0,"plugins/graph-flow/skills/graph-flow/tests"); from test_page import build_demo_run; build_demo_run("/tmp/gf-demo-home", "/tmp/gf-demo-project"); from graphflow.server import serve; serve()'
+gf_demo=$(mktemp -d "${TMPDIR%/}/graph-flow-demo.XXXXXX")
+python3 -B -c 'import sys; sys.path.insert(0,"skills/graph-flow/tests"); from test_page import build_demo_run; build_demo_run(sys.argv[1], sys.argv[2]); from graphflow.server import serve; serve()' "$gf_demo/home" "$gf_demo/project"
 ```
 
 Open the printed URL. `build_demo_run(gf_home, project_dir)` is importable from `tests/test_page.py`, returns the run directory, and sets `GF_HOME` for the current process. It initializes git only in the supplied fresh demo project; the plugin checkout is untouched. It uses real library calls for two passed nodes, one returned and running on its second attempt, one submitted with a contextual human question and uncertainty, two not started, Korean presentation fields, a readable submitted `guide.txt`, and a recorded lesson. To restart that existing demo without recreating it:
 
 ```sh
-GF_HOME=/tmp/gf-demo-home python3 -B plugins/graph-flow/skills/graph-flow/scripts/gf serve
+GF_HOME="$gf_demo/home" python3 -B skills/graph-flow/scripts/gf serve
 ```
 
 ## Plan review

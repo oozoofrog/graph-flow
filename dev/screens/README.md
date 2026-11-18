@@ -1,12 +1,15 @@
 # Dashboard screen fixtures
 
 Run from the repository root (Python standard library, Node with built-in WebSocket,
-Chrome/Chromium, and ffmpeg must already be available):
+Google Chrome, and ffmpeg must already be available):
 
 ```bash
-python3 -I -S -B plugins/graph-flow/dev/screens/build_fixtures.py /Volumes/eyedisk/build/graph-flow-screens/r20
-node plugins/graph-flow/dev/screens/capture.mjs /Volumes/eyedisk/build/graph-flow-screens/r20
+python3 -I -S -B dev/screens/build_fixtures.py /Volumes/eyedisk/build/graph-flow-screens/r20
+node dev/screens/capture.mjs /Volumes/eyedisk/build/graph-flow-screens/r20
 ```
+
+Set `CHROME_BIN` if Chrome is installed elsewhere. The CI unittest suite runs a
+headless browser subset. Run the full capture locally to collect visual evidence.
 
 The builder replaces only its marked `fixtures/` directory. The capture command
 writes the 101 numbered PNGs to `final/`, copies them and makes the requested ffmpeg

@@ -1,7 +1,8 @@
 """Dashboard assets and a reusable real-library demonstration run.
 
 From the repository root (use fresh demo directories):
-python3 -B -c 'import sys; sys.path.insert(0,"plugins/graph-flow/skills/graph-flow/tests"); from test_page import build_demo_run; build_demo_run("/tmp/gf-demo-home", "/tmp/gf-demo-project"); from graphflow.server import serve; serve()'
+gf_demo=$(mktemp -d "${TMPDIR%/}/graph-flow-demo.XXXXXX")
+python3 -B -c 'import sys; sys.path.insert(0,"skills/graph-flow/tests"); from test_page import build_demo_run; build_demo_run(sys.argv[1], sys.argv[2]); from graphflow.server import serve; serve()' "$gf_demo/home" "$gf_demo/project"
 """
 import contextlib
 import io

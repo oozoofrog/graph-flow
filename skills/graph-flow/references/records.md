@@ -9,7 +9,7 @@ This file is the contract between every part of graph-flow: the `gf` tool, the s
 - Python 3.9 or later, standard library only. No third-party imports, no network access except the loopback dashboard.
 - Source lives in `scripts/graphflow/` next to this skill; `scripts/gf` is the executable entry (`python3 scripts/gf ...`).
 - Tests live in `tests/test_*.py` and insert `scripts/` into `sys.path` themselves. Run one file from the repository root with:
-  `python3 -I -S -B -m unittest discover -s plugins/graph-flow/skills/graph-flow/tests -p '<file>' -v`
+  `python3 -I -S -B -m unittest discover -s skills/graph-flow/tests -p '<file>' -v`
 - Tests never touch the real home directory or a real project: they set `GF_HOME` and use temporary directories and temporary git repositories.
 
 ```

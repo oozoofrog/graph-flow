@@ -17,9 +17,9 @@ for(let i=0;i<3;i++){assert(lines[i].textContent.includes(n.planned_checks[i].ti
         from pathlib import Path
         import tempfile
         from unittest import mock
-        from test_questions20 import OUTPUT, fixtures
+        from test_questions20 import fixtures
         from graphflow import server, store
-        with tempfile.TemporaryDirectory(dir=OUTPUT) as scratch:
+        with tempfile.TemporaryDirectory() as scratch:
             data=fixtures.build(Path(scratch),'check-lines')
             with mock.patch.dict(os.environ,{'GF_HOME':data['home'],'GF_NO_OPEN':'1'},clear=True):
                 project=Path(data['project']).resolve()

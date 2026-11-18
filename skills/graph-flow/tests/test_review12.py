@@ -65,7 +65,7 @@ assert(detailCardHeight({})<detailCardHeight({planned_checks:[{}],deliverables:[
 assert.equal(displayState({status:'submitted',preapproval_submission:true}),'preapprovalSubmitted');
 assert.equal(statusGlyph('preapprovalSubmitted'),'⇥');
 """ % json.dumps(url)
-        result=subprocess.run([NODE,'--input-type=module','-e',code],capture_output=True,text=True)
+        result=subprocess.run([NODE,'--input-type=module', '-'], input=code,capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr[-2000:])
         css=server.PAGE_PATH.read_text()
         self.assertNotIn('.edge-clipped .node-card>*{visibility:hidden}',css)
