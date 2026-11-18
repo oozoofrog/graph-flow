@@ -76,7 +76,7 @@ export function timeScale({start, end, records, busy}, linear = false) {
   return {start,end,total:toScale(end),toScale,fromScale,gaps,rate};
 }
 
-export function timeMarks(index, axis) {
+export function timeMarks(index, axis, ends = {}) {
   const waits = new Map(), marks = [];
   for (const row of index.records) {
     if (row.kind==='decision.ask') waits.set(row.id ?? 'd'+row.seq,{kind:'human',start:row.at,node:row.node});
@@ -89,7 +89,8 @@ export function timeMarks(index, axis) {
       marks.push({kind:'return',start:row.at,node:row.node});
     if (row.kind==='plan.set' && row.revision>1) marks.push({kind:'revision',start:row.at,revision:row.revision});
   }
-  marks.push(...waits.values(), ...axis.gaps.map(gap=>({...gap,kind:'break'})));
+  for(const [id,wait] of waits)if(ends[id]!=null)wait.end??=ends[id];
+  marks.push(...[...waits.values()].filter(wait=>wait.start!==wait.end), ...axis.gaps.map(gap=>({...gap,kind:'break'})));
   return marks.sort((a,b)=>a.start-b.start);
 }
 
@@ -135,7 +136,7 @@ export function createTimeBar({root,t,duration,stamp,load,display,live,cut,clock
 
   function rebuildMarks() {
     const nodes=[], captions=[];
-    for (const mark of timeMarks(index,axis)) {
+    for (const mark of timeMarks(index,axis,version(index)===version(timeline)?timeline.wait_ends:undefined)) {
       const end=mark.end ?? (mark.kind==='human'?index.end:mark.start);
       const line=node('i',null,'history-mark');
       line.dataset.kind=mark.kind;
@@ -169,7 +170,7 @@ export function createTimeBar({root,t,duration,stamp,load,display,live,cut,clock
     if (pending?.key===key) return pending.promise;
     const entry={key,promise:null};
     entry.promise=load().then(data=>{
-      if (pending===entry) timeline=data;
+      if(pending===entry){timeline=data;rebuildMarks();}
       return data;
     }).finally(()=>{if(pending===entry){pending=null;labels();}});
     pending=entry;
@@ -214,8 +215,8 @@ export function createTimeBar({root,t,duration,stamp,load,display,live,cut,clock
       const loaded=await loading;
       if(token!==request)return;
       root.closest('#flow')?.classList.remove('time-loading');
-      current=loaded;
-      cursor=null;lastPaint=null;
+      if(current!==loaded)cursor=null;
+      current=loaded;lastPaint=null;
       paint(Math.max(index.start,Math.min(index.end,target)),null,true);
       if(startPlaying){playing=true;lastFrame=clock();labels();schedule();}
     } catch {
@@ -257,7 +258,7 @@ export function createTimeBar({root,t,duration,stamp,load,display,live,cut,clock
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
 
   return {
-    tick, returnLive, seek,
+    tick, returnLive, seek, history:ensureHistory,
     setMotion(callback){motion=callback;},
     update(next) {
       const changed=version(index)!==version(next);

@@ -25,7 +25,7 @@ from . import plan as planning
 
 PAGE_PATH = pathlib.Path(__file__).with_name("page.html")
 STATIC_TYPES = {"page.js": "text/javascript; charset=utf-8"}
-for name in ("graph-webgl.js", "activity-webgl.js", "history.js"):
+for name in ("graph-webgl.js", "activity-webgl.js", "history.js", "spacetime.js"):
     STATIC_TYPES[name] = STATIC_TYPES["page.js"]
 STATIC_TYPES.update({"assets/frog-%s.png" % pose: "image/png" for pose in
                      ("wave", "walk-a", "walk-b", "report")})
@@ -961,18 +961,19 @@ def _history_index(events, activities, observed_at, complete):
             node = decisions_by_id.get(data.get("id"))
         if kind in ("gate.final", "check.result") and (kind == "gate.final" or node == "_run"):
             node = "_run_checks"
-        fields = {key: data[key] for key in ("attempt", "id", "revision", "verdict", "outcome") if key in data}
+        fields = {key: data[key] for key in ("attempt", "id", "revision", "verdict", "outcome", "duration_ms") if key in data}
         duration = data.get("duration_ms")
         if kind in ("check.red", "check.result") and stamp is not None and type(duration) is int and duration > 0:
             busy.append((stamp - duration, stamp))
         rows.append((cursor, 0, {"kind": kind, "seq": seq, "node": node, "time": stamp, **fields}))
     for i, row in enumerate(activities["records"]):
-        rows.append((activity._milliseconds(row["ts"]), 1, {"activity": i}))
+        rows.append((activity._milliseconds(row["ts"]), 1, {"activity": i,
+                    **{key: row[key] for key in ("node", "attempt", "call", "phase", "category")}}))
     for call in activity._calls(activities["records"]):
         if call["recorded_start"] is not None and call["recorded_end"] is not None:
             busy.append((call["recorded_start"], call["recorded_end"]))
     rows.sort(key=lambda row: row[:2])
-    start = rows[0][0] if rows else observed_at
+    start = (activity._boundary_time(events[0]) if events else None) or (rows[0][0] if rows else observed_at)
     last = rows[-1][0] if rows else start
     return {"start": start, "end": last if complete else max(last, observed_at),
             "last": last, "version": [events[-1]["seq"] if events else 0, len(activities["records"]),
@@ -985,18 +986,35 @@ def _dashboard_history(run, current, derived, events, activities, observed_at):
     records = index["records"]
     live = _view(current, derived, events, store.project_of(run), activities, observed_at=observed_at)
     if not records:
-        return {**index, "base": live, "steps": [], "live": live}
+        return {**index, "base": live, "steps": [], "transfers": [], "wait_ends": {}, "live": live}
     evidence = _history_evidence(run, events)
     prefix, observations = [], dict(activities, records=[])
     included_activity = set()
     before = _prefix_view(prefix, observations, evidence, index["start"])
-    base, steps = before, []
+    base, steps, transfers, wait_ends = before, [], {}, {}
     prefix_state = None
     plan_set = None
 
     def add(at, record_index):
         nonlocal before
         after = _prefix_view(prefix, observations, evidence, at, prefix_state, plan_set)
+        if record_index is not None and "seq" in records[record_index]:
+            open_ids = {decision["id"] for decision in after["decisions"]}
+            for decision in before["decisions"]:
+                if decision["id"] not in open_ids:
+                    wait_ends.setdefault(decision["id"], at)
+            edges = after["edges"] + [{"from": source, "to": "_run_checks", "relation": "hands_over",
+                                      "flow": flow} for source, flow in after["goal_flows"].items()]
+            for edge in edges:
+                relation = [edge["from"], edge["to"], edge["relation"], edge.get("label", "")]
+                flow = edge["flow"]
+                refs = [(False, flow["delivery"])]
+                if flow["state"] == "returned":
+                    refs.append((True, flow["record"]))
+                for reverse, ref in refs:
+                    if ref and ref.get("time"):
+                        key = (*relation, reverse, ref["seq"])
+                        transfers.setdefault(key, {"relation": relation, "reverse": reverse, "visible": at, **ref})
         patch = _view_patch(before, after) or {}
         patch.pop("observed_at_ms", None)
         if patch or record_index is not None:
@@ -1030,7 +1048,7 @@ def _dashboard_history(run, current, derived, events, activities, observed_at):
             store.describe_integrity(prefix_state)
         add(at, record_index)
     stalls_until(index["end"] + 1)
-    return {**index, "base": base, "steps": steps, "live": live}
+    return {**index, "base": base, "steps": steps, "transfers": list(transfers.values()), "wait_ends": wait_ends, "live": live}
 
 
 def _file_path(project, relative, committed=False):

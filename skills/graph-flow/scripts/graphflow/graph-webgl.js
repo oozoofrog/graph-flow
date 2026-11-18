@@ -29,6 +29,7 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
   const scene = new Scene();
   const graph = new Group();
   scene.add(graph);
+  graph.matrixAutoUpdate=false;
   const palette={structure:0x3fd8e8,live:0xff4fa8,quiet:0x8aa2ad,failure:0xff766d};
   const color=palette.structure;
   const defaults={depthTest:false,depthWrite:false};
@@ -120,7 +121,14 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
   function draw(layout, box, marks, order) {
     const start = performance.now();
     if (drawnLayout !== layout) rebuild(layout, marks);
-    const {width,height,scale,x,y,dpr} = box;
+    const {width,height,scale,x,y,dpr,plane} = box;
+    const opacity=plane?.opacity??1;
+    graph.visible=opacity>0;
+    if(plane){
+      graph.matrix.set(plane.a/scale,-plane.c/scale,0,(plane.e-x)/scale,
+        -plane.b/scale,plane.d/scale,0,(y-plane.f)/scale,0,0,1,0,0,0,0,1);
+    } else graph.matrix.identity();
+    graph.matrixWorldNeedsUpdate=true;
     const transfers=new Set(box.transfers.split(',').filter(Boolean));
     if (!frame || frame.dpr !== dpr) renderer.setPixelRatio(dpr);
     if (!frame || frame.dpr !== dpr || frame.width !== width || frame.height !== height) renderer.setSize(width,height);
@@ -134,7 +142,9 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
       const trace=model.trace==='open'&&model.members.every(id=>transfers.has(id))?'closed':model.trace;
       line.material=materialFor(trace,tone,weight);
       backdrop.material=materialFor(trace,tone,weight,true);
-      line.material.dashScale=backdrop.material.dashScale=scale;
+      line.material.dashScale=backdrop.material.dashScale=plane?.zoom??scale;
+      line.material.transparent=opacity<1;line.material.opacity=opacity;
+      backdrop.material.opacity=(weight==='path'?.28:.14)*opacity;
       backdrop.visible=!box.highContrast;
       backdrop.renderOrder=base;
       line.renderOrder=ink;
@@ -144,7 +154,11 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
       const tone=weight==='context'&&model.tone==='structure'?'quiet':model.tone;
       marker.renderOrder=ink;
       marker.material = marker.isLineSegments2 ? markerStrokes[tone] : markerFills[tone];
+      marker.material.transparent=opacity<1;marker.material.opacity=opacity;
       marker.scale.setScalar((weight==='path'?1.7:1.4)/scale);
+    }
+    for(const material of Object.values(flowMaterials)){
+      material.transparent=opacity<1;material.opacity=opacity;
     }
     renderer.render(scene,camera);
     frame = box;
@@ -165,12 +179,12 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
       const world = (attribute,i) => line.localToWorld(new Vector3().fromBufferAttribute(attribute,i));
       const points = [project(world(instanceStart,0))];
       for(let i=0;i<instanceEnd.count;i++) points.push(project(world(instanceEnd,i)));
-      return {id:model.id,gate:model.gate,points,visible:line.visible,
+      return {id:model.id,gate:model.gate,points,visible:graph.visible&&line.visible,
         order:line.renderOrder,underlay:backdrop.renderOrder,
         width:line.material.linewidth,color:'#'+line.material.color.getHexString()};
     });
     const heads = markers.map(({model,marker})=>({
-      id:model.id,relation:model.relation,visible:marker.visible,order:marker.renderOrder,
+      id:model.id,relation:model.relation,visible:graph.visible&&marker.visible,order:marker.renderOrder,
       points:[-1,0].map(x=>project(marker.localToWorld(new Vector3(x,0,0)))),
     }));
     return {strokes:shafts,markers:heads,
