@@ -888,7 +888,8 @@ def _history_evidence(run, events):
             submissions[seq] = data
     paths, artifacts = set(), {}
     for seq, ask in asks.items():
-        submission = submissions.get(ask.get("submission")) if ask.get("node") else None
+        binding = ask.get("submission")
+        submission = submissions.get(binding) if ask.get("node") and type(binding) is int else None
         context = _mapping(ask.get("evidence"))
         if all(k in ask for k in ("location", "submission_binding", "artifact_hashes")):
             artifacts[seq] = state.artifact_hashes(run, context, submission)
@@ -955,10 +956,11 @@ def _history_index(events, activities, observed_at, complete):
             cursor if cursor is not None else stamp if stamp is not None else observed_at)
         kind, seq, data = event["type"], event["seq"], event["data"]
         node = data.get("node")
+        decision_id = data.get("id")
         if kind == "decision.ask":
-            decisions_by_id[data.get("id", "d%d" % seq)] = node
+            decisions_by_id[decision_id if isinstance(decision_id, str) else "d%d" % seq] = node
         elif kind in ("decision.answer", "decision.superseded"):
-            node = decisions_by_id.get(data.get("id"))
+            node = decisions_by_id.get(decision_id) if isinstance(decision_id, str) else None
         if kind in ("gate.final", "check.result") and (kind == "gate.final" or node == "_run"):
             node = "_run_checks"
         fields = {key: data[key] for key in ("attempt", "id", "revision", "verdict", "outcome", "duration_ms") if key in data}
@@ -986,12 +988,12 @@ def _dashboard_history(run, current, derived, events, activities, observed_at):
     records = index["records"]
     live = _view(current, derived, events, store.project_of(run), activities, observed_at=observed_at)
     if not records:
-        return {**index, "base": live, "steps": [], "transfers": [], "wait_ends": {}, "live": live}
+        return {**index, "base": live, "steps": [], "transfers": [], "wait_ends": {}, "resets": {}, "live": live}
     evidence = _history_evidence(run, events)
     prefix, observations = [], dict(activities, records=[])
     included_activity = set()
     before = _prefix_view(prefix, observations, evidence, index["start"])
-    base, steps, transfers, wait_ends = before, [], {}, {}
+    base, steps, transfers, wait_ends, resets = before, [], {}, {}, {}
     prefix_state = None
     plan_set = None
 
@@ -1046,9 +1048,15 @@ def _dashboard_history(run, current, derived, events, activities, observed_at):
             if plan_set and current_plan is None:
                 prefix_state["run"]["plan_error"] = True
             store.describe_integrity(prefix_state)
+            if event["type"] in ("plan.set", "node.reopen", "node.start"):
+                current_nodes = prefix_state["nodes"]
+                reset_nodes = {node["id"] for node in before["nodes"] if node["id"] not in current_nodes}
+                reset_nodes.update(node for node, status in current_nodes.items() if status["basis"] == event["seq"])
+                if reset_nodes:
+                    resets[event["seq"]] = sorted(reset_nodes)
         add(at, record_index)
     stalls_until(index["end"] + 1)
-    return {**index, "base": base, "steps": steps, "transfers": list(transfers.values()), "wait_ends": wait_ends, "live": live}
+    return {**index, "base": base, "steps": steps, "transfers": list(transfers.values()), "wait_ends": wait_ends, "resets": resets, "live": live}
 
 
 def _file_path(project, relative, committed=False):

@@ -55,7 +55,7 @@ export function spaceProjection(layout, box, pose, axis, at, sideScroll=0) {
 const segmentKinds={tool:'tool',skill:'skill',mcp:'mcp',session:'session',gf:'gf',other:'other'};
 const terminalVerdicts=new Set(['pass','reject','replan','unverified']);
 
-export function spaceHistory(layout,{at,index,axis},transfers,waitEnds={}) {
+export function spaceHistory(layout,{at,index,axis},transfers,waitEnds={},resets={}) {
   const pillars=new Map(layout.cards.map(card=>[card.id,{id:card.id,attempts:[],segments:[],starts:[],calls:new Map()}]));
   const asks=new Map(), edgeKeys=new Set(layout.edges.map(edge=>edge.key));
   const min=index.start, max=at;
@@ -66,7 +66,15 @@ export function spaceHistory(layout,{at,index,axis},transfers,waitEnds={}) {
   };
   for(const row of index.records) {
     if(row.at>at)break;
-    const pillar=pillars.get(row.node), time=row.time??row.at, kind=row.kind;
+    const pillar=pillars.get(row.node), time=row.activity==null?row.time:row.at, kind=row.kind;
+    if(!Number.isFinite(time))continue;
+    for(const node of resets[row.seq]||[]){
+      const ended=pillars.get(node)?.attempts.at(-1);
+      if(ended && ended.stop==null){
+        ended.stop=Math.max(ended.start,time);
+        ended.end ??= ended.stop;
+      }
+    }
     if(kind==='decision.answer'||kind==='decision.superseded'){
       const ask=asks.get(row.id);
       if(ask && ask.end==null)ask.end=Math.max(ask.start,time);
@@ -114,7 +122,7 @@ export function spaceHistory(layout,{at,index,axis},transfers,waitEnds={}) {
       const next=pillar.attempts.find(other=>other.seq>attempt.seq);
       const workEnd=attempt.end??at;
       add(pillar,'start',attempt.start,attempt.start,attempt.seq);
-      if(attempt.submit!=null)add(pillar,'verify',attempt.submit,attempt.verdict??next?.start??at);
+      if(attempt.submit!=null)add(pillar,'verify',attempt.submit,attempt.verdict??attempt.stop??next?.start??at);
       const calls=[...pillar.calls.values()].filter(call=>{
         const anchor=call.start??call.end;
         return anchor>=attempt.start && (!next || anchor<next.start) && call.number===attempt.number;
@@ -334,7 +342,7 @@ export function createSpaceView({area,viewport,toolbar,svg,t,duration,stamp,read
   const motion=svg('g',{class:'space-effects'});
   area.prepend(layer);area.append(labels);
   let target='flat', pose=VIEW_POSES.flat, transition=null, raf=0, drag=null, projection, scene, hits=[], cutVersion;
-  let transfers=[], waitEnds={}, request=0, attemptedVersion;
+  let transfers=[], waitEnds={}, resets={}, request=0, attemptedVersion;
   const defaultPlane=()=>{layer.style.display=labels.style.display='none';layer.replaceChildren();labels.replaceChildren();};
   defaultPlane();
 
@@ -357,7 +365,7 @@ export function createSpaceView({area,viewport,toolbar,svg,t,duration,stamp,read
     const token=++request;
     load().then(next=>{
       if(token!==request)return;
-      transfers=next.transfers;waitEnds=next.wait_ends;
+      transfers=next.transfers;waitEnds=next.wait_ends;resets=next.resets;
       cutVersion=version;
       refresh();
     }).catch(()=>{if(token===request)attemptedVersion=null;});
@@ -372,7 +380,7 @@ export function createSpaceView({area,viewport,toolbar,svg,t,duration,stamp,read
     const {cut,layout,box,focus,sideScroll}=data;
     updateTransfers(cut);
     projection=spaceProjection(layout,box,pose,cut.axis,cut.at,sideScroll);
-    scene=spaceHistory(layout,cut,transfers,waitEnds);
+    scene=spaceHistory(layout,cut,transfers,waitEnds,resets);
     const result=ink(projection,scene,cut,focus,{svg,t,duration,stamp,width:box.width,height:box.height});
     hits=result.hits;
     layer.style.display=labels.style.display='';
@@ -497,7 +505,7 @@ export function createSpaceView({area,viewport,toolbar,svg,t,duration,stamp,read
 
   return {refresh,tick,startDrag,moveDrag,releaseDrag,key,pick,view,effects,
     backendChanged(){if(!canOrbit()&&target==='space')view('side');else if(!canAnimate()&&transition){pose=transition.to;transition=null;refresh();}else refresh();},
-    reset(){request++;cutVersion=attemptedVersion=null;transfers=[];waitEnds={};pose=VIEW_POSES.flat;target='flat';transition=null;refresh();},
+    reset(){request++;cutVersion=attemptedVersion=null;transfers=[];waitEnds={};resets={};pose=VIEW_POSES.flat;target='flat';transition=null;refresh();},
     describe:()=>({pose:[...pose],target,animating:!!transition,scene,plane:projection?.plane,sideWidth:projection?.sideWidth,
       lanes:projection?[...projection.cards].map(([id,{lane}])=>({id,lane,point:projection.nodeAt(id,read().cut.at)})):[],
       transferVersion:cutVersion}),

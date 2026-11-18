@@ -124,6 +124,8 @@ const STRINGS = {
     "timePast": "과거 기록을 보고 있어요",
     "timeLinear": "실제 시간 간격",
     "timeScrub": "실행 시점",
+    "timeUnits": "일,시간,분,초,밀리초",
+    "timeZero": "0초",
     "timeReturned": "되돌려 보냄",
     "timeRevision": "계획 개정 {n}",
     "timeHuman": "사람의 답을 기다림 · {duration}",
@@ -945,6 +947,8 @@ const STRINGS = {
     "timePast": "Viewing past records",
     "timeLinear": "True time scale",
     "timeScrub": "Time in the run",
+    "timeUnits": " d, h, min, s, ms",
+    "timeZero": "0 s",
     "timeReturned": "Sent back",
     "timeRevision": "Plan revised · {n}",
     "timeHuman": "Wait for a human answer · {duration}",
@@ -3774,6 +3778,8 @@ function selectNode(id) {
     };
     reveal();
     document.fonts?.ready.then(reveal);
+    const opening=$('panel').getAnimations?.()||[];
+    if(opening.length)Promise.allSettled(opening.map(animation=>animation.finished)).then(reveal);
   }
 }
 function focusHeading(heading) { heading.tabIndex = -1; heading.focus({preventScroll:true}); }
@@ -4137,14 +4143,14 @@ function historyStamp(at) {
 }
 
 function historyDuration(ms) {
-  const units = language==='ko'?['일','시간','분','초','밀리초']:['d','h','min','s','ms'];
+  const units=t('timeUnits').split(',');
   const steps=[86_400_000,3_600_000,60_000,1_000,1];
   let remaining=Math.max(0,Math.round(ms));
   const words=(remaining>=1000?steps.slice(0,-1):steps).flatMap((step,i)=>{
     const count=Math.floor(remaining/step);remaining%=step;
-    return count?[count+(language==='ko'?'':' ')+units[i]]:[];
+    return count?[count+units[i]]:[];
   });
-  return words.join(' ')||(language==='ko'?'0초':'0 s');
+  return words.join(' ')||t('timeZero');
 }
 function resetView() { timeBar?.reset();timeCut=liveView=null;renderer?.resetSpace();workSummary?.dispose();workSummary=null;planSeen=null;planChanges=null;planRead.clear(); $('panel').onscroll=null; $('panel').hidden=true; $('flow').classList.remove('has-selection'); panelFingerprint=''; panelNode=null; language = viewLanguage(null, navigator.language); translate(); closeInvalidDecision(chosen, []); view = null; selected = selectedEdge = edgeOrigin = null; edgeChoices=[]; fingerprint = ''; ['node-list','edge-list','decision-list','panel','home','attention'].forEach(id => clear($(id))); if (renderer) renderer.update({nodes:[],edges:[],decisions:[],complete:false}, null); $('flow').hidden = true; $('home').hidden = true; $('accessible').hidden = true; $('decision').hidden = true; $('subtitle').textContent = ''; $('where').textContent = ''; }
 function schedule() { clearTimeout(timer); if (!document.hidden) timer = setTimeout(refresh, 2000); }
@@ -4688,6 +4694,10 @@ function createMap() {
   }
   stage.addEventListener('focusin',e=>{
     keyboardNode=e.target.matches(':focus-visible')?e.target.closest('.node-card')?.dataset.node:null;
+    if(keyboardNode&&spaceFrame?.projection.lanes>.9){
+      const point=spaceFrame.projection.nodeAt(keyboardNode,spaceFrame.cut.at);
+      if(point.x<80||point.x>viewport.clientWidth-80)scrollSide(point.x-viewport.clientWidth/2);
+    }
     updateFocus();
   });
   stage.addEventListener('focusout',e=>{
