@@ -547,6 +547,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(data["view"].pop("run_contract"), {})
         self.assertEqual(data["view"].pop("integrity"), [])
         self.assertEqual(data["view"], {"title": "", "summary": "", "context": {}, "requirements": [], "language": "en", "nodes": [], "edges": [], "decisions": [], "answered": [],
+                                      "goal_flows": {},
                                       "lessons": [], "notices": [], "stale_decisions": [], "complete": False, "final_result": None, "run": "empty",
                                       "plan_counts": {"work": 0, "review": 0, "decision": 0, "checks": 0, "decisions": 0},
                                   "plan_error": False, "key_mismatch": False, "location_mismatch":False, "has_work":False, "goal": "", "planned_questions": [],
@@ -623,7 +624,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         view = data["view"]
         self.assertEqual(set(view), {"title", "summary", "context", "requirements", "language", "nodes", "edges", "decisions", "answered", "lessons", "counts", "complete", "final_result",
-                                     "run", "project", "timeline", "plan_approval", "plan_counts", "plan_error", "key_mismatch", "location_mismatch", "has_work",
+                                     "run", "project", "timeline", "plan_approval", "plan_counts", "plan_error", "key_mismatch", "location_mismatch", "has_work", "goal_flows",
                                  "goal", "planned_questions", "integration_checks", "promoted_checks", "superseded", "constraints", "key_recovery", "legacy", "replaced_unverifiable", "stale_decisions", "recovery_identity", "run_contract", "integrity", "notices"})
         self.assertEqual(view["title"], raw["title"])
         self.assertFalse(view["complete"])
@@ -637,11 +638,16 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(human["laps"], ["waiting_for_you"])
         self.assertEqual(waiting["laps"], [])
         self.assertEqual(review["laps"], [])
-        self.assertEqual(view["edges"], [
+        self.assertEqual([{key: value for key, value in edge.items() if key != "flow"} for edge in view["edges"]], [
             {"from": "retry", "to": "waiting", "label": "Draft", "relation": "hands_over", "delivered": False, "gate": "closed"},
             {"from": "human", "to": "waiting", "label": "Chosen wording", "relation": "hands_over", "delivered": False, "gate": "waiting_for_you"},
             {"from": "done", "to": "waiting", "label": "Finished result", "relation": "hands_over", "delivered": True, "gate": "open"},
             {"from": "retry", "to": "review-retry", "label": "", "relation": "reviews", "delivered": False, "gate": "closed"}])
+        self.assertEqual([edge["flow"]["state"] for edge in view["edges"]],
+                         ["waiting", "blocked", "delivered", "waiting"])
+        self.assertEqual(view["edges"][1]["flow"]["record"]["seq"], ask)
+        self.assertEqual(view["edges"][2]["flow"]["delivery"]["kind"], "node.submit")
+        self.assertNotIn("SECRET_", json.dumps([edge["flow"] for edge in view["edges"]]))
         asked = view["decisions"][0].pop("asked")
         self.assertRegex(asked, r"^\d{4}-\d\d-\d\dT")
         self.assertEqual(view["decisions"][0].pop("asked_by")["role"], "leader")

@@ -131,24 +131,26 @@ class PageTests(unittest.TestCase):
         self.assertIn('createElementNS', js)
         self.assertTrue((S / 'scripts/graphflow/vendor/three/manifest.json').is_file())
 
-    def test_motion_is_declared_in_css_and_stops_for_reduced_motion(self):
+    def test_graph_motion_uses_one_demand_driven_frame_callback(self):
         html = (S / 'scripts/graphflow/page.html').read_text(encoding='utf-8')
         js = (S / 'scripts/graphflow/page.js').read_text(encoding='utf-8')
         style = html[html.index('<style'):html.index('</style>')]
         declared = set(re.findall(r'@keyframes ([a-z]+)', style))
-        self.assertEqual(declared, {'arrive', 'activitychange'})
+        self.assertEqual(declared, set())
         used = {name for rule in re.findall(r'animation:([^;}]+)', style)
                 for name in re.findall(r'(?:^|,)([a-z]+) ', rule)}
         self.assertEqual(used, declared)
         reduced = '@media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important'
-        self.assertGreater(style.index(reduced), max(style.rindex('@keyframes'), style.rindex('animation:arrive')))
+        self.assertIn(reduced, style)
         self.assertNotIn('infinite', style)
         # The native play mark remains visible when animation is disabled.
         self.assertIn("el('span','▶','walker')", js)
-        for used_class in ('working', 'changed', 'walker'):
+        for used_class in ('working', 'walker'):
             self.assertIn("'" + used_class, js.replace("' " + used_class, "'" + used_class))
         self.assertNotIn('frog-walk', js)
         self.assertEqual(js.count('requestAnimationFrame('), 1)  # Only the invalidated WebGL frame.
+        self.assertIn('!document.hidden && !reduced.matches && !motionPaused', js)
+        self.assertIn('GRAPH_FRAME_MS = 1000 / 12', js)
 
     def test_a7_activity_cues_are_optional_and_quieter_than_answers(self):
         self.run_controller("""
@@ -158,11 +160,11 @@ for (const latest of ['tool','skill','mcp','session','gf','other','thinking']) {
   assert.deepEqual(activityCues({status:'running',activity}), [latest,'stalled','repeating']);
   assert.deepEqual(activityCues({status:'submitted',activity}), []);
 }
-assert.deepEqual(activityCues({status:'running',activity:[{latest:null,stalled:true}]}), []);
+assert.deepEqual(activityCues({status:'running',activity:[{latest:null,stalled:true}]}), ['stalled']);
 assert.equal(statusGlyph('awaiting'), '◆');
 """)
         html = (S / 'scripts/graphflow/page.html').read_text()
-        self.assertRegex(html, r'animation:activitychange (?:[1-2]?\d{1,2}|300)ms ease-out 1')
+        self.assertIn('data-activity="stalled"', html)
 
     def test_translation_keys_match(self):
         js = (S / 'scripts/graphflow/page.js').read_text(encoding='utf-8')

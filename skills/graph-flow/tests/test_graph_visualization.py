@@ -9,6 +9,56 @@ class GraphVisualizationTests(unittest.TestCase):
     run_controller = test_page.PageTests.run_controller
     run_dom = test_page.PageTests.run_dom
 
+    def test_f5_edge_hit_corridor_is_24_css_px_at_every_zoom(self):
+        self.run_controller("""
+const {pickGraphEdges} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+const scene = {strokes:[
+  {points:[{x:0,y:0},{x:100,y:0}],members:['a','b']},
+  {points:[{x:100,y:0},{x:140,y:0}],members:['a']},
+  {points:[{x:100,y:0},{x:100,y:80}],members:['b']},
+]};
+for(const scale of [.7, 6/7, 1, 1.6]){
+  assert.deepEqual(pickGraphEdges(scene,{x:40,y:11.99/scale},scale),['a','b']);
+  assert.deepEqual(pickGraphEdges(scene,{x:40,y:-12.01/scale},scale),[]);
+  assert.deepEqual(pickGraphEdges(scene,{x:122,y:0},scale),['a']);
+  assert.deepEqual(pickGraphEdges(scene,{x:100,y:32},scale),['b']);
+}
+""")
+
+    def test_f1_activity_band_matches_phases_and_stays_inside_card(self):
+        self.run_controller("""
+const {activityBand, ACTIVITY_SHAPES} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+const categories = Object.keys(ACTIVITY_SHAPES).slice(0,7);
+const card = {x:32,y:25,width:156,height:110,state:'running'};
+const phases = [0,1,2,3,4,50,100,0,0,30,0,200].map((duration_ms,i)=>({
+  id:String(i+1),category:categories[i%7],duration_ms,errors:i===6?1:0
+}));
+const attempt = {phases,latest:phases.at(-1).category};
+const input = {status:'running',activity:[attempt]};
+const {x,width,segments} = activityBand(input,card);
+assert.deepEqual(segments.map(({id,category,errors})=>({id,category,errors})),
+  phases.map(({id,category,errors})=>({id,category,errors})));
+// Solve for a common duration scale independently of the layout's sort-and-clamp algorithm.
+let lo=0,hi=width;
+for(let i=0;i<64;i++){
+  const mid=(lo+hi)/2;
+  if(phases.reduce((sum,p)=>sum+Math.max(7,p.duration_ms*mid),0)>width)hi=mid;else lo=mid;
+}
+for(const [i,segment] of segments.entries()){
+  assert(Math.abs(segment.width-Math.max(7,phases[i].duration_ms*lo))<1);
+  for(const point of segment.paths.flat()){
+    assert(point.x>=segment.x&&point.x<=segment.x+segment.width);
+    assert(point.y>=card.y+card.height-30&&point.y<card.y+card.height);
+  }
+}
+assert(Math.abs(segments.at(-1).x+segments.at(-1).width-x-width)<1);
+assert.deepEqual(segments.filter(s=>s.animate).map(s=>s.id),['12']);
+for(const overrides of [{stalled:true},{repeating:true}]){
+  assert(!activityBand({...input,activity:[{...attempt,...overrides}]},card).segments.some(s=>s.animate));
+}
+assert(!activityBand(input,{...card,state:'awaiting'}).segments.some(s=>s.animate));
+""")
+
     def test_p4_scene_has_no_cards_or_edges_without_records(self):
         self.run_controller(r"""
 const raw={nodes:[],edges:[],decisions:[],final_result:'failed'};

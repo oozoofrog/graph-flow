@@ -600,8 +600,7 @@
       {
         "action": "scroll",
         "selector": "#panel .panel-body",
-        "x": 0,
-        "y": 340
+        "anchor": "#panel .panel-body > details:last-of-type > summary"
       }
     ],
     "group": "OCCASIONAL"
@@ -620,8 +619,8 @@
       {
         "action": "scroll",
         "selector": "#panel .panel-body",
-        "x": 0,
-        "y": 300
+        "anchor": "#panel .panel-body > .fact-section",
+        "heading": "지켜야 할 조건"
       }
     ],
     "group": "OCCASIONAL"
@@ -1903,7 +1902,7 @@
     "name": "activity-mixed-graph",
     "scenario": "graph-activity",
     "url": "/?t={token}#project={project}&run={run}",
-    "viewport": {"name": "desktop", "width": 1440, "height": 900},
+    "viewport": {"name": "activity-desktop", "width": 1440, "height": 1020},
     "interactions": [{"action": "button", "text": "간략 보기"}],
     "group": "GRAPH-VERIFICATION",
     "activity_macro": true
@@ -2059,5 +2058,45 @@
     ],
     "group": "GRAPH-VERIFICATION",
     "activity_view": "unreadable"
+  },
+  {
+    "number": 124,
+    "name": "graph-activity-motion",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "activity-desktop", "width": 1440, "height": 1020},
+    "interactions": [{"action": "button", "text": "간략 보기"}],
+    "group": "GRAPH-VERIFICATION",
+    "graph_progress": true
+  },
+  {
+    "number": 125,
+    "name": "graph-flow-states",
+    "scenario": "graph-flow-states",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "tall-desktop", "width": 1440, "height": 1080},
+    "interactions": [{"action": "button", "text": "간략 보기"}],
+    "group": "GRAPH-VERIFICATION",
+    "graph_flow": true
+  },
+  {
+    "number": 126,
+    "name": "graph-edge-selected",
+    "scenario": "graph-flow-states",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "tall-desktop", "width": 1440, "height": 1080},
+    "interactions": [{"action": "button", "text": "간략 보기"}],
+    "group": "GRAPH-VERIFICATION",
+    "edge_detail": "edge"
+  },
+  {
+    "number": 127,
+    "name": "graph-trunk-chooser",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "tall-desktop", "width": 1440, "height": 1080},
+    "interactions": [{"action": "button", "text": "간략 보기"}],
+    "group": "GRAPH-VERIFICATION",
+    "edge_detail": "trunk"
   }
 ]

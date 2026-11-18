@@ -107,7 +107,16 @@ async function interaction(action, fixture) {
     action.observedScroll=moved;
     assert(moved.after.top>moved.before.top&&moved.after.left===moved.before.left,'lower rows require vertical movement without sideways movement');
   } else if (action.action === 'scroll') {
-    await evaluate(action.selector === 'window' ? `window.scrollTo(${action.x},${action.y})` : `document.querySelector(${selector}).scrollTo(${action.x},${action.y})`);
+    if(action.anchor){
+      await evaluate(`(()=>{
+        const heading=${JSON.stringify(action.heading??null)};
+        const anchor=[...document.querySelectorAll(${JSON.stringify(action.anchor)})]
+          .find(element=>!heading||element.querySelector('h3')?.textContent===heading);
+        anchor.scrollIntoView({block:'start',container:'nearest'});
+      })()`);
+    }else{
+      await evaluate(action.selector === 'window' ? `window.scrollTo(${action.x},${action.y})` : `document.querySelector(${selector}).scrollTo(${action.x},${action.y})`);
+    }
   } else {
     await until(`!!document.querySelector(${selector})`);
     if(action.action === 'click') await evaluate(`document.querySelector(${selector}).click()`);
@@ -292,6 +301,9 @@ function assertGraphRecords(name, language, expected, observed, visibleTitles) {
     assert.equal(counts.text,phrase,name+' M3 visible toolbar count');
   }
   assert.deepEqual(observed.diagram.map(c=>c.id),scene.cards.map(c=>c.id),name+' M1 card DOM order');
+  assert.deepEqual(sorted(scene.flowMarks.map(mark=>[mark.id,mark.cue])),
+    sorted(scene.edges.filter(edge=>edge.flow).map(edge=>[edge.id,edge.flow.frontier?'frontier':edge.flow.state])),
+    name+' F2 every recorded relation has a flow mark');
   for(const edge of scene.edges){
     const a=scene.positions[edge.from],b=scene.positions[edge.to];
     assert(a.layer<b.layer,name+' M1 '+edge.from+' → '+edge.to+' expected increasing layer, observed '+a.layer+' → '+b.layer);
@@ -367,13 +379,20 @@ function assertRegistration(name, scene, measured) {
 }
 
 function assertDependencyFocus(name, records, graph, drawing) {
-  const id=drawing.box.focusId, related=new Set(id?[id]:[]);
+  const id=drawing.box.focusId, relationFocus=id?.startsWith('edge:');
+  const related=new Set(id&&!relationFocus?[id]:[]);
+  const relationIds=new Set(relationFocus?id.slice(5).split(','):[]);
   const directions=[];
   const dependencies=records.nodes.flatMap(node=>[
     ...(node.needs||[]).map(need=>[need.from,node.id]),
     ...(node.kind==='review'?[[node.target,node.id]]:[]),
   ]);
-  if(id)for(const direction of [0,1]) {
+  if(relationFocus){
+    for(const {id,from,to} of graph.scene.edges)if(relationIds.has(id)){
+      assert(records.edges.some(edge=>edge[0]===from&&edge[1]===to),name+' R5 focused recorded relation');
+      related.add(from);related.add(to);
+    }
+  }else if(id)for(const direction of [0,1]) {
     const closure=new Set([id]);
     for(let count=0;count!==closure.size;){
       count=closure.size;
@@ -385,7 +404,7 @@ function assertDependencyFocus(name, records, graph, drawing) {
   assert.deepEqual(sorted(graph.diagram.filter(c=>c.path).map(c=>c.id)),sorted([...related]),name+' R5 focused record closure');
   assert.deepEqual(sorted(graph.diagram.filter(c=>c.context).map(c=>c.id)),
     sorted(id?graph.diagram.filter(c=>!related.has(c.id)).map(c=>c.id):[]),name+' R5 context inventory');
-  const path=new Set(graph.scene.edges.filter(({from,to})=>
+  const path=relationFocus?relationIds:new Set(graph.scene.edges.filter(({from,to})=>
     to!=='_run_checks'&&(directions[0]?.has(from)||directions[1]?.has(to))).map(edge=>edge.id));
   const focused=(kind,part)=>graph.scene[kind].find(model=>model.id===part.id).members.some(id=>path.has(id));
   const contextRanks=[...drawing.strokes.filter(p=>!focused('strokes',p)),...drawing.markers.filter(p=>!focused('markers',p))].map(p=>p.order);
@@ -462,9 +481,25 @@ function graphInk() {
     const x=(card.x*box.scale+box.x)*dpr, y=(card.y*box.scale+box.y)*dpr;
     const left=Math.max(0,Math.ceil(x+3*dpr)), right=Math.min(width,Math.floor(x+(card.width*box.scale-3)*dpr));
     const top=Math.max(0,Math.ceil(y+3*dpr)), bottom=Math.min(height,Math.floor(y+(card.height*box.scale-3)*dpr));
-    let found=false;
-    for(let row=top;row<bottom&&!found;row++)for(let col=left;col<right;col++)if(ink(col,row)){found=true;break;}
-    if(found)interiors.push(card.id);
+    const band=card.band && box.bandVisible ? card.band : null;
+    const bands=band?.segments.flatMap(s=>s.paths.flatMap(path=>path.slice(1).map((end,i)=>[path[i],end]))) || [];
+    const fringe=2/box.scale;
+    let found;
+    for(let row=top;row<bottom&&!found;row++)for(let col=left;col<right;col++){
+      if(ink(col,row)){
+        const x=((col+.5)/dpr-box.x)/box.scale,y=((row+.5)/dpr-box.y)/box.scale;
+        const onBand=bands.some(([a,b])=>{
+          const dx=b.x-a.x,dy=b.y-a.y,length=dx*dx+dy*dy;
+          const t=length?Math.max(0,Math.min(1,((x-a.x)*dx+(y-a.y)*dy)/length)):0;
+          return Math.hypot(x-a.x-t*dx,y-a.y-t*dy)<=fringe;
+        });
+        if(onBand)continue;
+        const at=(col+(height-1-row)*width)*4;
+        found={x,y,rgba:[...pixels.slice(at,at+4)]};
+        break;
+      }
+    }
+    if(found)interiors.push({id:card.id,point:found,band:card.band&&[card.band.x,card.band.y,card.band.width,card.band.height]});
   }
   const byId=new Map(samples.map(sample=>[sample.id,sample]));
   const routes=scene.edges.map(edge=>scene.strokes.filter(p=>p.members.includes(edge.id)).reduce((total,part)=>{
@@ -472,7 +507,15 @@ function graphInk() {
     total.count+=sample.count;total.on+=sample.on;
     return total;
   },{id:edge.id,count:0,on:0}));
-  return {samples,routes,interiors,preserved:gl.getContextAttributes().preserveDrawingBuffer,error:gl.getError()};
+  const bands=box.bandVisible ? scene.cards.flatMap(card=>(card.band?.segments??[]).map(segment=>{
+    const [a,b]=segment.paths[0];
+    const y=(a.y*box.scale+box.y)*dpr;
+    const left=(a.x*box.scale+box.x)*dpr, right=(b.x*box.scale+box.x)*dpr;
+    const visible=left>=2&&right<width-2&&y>=2&&y<height-2;
+    const painted=visible&&[0,.5,1].some(f=>[-1,0,1].some(dy=>ink(left+(right-left)*f,y+dy)));
+    return {card:card.id,id:segment.id,visible,painted};
+  })) : [];
+  return {samples,routes,interiors,bands,preserved:gl.getContextAttributes().preserveDrawingBuffer,error:gl.getError()};
 }
 
 function assertGraphInk(name, ink) {
@@ -480,38 +523,68 @@ function assertGraphInk(name, ink) {
   assert.deepEqual(ink.interiors,[],name+' R2 off-route ink inside card interiors');
   for(const {id,count,on} of ink.routes)if(count>=15)assert(on>0,name+' R2 missing ink for edge '+id);
   for(const {id,count,on} of ink.samples)if(count>=15)assert(on>0,name+' R2 missing ink for shaft '+id);
+  for(const {card,id,visible,painted} of ink.bands)if(visible)assert(painted,name+' F1 missing band ink '+card+'/'+id);
 }
 
-async function assertActivityCues(name) {
-  const cues = await evaluate(`(()=>{
+async function assertActivityCues(name, base, values) {
+  const result = await evaluate(`(()=>{
+    const map = document.querySelector('#map'), scene = map.graphScene;
     const color = e => getComputedStyle(e).color.match(/\\d+/g).slice(0,3).map(Number);
     const linear = n => n<=10 ? n/3294.6 : ((n/255+.055)/1.055)**2.4;
     const contrast = e => 1.05/(.05+color(e).reduce((sum,n,i)=>sum+[.2126,.7152,.0722][i]*linear(n),0));
-    const inspect = e => ({text:e.textContent, contrast:contrast(e), size:parseFloat(getComputedStyle(e).fontSize),
-      animation:getComputedStyle(e).animationDuration, loop:getComputedStyle(e).animationIterationCount});
-    return Object.fromEntries(['#map','#phone-flow'].map(scope=>[scope,[...document.querySelectorAll(scope+' .node-card')].map(card=>({
-      id:card.dataset.node, label:card.querySelector('.node-header').ariaLabel,
+    const inspect = e => {
+      const r=e.getBoundingClientRect(), icon=e.querySelector('svg'), path=icon?.getBBox(),
+        stroke=icon?parseFloat(getComputedStyle(icon).strokeWidth):null;
+      return {text:e.textContent,contrast:contrast(e),size:r.width,stroke,animation:getComputedStyle(e).animationDuration,
+        apparent:path?Math.max(path.width,path.height)*r.width/12+stroke:r.width,
+        rect:[Math.floor(r.x),Math.floor(r.y),Math.ceil(r.right)-Math.floor(r.x),Math.ceil(r.bottom)-Math.floor(r.y)]};
+    };
+    const cues=Object.fromEntries(['#map','#phone-flow'].map(scope=>[scope,[...document.querySelectorAll(scope+' .node-card')].map(card=>({
+      id:card.dataset.node, tier:scene.positions[card.dataset.node]?.tier, label:card.querySelector('.node-header').ariaLabel,
       answer:inspect(card.querySelector('.status-glyph')),
-      marks:[...card.querySelectorAll('.activity-mark')].map(e=>({key:e.dataset.activity,...inspect(e)})),
+      marks:[...card.querySelectorAll('.activity-mark:not(.activity-boundary)')].map(e=>({key:e.dataset.activity,...inspect(e)})),
     }))]));
+    return {cues,blocks:scene.cards.filter(c=>c.band), fallback:[...map.querySelectorAll('.activity-layer path')]
+      .map(e=>({...e.dataset,d:e.getAttribute('d')})), count:map.querySelector('.map-activity-count').textContent};
   })()`);
-  for(const cards of Object.values(cues)){
+  for(const cards of Object.values(result.cues)){
     const answer = cards.find(card=>card.id==='q').answer;
     assert.equal(answer.text,'◆',name+' A7 answer mark');
     for(const [id,keys] of Object.entries({rich:['other'],stalled:['mcp','stalled'],repeating:['tool','repeating'],blind:[],q:[]})){
       const card=cards.find(c=>c.id===id);
       assert.deepEqual(card.marks.map(mark=>mark.key),keys,name+' A7 '+id);
       for(const mark of card.marks){
-        assert.notEqual(mark.text,answer.text,name+' A7 unique answer mark');
-        assert(mark.size<=answer.size&&mark.contrast<=answer.contrast&&mark.contrast>=3,name+' A7 mark hierarchy '+JSON.stringify({mark,answer}));
-        assert(parseFloat(mark.animation)<=.3&&mark.loop==='1',name+' A7 static or one transition');
+        assert(mark.contrast>=3,name+' A7 mark contrast '+JSON.stringify(mark));
+        if(mark.size)assert(mark.apparent>=16,name+' A7 apparent category cue '+JSON.stringify(mark));
+        assert.equal(parseFloat(mark.animation),0,name+' A7 static cues');
       }
     }
     assert(cards.find(card=>card.id==='stalled').label.includes('최근 활동 없음'),name+' A7 accessible stalled');
     assert(cards.find(card=>card.id==='repeating').label.includes('실패 반복'),name+' A7 accessible repeating');
   }
   assert.equal(await evaluate("document.querySelectorAll('.activity-legend .state-key').length"),9,name+' A7 activity legend');
-  return cues;
+  assert.equal(result.count,'활동 확인 필요 2개',name+' F3 attention count');
+  const mapCards=result.cues['#map'];
+  assert.deepEqual(['q','stalled','repeating','rich'].map(id=>mapCards.find(c=>c.id===id).tier),[1,2,2,3],name+' F3 tier ordering');
+  const response = await fetch(new URL('/api/run?'+new URLSearchParams({project:values.project,run:values.run}),base),
+    {headers:{'X-GF-Token':values.token}});
+  const {view:{nodes}}=await response.json();
+  const expected=[];
+  for(const {id,band,tier} of result.blocks){
+    const phases=nodes.find(n=>n.id===id).activity.at(-1).phases;
+    assert.deepEqual(band.segments.map(s=>[s.id,s.category,s.errors]),phases.map(p=>[p.id,p.category,p.errors]),name+' F1 phase order');
+    assert.equal(band.segments.filter(s=>s.animate).length,id==='rich'?1:0,name+' F3 animated tier '+tier);
+    for(const segment of band.segments)expected.push({card:id,phase:segment.id,category:segment.category,
+      d:segment.paths.map(path=>`M${path[0].x} ${path[0].y}`+path.slice(1).map(p=>` L${p.x} ${p.y}`).join('')).join(' ')});
+  }
+  assert.deepEqual(result.fallback,expected,name+' F1 SVG mirrors scene geometry');
+  if(await evaluate("document.querySelector('#map').dataset.renderer==='webgl'")){
+    const ink=await evaluate(`(${graphInk})()`);
+    assert(ink.bands.some(sample=>sample.visible),name+' F1 visible segments');
+    assertGraphInk(name,ink);
+    assert.equal(await evaluate("document.querySelector('#map').graphDrawing.motionFrames"),0,name+' F4 initially reduced motion');
+  }
+  return result.cues;
 }
 
 const workScene = "document.querySelector('.work-summary')?.activityScene";
@@ -521,10 +594,13 @@ async function assertWorkSummary(screen, base, values, svg, webgl2) {
   const scope = await evaluate(`(()=>{
     const root=document.querySelector('.work-summary'), canvas=root.querySelector('canvas'), list=root.querySelector('.work-attempts');
     return {id:root.closest('#panel').dataset.node, hidden:canvas.hidden||getComputedStyle(canvas).display==='none',
-      canvasHidden:canvas.getAttribute('aria-hidden'), below:canvas.nextElementSibling===list,
-      rows:[...list.querySelectorAll('.work-phase')].map(e=>({...e.dataset,label:e.getAttribute('aria-label'),glyph:e.firstChild.textContent})),
+      canvasHidden:canvas.getAttribute('aria-hidden'), below:canvas.parentElement.nextElementSibling===list,
+      rows:[...list.querySelectorAll('.work-phase')].map(e=>({...e.dataset,label:e.getAttribute('aria-label'),
+        glyph:e.querySelector('.work-glyph').textContent, tools:e.querySelector('.work-tools')?.textContent||''})),
+      totals:[...list.querySelectorAll('meter')].map(e=>[+e.closest('[data-attempt]').dataset.attempt,e.dataset.category,e.dataset.total,e.value]),
       states:[...list.querySelectorAll('[data-activity-status]')].map(e=>[e.dataset.activityStatus,e.textContent]),
-      buttons:[...root.querySelectorAll('button')].map(e=>[e.offsetWidth,e.offsetHeight,e.tabIndex]),
+      buttons:[...root.querySelectorAll('.work-controls button')].map(e=>[e.offsetWidth,e.offsetHeight,e.tabIndex]),
+      panel:root.textContent,
     };
   })()`);
   const query = new URLSearchParams({project:values.project,run:values.run});
@@ -537,6 +613,17 @@ async function assertWorkSummary(screen, base, values, svg, webgl2) {
   assert.deepEqual(scope.rows.map(({phase,category,count,distinct,duration,errors,inferred})=>
     [phase,category,+count,+distinct,+duration,+errors,inferred==='true']),
     phases.map(p=>[p.id,p.category,p.count,p.distinct,p.duration_ms,p.errors,p.inferred]),screen.name+' A5 ordered text equivalence');
+  assert(!scope.panel.includes('sk-payload-secret-123456789'),screen.name+' F7 private payload absent');
+  for(const [i,phase] of phases.entries()){
+    const names=Object.entries(phase.tools||phase.checks||{});
+    assert.equal(names.reduce((total,[,calls])=>total+calls,0),phase.count,screen.name+' F6 phase call total');
+    assert.equal(scope.rows[i].tools,names.map(([name,calls])=>name+' × '+calls).join(' · '),screen.name+' F6 tool rows');
+  }
+  assert.deepEqual(scope.totals,attempts.flatMap(a=>Object.entries(a.totals).flatMap(([category,values])=>
+    ['duration_ms','count'].map(key=>[a.attempt,category,key,values[key]]))),screen.name+' F6 chart values');
+  for(const a of attempts)for(const key of ['duration_ms','count']){
+    assert.equal(Object.values(a.totals).reduce((sum,entry)=>sum+entry[key],0),a.phases.reduce((sum,p)=>sum+p[key],0),screen.name+' F6 attempt count / time');
+  }
   for(const row of scope.rows.filter(row=>row.inferred==='true')){
     assert.equal(row.glyph,'◌',screen.name+' A6 inferred glyph');
     assert.match(row.label,/추정|inferred/,screen.name+' A6 accessible name');
@@ -565,17 +652,20 @@ async function assertWorkSummary(screen, base, values, svg, webgl2) {
       const bytes=new Uint8Array(width*height*4);
       gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,bytes);
       return section.activityScene.bounds.map(([l,t,r,b])=>{
-        let ink=0;
+        let ink=0,minX=width,maxX=0,minY=height,maxY=0;
         for(let y=Math.max(0,Math.floor(t*ratio));y<Math.min(height,Math.ceil(b*ratio));y++){
           for(let x=Math.max(0,Math.floor(l*ratio));x<Math.min(width,Math.ceil(r*ratio));x++){
             const offset=((height-1-y)*width+x)*4;
-            if(bytes[offset]+bytes[offset+1]+bytes[offset+2]<650)ink++;
+            if(bytes[offset]+bytes[offset+1]+bytes[offset+2]<650){
+              ink++;minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+            }
           }
         }
-        return ink;
+        return {ink,width:(maxX-minX+1)/ratio,height:(maxY-minY+1)/ratio};
       });
     })()`);
-    assert(ink.every(count=>count>=4),screen.name+' A5 projected solids have ink '+JSON.stringify(ink));
+    assert(ink.every(s=>s.ink>=4),screen.name+' A5 projected solids have ink '+JSON.stringify(ink));
+    assert(ink.every(s=>s.width>=24&&s.height>=24),screen.name+' F6 raster silhouette floor '+JSON.stringify(ink));
     if(screen.activity_view==='playing'){
       assert(scope.buttons.every(([w,h,tab])=>w>=24&&h>=24&&tab===0),screen.name+' A8 native motion controls');
       const masks = Object.entries(await evaluate("document.querySelector('.work-summary').activitySilhouettes"));
@@ -597,6 +687,27 @@ async function assertWorkSummary(screen, base, values, svg, webgl2) {
     }
     await delay(150);
     assert.equal((await evaluate(workScene)).frames,geometry.frames,screen.name+' A8 idle frame counter');
+    const linked=await evaluate(`(()=>{
+      const root=document.querySelector('.work-summary'),visual=root.querySelector('.work-visual');
+      return {width:visual.clientWidth,content:root.clientWidth,links:[...visual.querySelectorAll('button')].map(e=>
+        [e.dataset.solid,document.getElementById(e.getAttribute('aria-controls'))?.closest('.work-phase').dataset.phase,e.tabIndex,e.offsetWidth,e.offsetHeight])};
+    })()`);
+    assert.equal(linked.width,linked.content,screen.name+' F6 full content width');
+    assert.deepEqual(linked.links.map(([solid,row,tab])=>[solid,row,tab]),phases.map(p=>[p.id,p.id,0]),screen.name+' F6 solid-to-row pairing');
+    assert(linked.links.every(([, , ,width,height])=>width>=24&&height>=24),screen.name+' F6 solid targets');
+    const ids=phases.map(p=>p.id);
+    for(const [selector,id] of [['solid',ids[0]],['phase',ids.at(-1)]]){
+      await evaluate(`document.getElementById(${JSON.stringify('work-'+selector+'-'+id)}).focus({preventScroll:true})`);
+      const key={key:' ',code:'Space',windowsVirtualKeyCode:32};
+      await send('Input.dispatchKeyEvent',{type:'keyDown',...key});
+      await send('Input.dispatchKeyEvent',{type:'keyUp',...key});
+      await until(`${workScene}.highlighted===${JSON.stringify(id)}`);
+      for(const prefix of ['work-phase-','work-solid-']){
+        assert.equal(await evaluate(`document.getElementById(${JSON.stringify(prefix+id)}).getAttribute('aria-pressed')`),
+          'true',screen.name+' F6 two-way highlight');
+      }
+    }
+    await evaluate('document.activeElement.blur()');
     scope.geometry=geometry;
     scope.ink=ink;
   }
@@ -621,7 +732,7 @@ async function checkPlayback() {
     document.body.append(container);
     const scenes=[1,10,12].map(count=>{
       const canvas=document.createElement('canvas');
-      Object.assign(canvas.style,{display:'block',width:'190px',height:'80px'});
+      Object.assign(canvas.style,{display:'block',width:'270px',height:(84*Math.ceil(count/3))+'px'});
       container.append(canvas);
       return createActivityScene(canvas,{attempts:models(count),capture:true,reduced:false,autoplay:true,onState(){},onLoss(){}});
     });
@@ -644,22 +755,236 @@ async function checkPlayback() {
   return result.map(s=>({phases:s.solids.length,observedMs:s.stoppedAt-s.startedAt,frames:s.frames}));
 }
 
-async function recordPlayback(filename) {
+async function recordPlayback(filename, start, step, interval=250) {
   const stem=filename.replace(/\.png$/,'');
   const dir=path.join(runtime,stem);
   mkdirSync(dir);
-  await evaluate("document.querySelector('#activity-replay').click()");
+  await start();
   const started=Date.now();
   for(let index=0;index<16;index++){
-    await delay(Math.max(0,started+index*250-Date.now()));
+    await delay(Math.max(0,started+index*interval-Date.now()));
+    await step?.(index);
     const frame=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
     writeFileSync(path.join(dir,String(index).padStart(2,'0')+'.png'),Buffer.from(frame.data,'base64'));
   }
   const movie=path.join(final,stem+'.mp4');
-  const result=spawnSync(ffmpeg,['-hide_banner','-loglevel','error','-y','-framerate','4','-i',path.join(dir,'%02d.png'),
+  const result=spawnSync(ffmpeg,['-hide_banner','-loglevel','error','-y','-framerate',String(1000/interval),'-i',path.join(dir,'%02d.png'),
     '-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart',movie],{encoding:'utf8'});
   assert.equal(result.status,0,result.stderr);
   return movie;
+}
+
+async function verifyGraphProgress(name) {
+  const graphFrames="document.querySelector('#map').graphDrawing.motionFrames";
+  const control="document.querySelector('.graph-motion')";
+  await until(`${graphFrames} > 0 && !${control}.hidden`);
+  const from=await evaluate(graphFrames);
+  await delay(500);
+  const progress=await evaluate(graphFrames)-from;
+  assert(progress>0&&progress<=7,name+' F4 progress frame cap '+progress);
+  await evaluate(control+'.focus()');
+  const space={key:' ',code:'Space',windowsVirtualKeyCode:32};
+  await send('Input.dispatchKeyEvent',{type:'keyDown',...space});
+  await send('Input.dispatchKeyEvent',{type:'keyUp',...space});
+  const paused=await evaluate(graphFrames);
+  await delay(2200);
+  assert.equal(await evaluate(graphFrames),paused,name+' F4 keyboard pause survives polling');
+  assert.equal(await evaluate(control+'.textContent'),'그래프 움직임 재개');
+  await evaluate(control+'.click()');
+  await until(`${graphFrames}>${paused}`);
+  await evaluate("Object.defineProperty(document,'hidden',{value:true,configurable:true});document.dispatchEvent(new Event('visibilitychange'))");
+  const hidden=await evaluate(graphFrames);
+  await delay(300);
+  assert.equal(await evaluate(graphFrames),hidden,name+' F4 hidden page stops motion');
+  await evaluate("delete document.hidden;document.dispatchEvent(new Event('visibilitychange'))");
+  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  await until(`${control}.hidden`);
+  const reduced=await evaluate(graphFrames);
+  await delay(300);
+  assert.equal(await evaluate(graphFrames),reduced,name+' F4 reduced motion stops motion');
+  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
+  await until(`${graphFrames}>${reduced}`);
+}
+
+async function assertFlowRecords(name, fixture) {
+  const events=readFileSync(path.join(fixture.project,'.graph-flow/runs',fixture.run,'events.jsonl'),'utf8').trim().split('\n').map(line=>JSON.parse(line));
+  const event=(node,type)=>events.findLast(e=>e.type===type&&e.data.node===node);
+  const outcomes={
+    'a/done':['delivered',false,event('a','gate.verdict'),event('a','node.submit')],
+    'a/next':['delivered',true,event('a','gate.verdict'),event('a','node.submit')],
+    'waiting/use':['waiting',false,null,null],
+    'q/release':['blocked',false,event('q','decision.ask'),null],
+    'broken/retry':['returned',false,event('broken','gate.verdict'),null],
+    'release/late':['unreachable',false,null,null],
+    'done/_run_checks':['delivered',false,event('done','gate.verdict'),event('done','node.submit')],
+    'next/_run_checks':['waiting',false,null,null],
+    'retry/_run_checks':['unreachable',false,null,null],
+    'late/_run_checks':['unreachable',false,null,null],
+    'use/_run_checks':['unreachable',false,null,null],
+  };
+  const graph=await evaluate(`(()=>{
+    const map=document.querySelector('#map');
+    return {scene:map.graphScene,drawing:map.graphDrawing,count:map.querySelector('.map-flow-count').textContent};
+  })()`);
+  const token=record=>record ? [record.seq,record.time] : null;
+  const observed=Object.fromEntries(graph.scene.edges.map(edge=>{
+    const {state,frontier,record,delivery}=edge.flow;
+    return [edge.from+'/'+edge.to,[state,frontier,token(record),token(delivery)]];
+  }));
+  assert.deepEqual(observed,Object.fromEntries(Object.entries(outcomes).map(([id,[state,frontier,record,delivery]])=>
+    [id,[state,frontier,...[record,delivery].map(e=>e?[e.seq,e.ts]:null)]])),name+' F2 ledger oracle');
+  assert.equal(graph.count,'전달 2 · 진행 중 1 · 대기 6 · 막힘 2',name+' F2 flow counts');
+  const expected=graph.scene.edges.map(edge=>({id:edge.id,cue:edge.flow.frontier?'frontier':edge.flow.state}));
+  assert.deepEqual(graph.drawing.flowMarks,expected,name+' F2 drawn flow token inventory');
+  const vocabulary=await evaluate("(async()=>Object.values((await import('/static/page.js')).FLOW_MARKS).map(shape=>JSON.stringify(shape)))()");
+  assert.equal(new Set(vocabulary).size,6,name+' F2 monochrome paths distinguish every token');
+  return observed;
+}
+
+async function verifyHandoffPulse(name,filename,fixture) {
+  const drawing="document.querySelector('#map').graphDrawing";
+  const edge=await evaluate("document.querySelector('#map').graphScene.edges.find(e=>e.from==='waiting'&&e.to==='use').id");
+  const before=await evaluate(drawing+'.frames');
+  await delay(240);
+  assert.equal(await evaluate(drawing+'.frames'),before,name+' F4 no frames when no nodes running');
+  const ledger=path.join(fixture.project,'.graph-flow/runs',fixture.run,'events.jsonl');
+  const original=readFileSync(ledger), artifact=path.join(fixture.project,'waiting.txt');
+  assert(!existsSync(artifact));
+  try {
+    const positions=[];
+    const movie=await recordPlayback(filename,async()=>{
+      cli(fixture,['start','waiting']);
+      writeFileSync(artifact,'추가 자료를 준비했어요.\n');
+      cli(fixture,['submit','waiting']);
+      cli(fixture,['gate','waiting']);
+      await evaluate("document.dispatchEvent(new Event('visibilitychange'))");
+      await until(`${drawing}.activePulses?.some(p=>p.id===${JSON.stringify(edge)})`);
+      const initial=await evaluate(`${drawing}.activePulses.find(p=>p.id===${JSON.stringify(edge)})`);
+      positions.push([initial.x,initial.y]);
+      await until(`${drawing}.activePulses?.some(p=>p.id===${JSON.stringify(edge)}&&p.progress>${initial.progress})`);
+      const next=await evaluate(`${drawing}.activePulses.find(p=>p.id===${JSON.stringify(edge)})`);
+      positions.push([next.x,next.y]);
+    },async index=>{
+      const pulses=await evaluate(drawing+'.activePulses');
+      if(index===12)assert.equal(pulses.length,0,name+' F4 pulse finished by 1.2 seconds');
+      positions.push(...pulses.map(p=>[p.x,p.y]));
+    },100);
+    const ended=await evaluate(drawing);
+    assert(new Set(positions.map(p=>p.join(','))).size>1,name+' F4 pulse moves along the relation');
+    assert.equal(ended.pulseStarts,1,name+' F4 plays once per recorded handoff');
+    assert.equal(ended.activePulses.length,0,name+' F4 no active pulse after recorded handoff');
+    await delay(2050);
+    assert.equal(await evaluate(drawing+'.pulseStarts'),1,name+' F4 handoff does not replay on polling');
+    assert.equal(await evaluate(drawing+'.frames'),ended.frames,name+' F4 no frames after handoff');
+    return movie;
+  } finally {
+    writeFileSync(ledger,original);
+    if(existsSync(artifact))unlinkSync(artifact);
+  }
+}
+
+async function assertEdgeSelection(mode, fixture) {
+  const scene="document.querySelector('#map').graphScene";
+  const key=edge=>JSON.stringify([edge.from,edge.to,edge.relation,edge.label||'']);
+  const titles=new Map(JSON.parse(readFileSync(fixture.plan,'utf8')).nodes.map(node=>[node.id,node.title]));
+  titles.set('_run_checks','전체 결과 확인');
+  const unique=new Map((await evaluate(scene+'.edges')).map(edge=>[edge.id,edge]));
+  async function press(code){
+    const key={key:code==='Space'?' ':code,code,windowsVirtualKeyCode:code==='Escape'?27:32};
+    await send('Input.dispatchKeyEvent',{type:'keyDown',...key});
+    await send('Input.dispatchKeyEvent',{type:'keyUp',...key});
+  }
+  async function clickRoute(id){
+    const coords=await evaluate(`(async()=>{
+      const {pointAlongRoute,pickGraphEdges}=await import('/static/page.js');
+      const map=document.querySelector('#map'),scene=map.graphScene,v=map.querySelector('.map-viewport');
+      const id=${JSON.stringify(id)},scale=Number(map.dataset.scale),stage=map.querySelector('.map-stage');
+      const shared=scene.strokes.filter(s=>s.members.length>1)
+        .sort((a,b)=>Math.hypot(b.points[1].x-b.points[0].x,b.points[1].y-b.points[0].y)-
+          Math.hypot(a.points[1].x-a.points[0].x,a.points[1].y-a.points[0].y))[0];
+      const points=id===null?shared.points:scene.edges.find(edge=>edge.id===id).points;
+      const p=pointAlongRoute(points,.5);
+      const bounds=stage.getBoundingClientRect(),viewport=v.getBoundingClientRect();
+      v.scrollLeft+=bounds.left+p.x*scale-viewport.left-v.clientWidth/2;
+      v.scrollTop+=bounds.top+p.y*scale-viewport.top-v.clientHeight/2;
+      const r=stage.getBoundingClientRect();
+      return {x:r.left+p.x*scale,y:r.top+p.y*scale,members:pickGraphEdges(scene,p,scale), shared:shared?.members};
+    })()`);
+    if(id!==null)assert(coords.members.includes(id),'F5 relation midpoint '+id+' should be pickable');
+    else assert.deepEqual(sorted(coords.members),sorted(coords.shared),'F5 trunk geometry');
+    const point={x:coords.x,y:coords.y,button:'left',clickCount:1};
+    await send('Input.dispatchMouseEvent',{type:'mousePressed',...point});
+    await send('Input.dispatchMouseEvent',{type:'mouseReleased',...point});
+    await until("!document.querySelector('#panel').hidden");
+    return coords.members;
+  }
+  const isTrunk="document.querySelector('#panel').dataset.trunk==='true'";
+  async function checkChoices(members, choose){
+    assert.equal(await evaluate(isTrunk),true,'F5 shared shaft opens chooser');
+    const choices=await evaluate("[...document.querySelectorAll('.edge-choices button')].map(b=>b.dataset.edgeKey)");
+    assert.deepEqual(sorted(choices),sorted(members.map(id=>key(unique.get(id)))),'F5 exactly the trunk relations');
+    if(choose){
+      const wanted=key(unique.get(choose));
+      await evaluate(`[...document.querySelectorAll('.edge-choices button')].find(b=>b.dataset.edgeKey===${JSON.stringify(wanted)}).focus()`);
+      await press('Space');
+    }
+    return choices;
+  }
+  async function checkPanel(edge){
+    await until(`document.querySelector('#panel').dataset.edge===${JSON.stringify(key(edge))}`);
+    const detail=await evaluate(`(()=>{
+      const panel=document.querySelector('#panel'), map=document.querySelector('#map');
+      return {key:panel.dataset.edge,name:panel.querySelector('.panel-intro strong').textContent,
+        relation:panel.querySelector('.node-sentence').textContent,focus:[...map.querySelectorAll('.graph-path .node-card')].map(e=>e.dataset.node),
+        sections:[...panel.querySelectorAll('.edge-states dd')].map(e=>e.textContent),
+        records:[...panel.querySelectorAll('.edge-record')].map(e=>[e.dataset.recordRole,e.dataset.recordId,+e.dataset.recordSeq,
+          e.querySelector('time')?.dateTime||null]),text:panel.textContent};
+    })()`);
+    assert.equal(detail.key,key(edge),'F5 selected relation identity');
+    assert.deepEqual(sorted(detail.focus),sorted([edge.from,edge.to]),'F5 only endpoints are emphasised');
+    assert.equal(detail.name,titles.get(edge.from)+' → '+titles.get(edge.to),'F5 titles and direction');
+    assert.equal(detail.relation,relationNames.ko[edge.relation],'F5 relation kind');
+    assert.equal(detail.sections[0],gateNames.ko[edge.gate],'F5 gate state');
+    const words={delivered:'전달됨',frontier:'진행 중',waiting:'전달 대기',blocked:'막힘',
+      returned:'수정 요청으로 돌아감',unreachable:'선행 작업 대기'};
+    assert.equal(detail.sections[1],words[edge.flow.frontier?'frontier':edge.flow.state],'F5 flow state');
+    if(edge.label)assert.equal(detail.sections[2],edge.label,'F5 handed-over artifact label');
+    const {record,gate_record,delivery}=edge.flow;
+    const sameRecord=gate_record && record && gate_record.seq===record.seq;
+    const role=edge.flow.state==='returned'?
+      (sameRecord?'edgeGateReturnRecord':'edgeReturnRecord'):(sameRecord?'edgeGateFlowRecord':'edgeFlowRecord');
+    const refs=[['edgeGateRecord',sameRecord?null:gate_record],[role,record],
+      ['edgeDeliveryRecord',delivery?.seq!==record?.seq?delivery:null]].filter(([,ref])=>ref);
+    assert.deepEqual(detail.records,refs.map(([role,r])=>[role,String(r.id),r.seq,r.time]),'F5 record type, IDs and time');
+    assert(!detail.text.includes('sk-payload-secret-123456789'),'F7 edge panel includes metadata only');
+    return detail;
+  }
+  if(mode==='edge'){
+    const selected=[...unique.values()].find(e=>e.from==='broken'&&e.to==='retry');
+    for(const edge of unique.values()){
+      const members=await clickRoute(edge.id);
+      if(members.length>1)await checkChoices(members,edge.id);
+      await checkPanel(edge);
+      await press('Escape');
+      assert(await evaluate("document.querySelector('#panel').hidden"),'F5 Escape clears pointer selection');
+      await evaluate(`(()=>{
+        document.querySelector('#accessible').open=true;
+        [...document.querySelectorAll('#edge-list button')].find(b=>b.dataset.edgeKey===${JSON.stringify(key(edge))}).focus({preventScroll:true});
+      })()`);
+      await press('Space');
+      await checkPanel(edge);
+      await evaluate("document.querySelector('.panel-close').click();document.querySelector('#accessible').open=false");
+      assert(await evaluate("document.querySelector('#panel').hidden"),'F5 close clears keyboard selection');
+    }
+    await clickRoute(selected.id);
+    return checkPanel(selected);
+  }
+  const members=await clickRoute(null);
+  await checkChoices(members,members[0]);
+  await checkPanel(unique.get(members[0]));
+  await press('Escape');
+  await clickRoute(null);
+  return checkChoices(members);
 }
 
 async function assertMotion(name) {
@@ -942,7 +1267,7 @@ function graphAppearance() {
     const {width,height}=e.getBoundingClientRect();
     probes.targets.push({id:context(e)+' '+e.textContent.trim().slice(0,50),width,height,floor:e.matches('.ref')?24:44});
   }
-  probes.legend=Array.from(document.querySelectorAll('.map-key[open] .line-sample'),e=>({
+  probes.legend=Array.from(document.querySelectorAll('.map-key[open] .line-sample:has(.edge-path)'),e=>({
     caption:e.lastElementChild.textContent,dash:getComputedStyle(e.querySelector('.edge-path')).strokeDasharray,
     shape:e.querySelector('.relation-fill,.relation-stroke')?.getAttribute('d') ?? null,
   }));
@@ -995,6 +1320,33 @@ function compareGrayGlyphs(name, png, boxes) {
     return {pair:[id,other],difference};
   }));
 }
+
+function assertAttentionInk(name,png,cards) {
+  function measure({rect:[x,y,width,height],stroke:outline}) {
+    const raster=spawnSync(ffmpeg,['-v','error','-i',png,'-vf',`format=gray,crop=${width}:${height}:${x}:${y}`,
+      '-frames:v','1','-f','rawvideo','pipe:1']);
+    assert.equal(raster.status,0,raster.stderr.toString());
+    assert.equal(raster.stdout.length,width*height,name+' F3 painted cue bounds');
+    const ink=raster.stdout.map(pixel=>Number(pixel<128));
+    let stroke=0;
+    for(let row=0;row<height;row++)for(let col=0;col<width;col++){
+      for(let side=stroke+1;side<=width-col&&side<=height-row;side++){
+        if(!Array.from({length:side},(_,dy)=>ink.subarray((row+dy)*width+col,(row+dy)*width+col+side).every(Boolean)).every(Boolean))break;
+        stroke=side;
+      }
+    }
+    return {area:ink.reduce((sum,pixel)=>sum+pixel,0),stroke:outline??stroke};
+  }
+  const tier1=measure(cards.find(card=>card.tier===1).answer);
+  const tier2=cards.filter(card=>card.tier===2).map(card=>measure(card.marks.at(-1)));
+  const tier3=cards.flatMap(card=>card.marks.filter(mark=>!['stalled','repeating'].includes(mark.key)).map(measure));
+  for(const metric of ['area','stroke']){
+    assert(tier1[metric]>Math.max(...tier2.map(cue=>cue[metric])) &&
+      Math.min(...tier2.map(cue=>cue[metric]))>Math.max(...tier3.map(cue=>cue[metric])),
+      name+' F3 '+metric+' '+JSON.stringify({tier1,tier2,tier3}));
+  }
+  return {tier1,tier2,tier3};
+}
 const derivedNumbers = new Set([1,2,3,5,7,10,15,17,18,19,20,21,22,23,24,29,33,34,37,38,41,44,52,53,58,59,61,62,63,64,65,66,67,68,69,...manifest.filter(s=>s.number>=70).map(s=>s.number)]);
 try {
   chrome = start(chromePath, ['--headless=new','--use-angle=swiftshader','--enable-unsafe-swiftshader',
@@ -1036,18 +1388,20 @@ try {
       record.deepLink = relative.replace(encodeURIComponent(values.token), '{token}');
       errors.length = 0;
       requests.length = 0;
-      await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:screen.activity_view==='playing'?'no-preference':'reduce'}]});
+      await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:screen.activity_view==='playing'||screen.graph_progress||screen.graph_flow?'no-preference':'reduce'}]});
       await send('Emulation.setDeviceMetricsOverride', {width:screen.viewport.width,height:screen.viewport.height,deviceScaleFactor:1,mobile:false});
       const dashboard=new URL(relative,base.origin);
       dashboard.searchParams.set('graphTest','1');
       if(svg)dashboard.searchParams.set('renderer','svg');
-      await send('Page.navigate', {url:dashboard.href});
+      const navigation=await send('Page.navigate', {url:dashboard.href});
+      assert(!navigation.errorText,navigation.errorText);
       const language=screen.language||'ko';
-      await until(`!!document.querySelector('#map').graphScene && document.documentElement.lang===${JSON.stringify(language)}`);
+      await until(`location.origin===${JSON.stringify(base.origin)}&&!!document.querySelector('#map')?.graphScene&&document.documentElement.lang===${JSON.stringify(language)}`);
       await delay(450);
       for(const action of screen.interactions) await interaction(action, fixture);
       await evaluate('document.fonts.ready');
       if(screen.activity_view)record.activity=await assertWorkSummary(screen,base,values,svg,webgl2);
+      if(screen.edge_detail)record.edge=await assertEdgeSelection(screen.edge_detail,fixture);
       const dom = await evaluate(`({title:document.querySelector('#title').textContent,language:document.documentElement.lang,text:document.body.innerText,level:document.querySelector('#map').dataset.level,scale:document.querySelector('#map').dataset.scale,scrollY,buttons:[...document.querySelectorAll('button')].filter(b=>b.getBoundingClientRect().width).map(b=>({text:b.textContent,disabled:b.disabled}))})`);
       assert.equal(dom.language,language);
       assert(dom.text.length > 100 && !/서버에 연결할 수 없|ERR_CONNECTION|사이트에 연결할 수 없/.test(dom.text), 'blank or connection error page');
@@ -1063,9 +1417,20 @@ try {
         const panel=document.querySelector('#panel'),body=panel.querySelector('.panel-body'),bar=panel.querySelector('.panel-bar');
         const cards=[...document.querySelectorAll('#map .node-card')];
         const selected=cards.find(c=>c.classList.contains('expanded'));const sentence=panel.querySelector('.node-sentence'),sr=sentence?.getBoundingClientRect();
-        const leafRects=body?[...body.querySelectorAll('p,li,summary,h3,pre')].filter(e=>e.getClientRects().length&&!e.querySelector('p,li,summary,h3,pre')).map(e=>{const range=document.createRange();range.selectNodeContents(e);return {text:e.textContent,rect:range.getBoundingClientRect().toJSON()}}):[];
+        const leafRects=body?[...body.querySelectorAll('p,li,summary,h3,pre')].flatMap(e=>{
+          if(e.querySelector('p,li,summary,h3,pre')||!e.getClientRects().length)return [];
+          const summary=e.closest('summary'), closed=e.closest('details:not([open])');
+          if(closed&&(!summary||summary.parentElement!==closed||closed.parentElement.closest('details:not([open])')))return [];
+          const range=document.createRange();range.selectNodeContents(e);
+          const bounds=e.getBoundingClientRect(), clip=getComputedStyle(e).clipPath;
+          const clips=clip.startsWith('inset(')?clip.slice(6,-1).split(' '):[];
+          const offset=token=>token?.endsWith('%')?parseFloat(token)*bounds.height/100:parseFloat(token)||0;
+          const top=bounds.top+offset(clips[0]),bottom=bounds.bottom-offset(clips[2]||clips[0]);
+          return [...range.getClientRects()].filter(rect=>rect.width&&rect.height&&rect.top<bottom&&rect.bottom>top)
+            .map(rect=>({text:e.textContent,rect:rect.toJSON()}));
+        }):[];
         const visibleTitles=cards.filter(c=>{if(getComputedStyle(c).visibility==='hidden')return false;const t=c.querySelector('.node-title'),range=document.createRange();range.selectNodeContents(t);const r=map.dataset.lod==='far'?c.getBoundingClientRect():range.getBoundingClientRect(),left=vr.left+v.clientLeft,top=vr.top+v.clientTop;return r.left>=left-.5&&r.right<=left+v.clientWidth+.5&&r.top>=top-.5&&r.bottom<=top+v.clientHeight+.5}).map(c=>c.querySelector('.node-title').textContent);
-        return {shown,firstSentence:panel.hidden||!!sentence&&sentence.parentElement.children[1]===sentence&&sr.top>=0&&sr.bottom<=innerHeight,scroll:{left:v.scrollLeft,top:v.scrollTop},visibleTitles,
+        return {shown,firstSentence:panel.hidden||panel.dataset.trunk==='true'||!!sentence&&sentence.parentElement.children[1]===sentence&&sr.top>=0&&sr.bottom<=innerHeight,scroll:{left:v.scrollLeft,top:v.scrollTop},visibleTitles,
           toolbar:!shown||count.scrollWidth<=count.clientWidth+1&&count.getBoundingClientRect().left>=toolbar.getBoundingClientRect().left,
           panel:panel.hidden||bar.getBoundingClientRect().bottom<=body.getBoundingClientRect().top+.5,
           panelTitle:bar?.querySelector('strong')?.textContent,
@@ -1192,7 +1557,8 @@ try {
         await delay(2200);
         assert.deepEqual(await evaluate(`({scrollY,level:document.querySelector('#map').dataset.level,focus:document.activeElement?.id,text:document.querySelector('#decision')?.textContent})`),before,'polling preserves the open question');
       }
-      if(screen.activity_macro)dom.activityCues=await assertActivityCues(screen.name);
+      if(screen.activity_macro)dom.activityCues=await assertActivityCues(screen.name,base,values);
+      if(screen.graph_flow)dom.flowRecords=await assertFlowRecords(screen.name,fixture);
       dom.audit=audit;
       assert(requests.length, screen.name+' expected network observations');
       assert(requests.every(url=>new URL(url).origin===base.origin),screen.name+' off-origin dashboard request');
@@ -1201,9 +1567,15 @@ try {
       const bytes = Buffer.from(shot.data,'base64');
       writeFileSync(path.join(final,filename),bytes);
       copyFileSync(path.join(final,filename),path.join(verify,filename));
+      if(screen.activity_macro)dom.activityInk=assertAttentionInk(screen.name,path.join(final,filename),dom.activityCues['#map']);
+      if(screen.graph_progress&&!svg&&webgl2){
+        await verifyGraphProgress(screen.name);
+        record.video=await recordPlayback(filename,async()=>{},index=>index===8&&evaluate("document.querySelector('.graph-motion').click()"));
+      }
+      if(screen.graph_flow&&!svg&&webgl2)record.video=await verifyHandoffPulse(screen.name,filename.replace('.png','-handoff.png'),fixture);
       if(screen.activity_view==='playing'&&!svg&&webgl2){
         record.playback=await checkPlayback();
-        record.video=await recordPlayback(filename);
+        record.video=await recordPlayback(filename,()=>evaluate("document.querySelector('#activity-replay').click()"));
         await evaluate("document.querySelector('#activity-replay').click();document.querySelector('#activity-pause').focus()");
         await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
         await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});

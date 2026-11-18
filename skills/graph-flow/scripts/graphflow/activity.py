@@ -1,16 +1,12 @@
 """Private, best-effort activity observations, separate from the run ledger."""
 import contextlib
-import hashlib
-import heapq
 import json
 import os
 import pathlib
 import re
-import shlex
 import sys
-from datetime import datetime, timezone
-
-from . import core, state, store
+import time
+from collections import Counter
 
 LIMIT_BYTES = 4 * 1024 * 1024
 CATEGORIES = ("tool", "skill", "mcp", "session", "gf", "other")
@@ -24,7 +20,7 @@ OBSERVED = {
     "PreToolUse": "start", "PostToolUse": "end", "PostToolUseFailure": "end",
     "SubagentStart": "start", "SubagentStop": "end",
 }
-BUILTINS = frozenset(("Bash PowerShell Read Write Edit MultiEdit Glob Grep NotebookEdit WebFetch "
+BUILTINS = frozenset(("Bash PowerShell apply_patch Read Write Edit MultiEdit Glob Grep NotebookEdit WebFetch "
                       "WebSearch ToolSearch AskUserQuestion EnterPlanMode ExitPlanMode TodoWrite "
                       "TaskCreate TaskUpdate TaskGet TaskList TaskOutput TaskStop EnterWorktree "
                       "ExitWorktree ListMcpResourcesTool ReadMcpResourceTool").split())
@@ -60,6 +56,7 @@ def _classify(name, payload):
         command = inputs.get("command") if isinstance(inputs, dict) else None
         # Inspect only the executable prefix. No input survives classification.
         if isinstance(command, str):
+            import shlex
             lexer = shlex.shlex(command, posix=True)
             lexer.whitespace_split = True
             with contextlib.suppress(ValueError):
@@ -77,17 +74,26 @@ def _classify(name, payload):
     return ("tool" if name in BUILTINS else "other"), None
 
 
-def observation(payload, ts):
+def observation(payload, ts, host="claude"):
+    if not isinstance(payload, dict):
+        return None
     event = payload.get("hook_event_name")
-    if event not in OBSERVED:
+    if not isinstance(event, str) or event not in OBSERVED:
+        return None
+    turn = token(payload.get("turn_id")) if host == "codex" else None
+    if host == "codex" and (not turn or event not in ("PreToolUse", "PostToolUse")):
         return None
     session, agent = token(payload.get("session_id")), token(payload.get("agent_id"))
+    if host == "codex":
+        agent = None  # Tool events document a session and turn, not a separate agent ID.
     lifecycle = event in ("SubagentStart", "SubagentStop")
     name = "Subagent" if lifecycle else token(payload.get("tool_name"))
     invocation = agent if lifecycle else token(payload.get("tool_use_id"))
     if not (name and invocation and session):
         return None
-    key = json.dumps([session, agent, lifecycle, invocation])
+    key = json.dumps(["codex", session, turn, invocation] if host == "codex"
+                     else [session, agent, lifecycle, invocation])
+    import hashlib
     category, server = _classify(name, payload)
     row = {"ts": ts, "phase": OBSERVED[event], "category": category, "tool": name,
            "session": session, "call": hashlib.sha256(key.encode()).hexdigest()[:32]}
@@ -95,7 +101,7 @@ def observation(payload, ts):
         row["agent"] = agent
     if server:
         row["server"] = server
-    if row["phase"] == "end":
+    if row["phase"] == "end" and host != "codex":
         row["outcome"] = "error" if event == "PostToolUseFailure" else "ok"
         duration = payload.get("duration_ms")
         if not lifecycle and type(duration) is int and duration >= 0:
@@ -104,6 +110,7 @@ def observation(payload, ts):
 
 
 def _milliseconds(stamp):
+    from datetime import datetime
     return round(datetime.fromisoformat(stamp.removesuffix("Z") + "+00:00").timestamp() * 1000)
 
 
@@ -174,6 +181,7 @@ def _append(run_dir, row, counterpart):
     payload = _encode(_clean(row))
     size = path.stat().st_size if path.exists() else 0
     if size + len(payload) > LIMIT_BYTES:
+        from . import store
         _, rows = _read(path)
         kept = b"".join(_encode(entry) for entry in rows)
         cut = kept.find(b"\n", max(0, len(kept) - LIMIT_BYTES // 2))
@@ -212,9 +220,9 @@ def _same_directory(left, right):
     return False
 
 
-def _matches(running, identity, cwd):
+def _matches(running, identity, cwd, host="claude"):
     sessions = [(n, v) for n, v in running.items()
-                if identity and v.get("session") in (identity, "claude:" + identity)]
+                if identity and v.get("session") in (identity, host + ":" + identity)]
     if sessions:
         return "session", sessions
     directories = [(n, v) for n, v in running.items() if cwd and v.get("cwd") and
@@ -224,9 +232,9 @@ def _matches(running, identity, cwd):
     return "single", list(running.items())
 
 
-def attribution(running, identity, cwd):
+def attribution(running, identity, cwd, host="claude"):
     """Return (node, attempt, rule); a tie at any priority stays ambiguous."""
-    rule, matches = _matches(running, identity, cwd)
+    rule, matches = _matches(running, identity, cwd, host)
     if len(matches) != 1:
         return None, None, "unattributed"
     node, value = matches[0]
@@ -234,6 +242,8 @@ def attribution(running, identity, cwd):
 
 
 def _current(run_dir):
+    from . import state, store
+
     events = store.events(run_dir)
     revision = store._last_plan_set(events)
     if not revision:
@@ -275,13 +285,15 @@ def _run_paths(cwd):
             return
 
 
-def _select(cwd, identity):
+def _select(paths, cwd, identity, host):
+    from . import core
+
     candidates = []
-    for run in dict.fromkeys(_run_paths(cwd)):
+    for run in paths:
         try:
             running = _current(run)
             if running is not None:
-                candidates.append((run, _matches(running, identity, cwd)[0]))
+                candidates.append((run, _matches(running, identity, cwd, host)[0]))
         except (OSError, core.GFError):
             continue
     explicit = os.environ.get("GF_RUN")
@@ -298,16 +310,28 @@ def _select(cwd, identity):
     return None
 
 
-def observe(payload, ts):
-    row = observation(payload, ts)
+def observe(payload, ts, host="claude"):
+    if not isinstance(payload, dict):
+        return
     cwd_value = payload.get("cwd")
-    if not row or not isinstance(cwd_value, str) or not pathlib.Path(cwd_value).is_absolute():
+    if not isinstance(cwd_value, str) or not pathlib.Path(cwd_value).is_absolute():
         return
     cwd = pathlib.Path(cwd_value).resolve(strict=True)
+    paths = tuple(dict.fromkeys(_run_paths(cwd)))
+    if not paths:
+        return
+    if isinstance(ts, float):
+        from datetime import datetime, timezone
+        ts = datetime.fromtimestamp(ts, timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    row = observation(payload, ts, host)
+    if not row:
+        return
     identity = row.get("agent", row["session"])
-    run = _select(cwd, identity)
+    run = _select(paths, cwd, identity, host)
     if run is None:
         return
+    from . import store
+
     with store.locked(run / ".lock", timeout_s=0.5):
         running = _current(run)
         if running is None:
@@ -319,19 +343,19 @@ def observe(payload, ts):
                 if entry["phase"] == row["phase"]:
                     return
                 counterpart = entry
-        node, attempt, via = attribution(running, identity, cwd)
+        node, attempt, via = attribution(running, identity, cwd, host)
         if counterpart is not None:
             # Keep both edges of one invocation on the same attempt across submit/retry races.
             node, attempt, via = (counterpart[key] for key in ("node", "attempt", "via"))
         _append(run, dict(row, node=node, attempt=attempt, via=via), counterpart)
 
 
-def hook():
-    stamp = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+def hook(host="claude"):
+    stamp = time.time()
     try:
         line = sys.stdin.buffer.read(8 * 1024 * 1024 + 1)
         if len(line) <= 8 * 1024 * 1024:
-            observe(json.loads(line), stamp)
+            observe(json.loads(line), stamp, host)
     except Exception:
         # The async observer has no response channel and never changes tool execution.
         pass
@@ -353,6 +377,8 @@ def _calls(records):
             duration = ended_at - call_start
         calls.append(dict(key=key, category=row["category"], tool=row["tool"],
                           start=call_start, end=max(call_start, ended_at) if end else None,
+                          recorded_start=call_start if start else None, recorded_end=ended_at,
+                          via={p["via"] for p in pair.values()},
                           duration=duration or 0, start_known=start is not None,
                           unknown=int(duration is None), error=int((end or {}).get("outcome") == "error")))
     return sorted(calls, key=lambda call: (call["start"], call["key"]))
@@ -374,26 +400,36 @@ def _repeat_indices(items, name, failed):
 
 
 def _phase(category, start, duration=0, *, count=0, errors=0, names=(), unknown=0,
-           label=None, repeating=False):
+           label=None, repeating=False, detail_start=None, end=None, longest=None, via=(), current=False,
+           origin="observed"):
     return dict(category=category, start_ms=start, duration_ms=duration, count=count,
-                names=set(names), errors=errors, unknown=unknown, label=label or category,
-                repeating=repeating, inferred=category == "thinking", steps=1)
+                names=Counter(names), errors=errors, unknown=unknown, label=label or category,
+                repeating=repeating, inferred=category == "thinking", steps=1,
+                detail_start_ms=detail_start, end_ms=end, longest_ms=longest, via=set(via),
+                current=current, origins={origin})
 
 
 def _merge(left, right, condensed=False):
     inferred = left["inferred"] and right["inferred"]
+    def combine_time(key, choose):
+        return choose((value for phase in (left, right) if (value := phase[key]) is not None), default=None)
+
     return dict(category=("thinking" if inferred else "other") if condensed else left["category"],
                 label="more" if condensed else left["label"], start_ms=left["start_ms"],
                 duration_ms=left["duration_ms"] + right["duration_ms"],
-                count=left["count"] + right["count"], names=left["names"] | right["names"],
+                count=left["count"] + right["count"], names=left["names"] + right["names"],
                 errors=left["errors"] + right["errors"], unknown=left["unknown"] + right["unknown"],
                 repeating=left["repeating"] or right["repeating"], inferred=inferred,
                 includes_inferred=left.get("includes_inferred", left["inferred"]) or
                 right.get("includes_inferred", right["inferred"]),
-                steps=left["steps"] + right["steps"] if condensed else 1)
+                steps=left["steps"] + right["steps"] if condensed else 1,
+                detail_start_ms=combine_time("detail_start_ms", min),
+                end_ms=combine_time("end_ms", max), longest_ms=combine_time("longest_ms", max),
+                via=left["via"] | right["via"], origins=left["origins"] | right["origins"],
+                current=left["current"] or right["current"])
 
 
-def _observed_phases(calls, repeating):
+def _observed_phases(calls, repeating, latest):
     phases = []
     covered_until = None
     pending = False
@@ -401,11 +437,14 @@ def _observed_phases(calls, repeating):
         start, end = call["start"], call["end"]
         gap = start - covered_until if call["start_known"] and covered_until is not None and not pending else 0
         if gap >= GAP_MS:
-            phases.append(_phase("thinking", covered_until, gap))
+            phases.append(_phase("thinking", covered_until, gap, detail_start=covered_until, end=start, origin="inferred"))
         category, name = call["category"], call["tool"]
         label = "read" if category == "tool" and name in READ_TOOLS else category
         phase = _phase(category, start, call["duration"], count=1, errors=call["error"],
-                       names=(name,), unknown=call["unknown"], label=label, repeating=index in repeating)
+                       names=(name,), unknown=call["unknown"], label=label, repeating=index in repeating,
+                       detail_start=call["recorded_start"], end=call["recorded_end"],
+                       longest=None if call["unknown"] else call["duration"], via=call["via"],
+                       current=call["key"] == latest["call"])
         if phases and phases[-1]["category"] == category:
             if phases[-1]["label"] != label:
                 phases[-1]["label"] = category
@@ -435,7 +474,10 @@ def _boundary_phases(events, repeating):
         phase = _phase("gf", timestamp - duration if timestamp is not None else None, duration,
                        count=int(is_check), names=(data["check"],) if is_check else (),
                        errors=int(data.get("result") == "failed"), label=label,
-                       repeating=is_check and checks in repeating)
+                       repeating=is_check and checks in repeating, origin="boundary",
+                       detail_start=(timestamp - duration if timestamp is not None else None),
+                       end=timestamp if label != "start" else None,
+                       longest=duration if is_check and type(data.get("duration_ms")) is int else None)
         checks += is_check
         if is_check and phases and phases[-1]["label"] == label:
             phases[-1] = _merge(phases[-1], phase)
@@ -448,6 +490,7 @@ def _cap(phases):
     size = len(phases)
     if size <= PHASE_LIMIT:
         return phases
+    import heapq
     previous = list(range(-1, size - 1))
     following = list(range(1, size + 1))
 
@@ -480,12 +523,14 @@ def condense(records, events, now_ms, running=False, unreadable=False):
     checks = [event["data"] for event in events if event["type"] in ("check.result", "check.red")]
     repeated_tools = _repeat_indices(calls, lambda c: c["tool"], lambda c: c["error"])
     repeated_checks = _repeat_indices(checks, lambda c: c["check"], lambda c: c.get("result") == "failed")
-    phases = _observed_phases(calls, repeated_tools) if calls else _boundary_phases(events, repeated_checks)
     latest = max(records, key=lambda row: (row["ts"], row["phase"] == "end", row["call"])) if records else None
+    phases = _observed_phases(calls, repeated_tools, latest) if calls else _boundary_phases(events, repeated_checks)
     cue = latest["category"] if latest else None
     if (latest and latest["phase"] == "start" and len(phases) >= 2 and phases[-2]["inferred"]
             and phases[-1]["start_ms"] == _milliseconds(latest["ts"])):
         cue = "thinking"
+        for phase in phases:
+            phase["current"] = phase is phases[-2]
     if calls and repeated_checks and not repeated_tools:
         failed_at = [_boundary_time(e) for e in events if e["type"] in ("check.result", "check.red")][max(repeated_checks)]
         if failed_at is not None:
@@ -494,15 +539,28 @@ def condense(records, events, now_ms, running=False, unreadable=False):
     timestamps = [at for event in events if (at := _boundary_time(event)) is not None]
     timestamps.extend(_milliseconds(record["ts"]) for record in records)
     stalled = running and bool(timestamps) and now_ms - max(timestamps) >= STALL_MS
+    totals = {}
+    for phase in phases:
+        total = totals.setdefault(phase["category"], {"count": 0, "duration_ms": 0})
+        for key in total:
+            total[key] += phase[key]
     phases = _cap(phases)
     if phases and stalled:
         phases[-1]["stalled"] = True
+    current = None
     for index, phase in enumerate(phases):
         phase["id"] = str(index + 1)
-        phase["distinct"] = len(phase.pop("names"))
+        if phase.pop("current"):
+            current = phase["id"]
+        names, origins = phase.pop("names"), sorted(phase.pop("origins"))
+        phase["distinct"] = len(names)
+        phase["origin"] = origins[0] if len(origins) == 1 else "mixed"
+        phase["checks" if phase["origin"] == "boundary" else "tools"] = dict(sorted(names.items()))
+        phase["via"] = sorted(phase["via"])
     return dict(status="unreadable" if unreadable else "observed" if calls else "unobserved",
                 phases=phases, latest=latest["category"] if latest else None, cue=cue,
-                stalled=stalled, repeating=bool(repeated_tools or repeated_checks))
+                stalled=stalled, repeating=bool(repeated_tools or repeated_checks), current=current,
+                totals=totals)
 
 
 def summaries(activity, events, nodes, now_ms):

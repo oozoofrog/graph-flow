@@ -480,6 +480,92 @@ def _decision_facts(decision, current, derived, events):
                 reasked=bool(previous), options=_objects(_mapping(decision.get("evidence")).get("options")))
 
 
+def _edge_flows(edges, derived, events, ready):
+    """Project current, replay-validated evidence onto forward relations."""
+    nodes = derived["nodes"]
+    decisions_by_id = derived["decisions"]
+    by_seq = {event["seq"]: event for event in events}
+    latest = {}
+    for event in events:
+        data = _mapping(event.get("data"))
+        node = nodes.get(data.get("node"))
+        if node and event["seq"] > node["basis"] and data.get("attempt", node["attempts"]) == node["attempts"]:
+            latest[data["node"], event["type"]] = event
+
+    def ref(event):
+        if event is None:
+            return None
+        kind, data = event["type"], event["data"]
+        return {"kind": kind, "id": data.get("id", "d%d" % event["seq"]) if kind.startswith("decision.") else event["seq"],
+                "seq": event["seq"], "time": event.get("ts"),
+                **{key: data[key] for key in ("attempt", "check", "verdict", "rule", "outcome") if data.get(key) is not None}}
+
+    def open_ask(nid):
+        active = [decisions_by_id[did]["seq"] for did in nodes[nid]["open_decisions"] if did in decisions_by_id]
+        return by_seq.get(max(active, default=0))
+
+    def related(nid, kind):
+        return latest.get((nid, kind))
+
+    def verdict(nid):
+        event = related(nid, "gate.verdict")
+        return event if event and nodes[nid]["verdict"] == event["data"] else None
+
+    def submission(nid):
+        return by_seq.get(_mapping(nodes[nid]["submission"]).get("id"))
+
+    def answer(nid, outcomes):
+        active = [d["answer_seq"] for d in decisions_by_id.values()
+                  if d.get("node") == nid and d.get("verified") and not d.get("stale")
+                  and d.get("issuer") == "gate" and d.get("outcome") in outcomes and d.get("answer_seq")]
+        return by_seq.get(max(active, default=0))
+
+    def boundary(nid):
+        options = [related(nid, "node.start"), related(nid, "check.red"), related(nid, "check.result"), submission(nid)]
+        return max((event for event in options if event), key=lambda event: event["seq"], default=None)
+
+    result = []
+    for edge in edges:
+        source, target = edge["from"], edge["to"]
+        reviews = edge["relation"] == "reviews"
+        owner = target if reviews else source
+        src_state, gate_state = nodes[source]["status"], nodes[owner]["status"]
+        src_sub, gate_verdict = submission(source), verdict(owner)
+        question = open_ask(owner)
+        gate_event = question if edge["gate"] == "waiting_for_you" else gate_verdict
+        gate_ref = ref(gate_event or boundary(owner))
+        source_return = verdict(source) if src_state in ("rejected", "replan") else None
+        if nodes[source]["kind"] != "decision" and src_state in ("held", "awaiting_approval"):
+            refusal = answer(source, ("rejected", "revision_requested"))
+            review = _mapping(_mapping(submission(target)).get("data")) if reviews else {}
+            if not reviews or src_sub and review.get("target_submission") == src_sub["seq"] and review.get("verdict") == "fail":
+                source_return = refusal
+        delivery = None
+        if source_return:
+            status, evidence = "returned", source_return
+        elif (question and gate_state != "passed") or gate_state in ("held", "awaiting_approval", "replan", "rejected"):
+            status, evidence = "blocked", question or gate_verdict
+        elif reviews and (source_question := open_ask(source)) and not src_sub:
+            status, evidence = "blocked", source_question
+        elif reviews and not src_sub and src_state in ("held", "awaiting_approval"):
+            status, evidence = "blocked", verdict(source)
+        elif reviews and src_sub and (graph.has_current_submission(nodes[source]) or src_state == "passed"):
+            status, evidence = "delivered", src_sub
+            delivery = ref(src_sub)
+        elif not reviews and src_state == "passed":
+            delivery = ref(src_sub or answer(source, ("approved", "answered")) or gate_verdict)
+            status, evidence = "delivered", gate_verdict or src_sub
+        elif source in ready or src_state in ("running", "submitted", "unverified") or boundary(source):
+            status, evidence = "waiting", verdict(source) or boundary(source)
+        else:
+            status, evidence = "unreachable", None
+        frontier = status == "delivered" and src_state == "passed" and target in nodes and (
+            nodes[target]["status"] == "running" or target in ready)
+        result.append({"state": status, "frontier": frontier, "record": ref(evidence),
+                       "delivery": delivery, "gate_record": gate_ref})
+    return result
+
+
 def _view(current, derived, events, project, activities=None):
     current = current or {}
     recorded_title = next((e["data"].get("plan_title") for e in reversed(events)
@@ -580,6 +666,16 @@ def _view(current, derived, events, project, activities=None):
             gate = gates[receiver if relation == "reviews" else producer]
             view["edges"].append({"from": producer, "to": receiver, "label": label, "relation": relation,
                                   "delivered": gate == "open", "gate": gate})
+
+    sources = {edge["from"] for edge in view["edges"]}
+    terminals = [nid for nid in nodes if nid not in sources]
+    terminal_edges = [{"from": nid, "to": "_run_checks", "relation": "hands_over",
+                       "gate": "open" if gates[nid] == "open" else "closed"} for nid in terminals]
+    ready = set(graph.available(current, derived)) if nodes else set()
+    flows = _edge_flows(view["edges"] + terminal_edges, derived, events, ready)
+    for edge, flow in zip(view["edges"], flows):
+        edge["flow"] = flow
+    view["goal_flows"] = dict(zip(terminals, flows[len(view["edges"]):]))
 
     presented = {n["id"]: n for n in view["nodes"]}
     for edge in view["edges"]:

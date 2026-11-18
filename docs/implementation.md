@@ -217,19 +217,45 @@ Integration check `requires_passed` is validated by `plan.validate` and kept in 
 
 The SVG backend uses the DOM stage transform. The WebGL2 backend uses the same scale, origin and scroll offsets for an orthographic camera. It loads from the same origin on demand and draws on invalidation. SVG remains available for unsupported WebGL2, renderer failure, context loss and `renderer=svg`. The active backend exposes a detached `#map.graphDrawing` snapshot with the viewport transform, projected shafts and marker directions in viewport-relative CSS pixels, and their draw order. Its visibility flag describes submitted geometry, including portions clipped by the viewport. The capture harness alone uses `graphTest=1` to preserve the WebGL framebuffer for pixel readback.
 
-Focus derives from recorded dependencies and review targets. A shared shaft takes the emphasis of its most prominent branch. Both renderers draw context first, then the focus underlays, then focused ink and markers. Recorded attempt counts remain in the card captions and history. The minimap sits in a reserved strip below the scrolling viewport. The lane badge repeats the effective lane as one, two or three tall bars at mid and near zoom. This presentation serves principles P1, P3 and P6 and preserves the P10 human-stop baseline.
+Node focus derives from recorded dependencies and review targets. Edge focus shows the two endpoints and the selected relation. Pointer picking searches the same physical shafts in both renderers with a 12 CSS px radius. A shared shaft exposes its member IDs to the chooser and takes the emphasis of its most prominent branch. Both renderers draw context first, then the focus underlays, then focused ink and markers. Recorded attempt counts remain in the card captions and history. The minimap sits in a reserved strip below the scrolling viewport. The lane badge repeats the effective lane as one, two or three tall bars at mid and near zoom. This presentation serves principles P1, P3 and P6 and preserves the P10 human-stop baseline.
 
 The layout and capture checks use one routing ratchet for fixture-specific crossing and bend limits. They validate shaft membership, drawn segments, branch markers, renderer registration, framebuffer ink, focus order, and minimap clearance.
 
 ### Activity presentation input
 
+The graph projects the current attempt's condensed phases into a bottom
+strip. Detail cards reserve 42 stage px for the category cue and band.
+Overview cards place the cue in their second row and reserve 24 stage px
+for the band. The shared scene computes clamped proportional rails,
+category shapes and error crosses once for WebGL and SVG. A timer requests
+frames only for visible progress or a new handoff. The graph motion control,
+visibility and reduced-motion preference govern both. A pulse lasts 1 second
+and the rail period is 2.4 seconds at up to 12 frames per second.
+
+`server._edge_flows` takes relations, replay-derived node and decision state,
+the event ledger, and record-derived readiness. It uses event sequence numbers
+to find current submissions, gate verdicts, open asks and attempt boundaries.
+A returned producer has a current rejection or a verified refusal tied to the
+current work. A review return through a refusal additionally requires a
+matching failed review. Open decisions and held gates block relevant
+undelivered relations. A review receives the producer's current submission
+before the producer's gate passes. Other relations deliver after the producer
+passes. A passed producer and ready or running receiver mark the frontier.
+A started or startable producer otherwise leaves a relation waiting. The
+remaining producers are unreachable. Synthetic whole-result edges use the
+same projection. Flow records supply sequence, timestamp and type-specific
+identifiers without copying evidence payloads. Gate and flow marks use
+separate channels (P2), and the projection adds no human stops (P10).
+
 `activity.summaries` groups the event and optional activity ledgers by node
 and attempt. The pure `activity.condense(records, events, now_ms, running,
 unreadable)` produces both card state and the compact work summary; the web
 client directly consumes that result. A phase carries its id, category,
-timestamp, call count, distinct tool-name count, duration in milliseconds,
-unknown-duration count, error count, inferred/repeating/stalled flags, step
-count and fixed label token. Only the CLI and MCP reads expose the original
+timestamp, call count, tool-name counts, total and longest duration in
+milliseconds, unknown-duration count, error count, recorded start and end,
+attribution rules, origin, inferred/repeating/stalled flags, step count and
+fixed label token. Each attempt carries totals by original phase category
+and the id of its current condensed phase. Only the CLI and MCP reads expose the original
 metadata rows. See the [activity record contract](../skills/graph-flow/references/records.md#local-activity-observations).
 
 Calls are ordered by their start observations with stable call-key ties.
@@ -240,8 +266,9 @@ still open in the gap. An unpaired start suppresses future gap inference
 for that attempt. Durations sum known call durations, including overlap,
 and inferred phases carry their bounded gaps. The 12-phase cap replaces the
 adjacent pair with the shortest total duration until the summary fits.
-Merged phases retain call totals, distinct tool counts, duration, flags and
-the number of original steps. Earlier adjacent pairs win duration ties.
+Merged phases retain call totals, per-tool counts, total and longest
+duration, flags and the number of original steps. Earlier adjacent pairs
+win duration ties. The category totals use the same phases before the cap.
 
 Five minutes without an activity observation or event marks a running node
 stalled, an engineering default that leaves space for several normal tool
@@ -254,14 +281,15 @@ These are display heuristics. Unobserved or unreadable attempts use
 The panel lazily imports `activity-webgl.js` and reuses the already-vendored
 three.js core and renderer. No additional addon is needed. `describeActivity`
 maps each phase to one solid and freezes the projected input exposed through
-`.work-summary.activityScene.solids`. The scene uses a depth extent of 18
-units. Per-solid minimum length is 0.52 units, reduced when many attempts
-share that extent. Unclamped lengths use one common duration scale capped
-at one unit per second. Playback lasts 3.6 seconds and draws on demand
-thereafter. The panel preserves its renderer across polling and fixes the
-playback path when playback starts. CSS and accessibility semantics remain
-in the shared DOM. `graphTest=1` enables readback and raster silhouette
-diagnostics.
+`.work-summary.activityScene.solids`. The 18-unit length budget gives each
+solid a 0.52-unit extrusion minimum, reduced as attempts fill the budget.
+Unclamped lengths use a common scale of up to one unit per second. The
+orthographic scene has three columns of 84 CSS px rows. Fixed cross-sections
+give readable final silhouettes independently of duration. Screen-aligned
+DOM labels mirror the scene and share a selection ID with the list.
+Playback advances through the displayed order once over 3.6 seconds and
+keeps its sequence across polling. `graphTest=1` enables framebuffer
+readback and raster silhouette diagnostics.
 
 The dashboard HTTP contract and fixed public static allowlist are in [dashboard.md](../skills/graph-flow/references/dashboard.md#get-staticname). Only those GET static requests skip token authentication; every request still needs the loopback Host check, and all APIs still require the token.
 

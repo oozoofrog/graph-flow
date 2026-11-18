@@ -63,3 +63,9 @@ reduced motion, stalled and repeated work, boundary-only and unreadable
 sessions, and the phone list. The rich WebGL capture also checks projected
 ink, raster silhouettes, playback bounds, keyboard pause and context loss
 and saves a short MP4. The fixture ledger is isolated from user runs.
+
+Scenes 124–127 exercise graph progress and pause, record-derived flow,
+edge selection and shared-shaft selection. The harness measures painted
+activity tiers, verifies native pointer and keyboard selection, and
+records graph motion and a handoff pulse as separate MP4s. The same
+static checks run with `SCREENS_RENDERER=svg`.

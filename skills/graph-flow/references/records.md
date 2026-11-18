@@ -414,11 +414,10 @@ Otherwise an exact identity or directory can select a unique run when several
 are open. The observer skips ambiguous runs. Within a run it binds an
 observation to a currently running attempt in this order.
 
-1. Exact `session_id` for a main session or exact `agent_id` for a subagent
-   or teammate, compared with the start event's `actor.session` (plain or
-   `claude:`-prefixed). The subagent's parent session ID cannot identify
-   that subagent's work. The hook schema supplies identities, but a human
-   label or another host's thread ID in the start event may not match them.
+1. Exact `session_id`, or Claude's `agent_id` when supplied, compared with
+   the start event's `actor.session` (plain or prefixed with the observing
+   host's `claude:` or `codex:`). An unrelated thread ID or a human label
+   requires the existing fallbacks.
 2. Exactly one running attempt has the hook's canonical `cwd` as its recorded
    start directory.
 3. Exactly one attempt is running in the selected run.
@@ -436,7 +435,7 @@ does not look inside prompts or messages to guess a node.
 | `duration_ms` | Optional on end. Host execution duration when provided, otherwise elapsed hook time if paired |
 | `category`, `tool` | `tool`, `skill`, `mcp`, `session`, `gf` or `other`, and the tool name. `Subagent` denotes a lifecycle observation |
 | `server` | Optional MCP server name from documented metadata or the tool-name namespace |
-| `outcome` | `ok` or `error` on end, derived from the hook event. A subagent stop records the observed stop |
+| `outcome` | Optional `ok` or `error` on end when the event identifies its outcome. A Claude subagent stop records the observed stop |
 | `session`, `agent` | Hook session ID and optional subagent/teammate ID |
 | `call` | Opaque digest of the identity and invocation key, used to pair observations |
 | `node`, `attempt`, `via` | Node ID and attempt number, both null at run level. Rule is `session`, `cwd`, `single`, or `unattributed` |
@@ -461,16 +460,20 @@ approval identity, signatures, gates or trace conformance.
 may omit the node to include run-level observations. Workers always read
 their bound node. The MCP adapter exposes `run_activity` to leaders and
 workers, following its existing role policy. Dashboard responses carry the
-condensed phases. The activity ledger is unsigned display evidence.
+condensed phases and exact current phase id. Each phase adds allowed tool
+names with call counts, recorded first start and latest end where available,
+longest known call, attribution rules, and observed, inferred, mixed or
+boundary origin. Boundary check entries label the recorded checks. Attempt
+totals by category come from the phases before applying the display cap.
+The activity ledger is unsigned display evidence.
 
-Codex's local plugin format also discovers `hooks/hooks.json` and supports
-explicit override paths and per-definition trust. Its hook schemas differ
-from Claude Code's, including the absence of a documented
-`PostToolUseFailure` event and a JSON response expectation for
-`SubagentStop`. The Codex manifest selects an empty hook file for this
-feature. Sessions without observations show boundary events and an explicit
-unobserved state. See [Codex plugin packaging](https://developers.openai.com/plugins/build/plugins#bundled-mcp-servers-and-lifecycle-hooks)
-and [Codex hook schemas](https://learn.chatgpt.com/docs/hooks).
+The Codex manifest selects `hooks/codex.json`. Its background tool hooks
+pair `PreToolUse` and `PostToolUse` by session, turn and invocation ID.
+`PostToolUse` can include nonzero Bash exits and has tool-specific response
+shapes. Codex end records leave outcome unspecified and elapsed timings
+come from paired hook observations. Codex loads the bundled commands after
+hook review and trust. Sessions without observations show their boundary
+events. [Codex plugin packaging](https://developers.openai.com/plugins/build/plugins#bundled-mcp-servers-and-lifecycle-hooks) · [Codex hook schemas](https://learn.chatgpt.com/docs/hooks)
 
 ## 10. Command line conventions
 

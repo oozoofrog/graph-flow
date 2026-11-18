@@ -180,31 +180,41 @@ Under an orthographic camera, a fixed tilt changed only a few pixels and carried
 
 ### Work activity at a glance
 
-The graph keeps its normal overview and existing answer cue. A running card
-with observations has one small monochrome category mark at mid and near
-zoom and in the phone list. It usually names the latest observed tool
-category. If the newest start bounds a gap immediately after the last
-completed call, the category mark describes that previous inferred gap until
-more activity is observed. An unbounded gap can never produce a thinking
-mark. Stalled and repeating cues are static and named for assistive
-technology. Category changes shift the mark once for 160 ms. The legend
-lists every activity mark, and the card omits the cue at far zoom. The
-filled diamond remains reserved for the person's answer. The existing card
-slots carry the cues and preserve the measured card rules.
+The graph reserves a strip along the bottom of each card with current-attempt
+phases. Seven monochrome shapes identify categories, including a hollow ring
+for inferred thinking. Crosses mark errors. Segment lengths use a common
+duration scale with a 7 stage px minimum, a 1 stage px gap between rails,
+and equal shares when all durations are zero. SVG uses the same geometry.
+At far zoom the strip shows the category mark in place of the segments.
+At mid and near zoom the painted category mark spans at least 16 CSS px.
+The card's accessible name includes the category and any attention state.
+
+The filled answer diamond is the first attention tier. Heavier outlined
+marks for stalled or repeating activity form the second tier. Normal
+activity forms the third tier. The toolbar displays a second-tier count
+when one or more cards are in that tier. A running third-tier card varies
+only its current rail's stroke width from 1.3 to 2.2 CSS px over 2.4 seconds.
+One keyboard-reachable toolbar button pauses graph motion across polls.
+Graph animation runs at up to 12 frames per second while relevant activity
+or a live handoff is visible. SVG and reduced-motion views are static.
 
 The selected work or review panel starts with the recorded work summary
 after any pending question and its primary reading action. The scene and
-ordered list display the same phases and attempts. Depth orders phases, the
-length of a solid encodes recorded duration up to a common scale and a
-minimum, and a wider gap separates attempts. Seven forms distinguish
-categories without hue. A hollow form marks inferred thinking, and a
-cross, bracket or parallel bars mark errors, stalled activity or repeated
-failures. The camera moves along the depth axis once and ends on a static
-overview. Pause and replay are native buttons. Polling updates geometry
-without replay or camera movement caused by the update. Reduced motion
-renders the final overview once at selection. Phone, forced SVG and WebGL
-failure show the list. The canvas is hidden from assistive technology and
-the list names every phase and marker.
+ordered list display the same phases and attempts. The full-width scene
+places solids in reading order with screen-aligned category buttons.
+Extrusion encodes known duration up to a common scale and a minimum.
+The scene gives each final silhouette at least 24 CSS px on both axes.
+Seven forms distinguish categories without hue, including the hollow form
+for inferred thinking. Crosses, brackets and parallel bars mark errors,
+stalled activity and repeated failures. The solid and its list row share
+selection through native buttons. Each attempt has aligned time and call
+bars. Rows include tool names and call counts, total and longest known
+duration, errors, observed times, attribution and origin.
+
+Playback traces reading order for 3.6 seconds with a short turn of each
+solid. Pause and replay use native buttons. Polling preserves selection and
+playback order. Reduced motion draws the final scene once at selection.
+Phone, forced SVG and WebGL failure present the same list and totals chart.
 
 Progressive disclosure follows Shneiderman (1996), and shapes plus plain
 text follow the channel guidance of Lohmann et al. (2016) and WCAG 2.2 SC
@@ -213,6 +223,24 @@ establish a benefit of 3D for workflow comprehension. This display supports
 P5 and P12 with scoped, recorded work and P6 with deterministic condensation.
 P10 still requires the same existing answers. The activity view adds zero
 human stops, approval states, execution nodes, gates or sessions.
+
+### Relation flow
+
+The gate shaft pattern and relation arrowhead retain their meanings. Adjacent
+monochrome marks encode reachability, waiting for a source, delivery, a ready
+or running frontier, a block, and a return pointing toward the producer.
+The toolbar counts delivered relations, frontier relations in progress,
+waiting and unreachable relations, and blocked and returned relations.
+The page animates the first appearance of a delivering record on a relation
+with one 1-second pulse. A hidden page drops motion. Already displayed,
+paused or reduced-motion handoffs stay static.
+
+The drawn routes have a 24 CSS px pointer corridor. The accessible edge
+list and phone handoff list have native relation buttons. A shared segment
+opens a choice of the relations that traverse it. A relation selection
+highlights its two endpoints and the route. The panel names the direction,
+relation, item, and flow and gate records with their ids and times. A
+return names the recorded rejection. Escape and Close clear the selection.
 
 ### Graph visualization verification
 
@@ -247,10 +275,18 @@ These checks implement Graph Flow principles P1, P3 and P6 by testing the data m
 | A4 | Internal invariant. Condensation preserves call counts, ordering and measured duration. | Generated and fixture observations against uncapped and capped deterministic output. | `test_a4_generated_and_fixture_condensation` |
 | A5 | Internal invariant. The scene and list are projections of the phase records. | IDs, categories, shape tokens, order, duration-derived lengths and flags against the list and read-only scene description. Framebuffer ink is required in each projected solid's bounds. Fallback and loss retain the same list. | `assertWorkSummary`, activity context-loss capture |
 | A6 | Internal invariant. Only a bounded interval can describe inferred thinking. | Disjoint observed starts and ends against gaps, hollow shape, glyph and accessible name. | `test_a6_only_bounded_gaps_and_repeating_and_stalled`, `assertWorkSummary` |
-| A7 | Healey and Enns (2012) support preserving a unique urgent mark. The activity size, contrast and transition limit are internal invariants. | Running graph and phone cards, answer cue, no-observation state and computed duration. | `test_a7_activity_cues_are_optional_and_quieter_than_answers`, `assertActivityCues` |
-| A8 | WCAG 2.2 SC 2.5.8 for the 24 CSS px target floor and SC 2.2.2 for pausing motion. Playback and idle frame limits are internal invariants. | Playback with 1, 10 and 12 phases, reduced-motion frame count, keyboard pause, replay and a stationary camera on append. | `assertWorkSummary`, `checkPlayback` |
+| A7 | Healey and Enns (2012) support preserving a unique urgent mark. Activity size, contrast and static marks are internal invariants. | Running graph and phone cards, answer cue, observed category and attention labels. Graph motion has moved to the current rail so status changes leave marks static. | `test_a7_activity_cues_are_optional_and_quieter_than_answers`, `assertActivityCues` |
+| A8 | WCAG 2.2 SC 2.5.8 for the 24 CSS px target floor and SC 2.2.2 for pausing motion. Playback and idle frame limits are internal invariants. | Playback with 1, 10 and 12 phases, reduced-motion frame count, keyboard pause, replay and a stationary camera on append. The toolbar pause also covers both graph motion channels. | `assertWorkSummary`, `checkPlayback`, `verifyGraphProgress`, `verifyHandoffPulse` |
 | A9 | Shapes offer a non-color channel (WCAG 2.2 SC 1.4.1). The 10% raster margin is an internal invariant. | 64×64 grayscale silhouettes, pairwise symmetric difference divided by the union. This rendering check provides no evidence of human recognition. | `assertWorkSummary` silhouette readback |
 | A10 | Internal invariant. A host without observations still has verifiable boundary evidence. | Start, checks and submit events across boundary-only attempts and the explicit unobserved label. | `test_a10_boundary_only_and_unreadable`, `assertWorkSummary` |
+| F1 | Internal invariant. Bands project the current attempt without changing condensation. | Phase IDs, order, category, error counts, and proportional lengths within 1 stage px after the segment minimum. Compare SVG paths and sample WebGL ink. | `test_f1_activity_band_matches_phases_and_stays_inside_card`, `assertActivityCues`, `assertGraphInk` |
+| F2 | Non-color flow marks follow WCAG 2.2 SC 1.4.1. The correspondence to records is an internal invariant. | All record-derived flow states and frontier, delivering event and time, and six distinct drawn marks. | `assertFlowRecords` |
+| F3 | Healey and Enns (2012) support an identifiable urgent mark. The exact size and weight order is an internal invariant. | Raster area, CSS stroke weight for outlines and solid-region thickness for the filled diamond in a mixed fixture. The first two tiers have zero animated segments. | `assertAttentionInk`, `assertActivityCues` |
+| F4 | WCAG 2.2 SC 2.2.2 supports one pause control for ongoing graph motion. Cadence and pulse lifetime are internal invariants. | Keyboard pause across polling, reduced motion, hidden page, idle frame count, 12 fps cap and one pulse per observed delivery. | `verifyGraphProgress`, `verifyHandoffPulse` |
+| F5 | A 24 CSS px route corridor supports WCAG 2.2 SC 2.5.8. Relation membership and provenance are internal invariants. | Native pointer and keyboard selection, shared-segment chooser, selected endpoints and exact record references under both renderers. | `assertEdgeSelection` |
+| F6 | Internal invariant. Phase controls, tool totals, category totals and solids agree with the condensed view. | Tool sums, chart inputs, keyboard selection in both directions and final-frame raster bounds of at least 24 CSS px. | `assertWorkSummary`, `test_a4_generated_and_fixture_condensation` |
+| F7 | Internal invariant. Flow and activity detail serve allowlisted metadata. | A1 secret arguments, transcript path, result and error fields against phase and edge surfaces. | `test_a1_hook_secret_never_reaches_ledger_cli_mcp_or_served_view`, `assertWorkSummary`, `assertEdgeSelection` |
+| F8 | The Codex hook contract defines session, turn and invocation IDs. Unknown input handling is an internal invariant. [Codex hook schemas](https://learn.chatgpt.com/docs/hooks) | Documented start/end payloads, unchanged activity schema and event bytes, and malformed shapes through the packaged hook. | `test_f8_documented_codex_calls_share_the_activity_schema` |
 
 
 Crossing priority follows Purchase (1997), path continuity follows Ware et al. (2002), and remaining crossings use the perpendicular angle recommended by Huang et al. (2014). The ratchet data lives in `tests/fixtures/routing_ratchets.json`. The measured quantities are strict shaft intersections, logical bends, summed Manhattan route length in stage CSS pixels, and drawn shaft segments with each shared piece counted once.

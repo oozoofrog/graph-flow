@@ -6,6 +6,8 @@ import {
 
 const PLAY_MS = 3600;
 const DEPTH = 18;
+const COLUMNS = 3;
+const ROW_HEIGHT = 84;
 const radial = (radii, rotation = Math.PI / 2) => radii.map((radius, index) => {
   const angle = rotation + 2 * Math.PI * index / radii.length;
   return [Math.cos(angle) * radius, Math.sin(angle) * radius];
@@ -74,14 +76,15 @@ export function createActivityScene(canvas, {attempts, reduced, autoplay, captur
   const renderer = new WebGLRenderer({canvas,context,antialias:true,preserveDrawingBuffer:capture});
   const scene = new Scene();
   scene.background = new Color(0xf3f5f8);
-  const camera = new OrthographicCamera(-1,1,1,-1,.1,70);
+  const camera = new OrthographicCamera(-1,1,1,-1,.1,220);
   const solids = new Group();
   const light = new DirectionalLight(0xffffff, 2.1);
   light.position.set(5,8,5);
   scene.add(solids,new AmbientLight(0xffffff,1.7),light);
   const materials = {
-    body:new MeshLambertMaterial({color:0x425b76}),
+    body:new MeshLambertMaterial({color:0x6484a6}),
     inferred:new MeshLambertMaterial({color:0x7c93aa,transparent:true,opacity:.53}),
+    focused:new MeshLambertMaterial({color:0x4174bd}),
     edge:new LineBasicMaterial({color:0x24354a,transparent:true,opacity:.40}),
     mark:new MeshBasicMaterial({color:0x233142}),
   };
@@ -91,17 +94,14 @@ export function createActivityScene(canvas, {attempts, reduced, autoplay, captur
   const outlines = Object.fromEntries(Object.entries(geometry).map(([kind,g])=>[kind,new EdgesGeometry(g)]));
   let models, bodies, raf = 0, frames = 0, width = 0, height = 0;
   let playing = false, elapsed = PLAY_MS, epoch = 0, drawnAt = null, startedAt = null, stoppedAt = null;
-  let head = DEPTH / 2, tail = head;
-  camera.position.set(9,2.6,5.6);
-  camera.lookAt(0,0,0);
-  const facing = camera.quaternion.clone();
+  let selected = null, playbackOrder = [];
+  camera.position.z = 120;
 
   function addMarks(parent, flags) {
     const mark = new Group();
     parent.add(mark);
-    mark.position.y = 1.11;
-    // Face the screen at both camera scales.
-    mark.quaternion.copy(facing);
+    mark.position.set(24,18,4);
+    mark.scale.setScalar(16);
     let x = 0;
     function bar(dx, dy, w, h, angle = 0) {
       const piece = new Mesh(marker,materials.mark);
@@ -127,7 +127,6 @@ export function createActivityScene(canvas, {attempts, reduced, autoplay, captur
       for(const dx of [-.13,.13]) bar(dx,0,.06,.26);
       x += .5;
     }
-    mark.position.x = 1.05;
     for(const piece of mark.children) piece.position.x -= Math.max(0,x-.5)/2;
   }
 
@@ -137,31 +136,16 @@ export function createActivityScene(canvas, {attempts, reduced, autoplay, captur
     bodies = models.map(model => {
       const holder = new Group();
       const body = new Mesh(geometry[model.category], model.flags.inferred?materials.inferred:materials.body);
-      body.scale.set(.83,1,model.length);
+      const depth=model.length*12;
+      body.scale.set(29,29,depth);
+      body.rotation.set(-.15,.4,0);
       body.add(new LineSegments(outlines[model.category],materials.edge));
-      body.position.z = -model.length / 2;
-      holder.position.z = -model.start - model.length / 2;
+      body.position.set(-depth*.19,0,-depth/2);
       holder.add(body);
       addMarks(holder,model.flags);
       solids.add(holder);
       return body;
     });
-  }
-
-  function viewport(progress) {
-    const overview = progress >= 1;
-    const journey = Math.min(1, progress / .78);
-    const blend = Math.max(0, (progress - .78) / .22);
-    const cursor = head + (tail - head) * journey;
-    const center = overview ? DEPTH / 2 : cursor * (1-blend) + DEPTH / 2 * blend;
-    const span = overview ? DEPTH - 1 : 5 + (DEPTH - 6) * blend;
-    camera.position.set(9,2.6,5.6-center);
-    camera.lookAt(0,0,-center);
-    const ratio = width / height;
-    const halfHeight = Math.max(1.45, span / (2*ratio));
-    camera.left = -halfHeight*ratio; camera.right = -camera.left;
-    camera.top = halfHeight; camera.bottom = -halfHeight;
-    camera.updateProjectionMatrix();
   }
 
   function draw(now) {
@@ -175,7 +159,15 @@ export function createActivityScene(canvas, {attempts, reduced, autoplay, captur
         onState(false,false);
       }
     }
-    viewport(elapsed / PLAY_MS);
+    const position=elapsed/PLAY_MS*playbackOrder.length;
+    const current=playbackOrder[Math.floor(position)];
+    for(const [index,body] of bodies.entries()){
+      const focused=models[index].id===selected;
+      const active=models[index].id===current;
+      body.parent.position.set((index%COLUMNS+.5)*width/COLUMNS-width/2,height/2-Math.floor(index/COLUMNS)*ROW_HEIGHT-34,0);
+      body.rotation.y=.4+(active ? .24*Math.sin((position%1)*Math.PI) : 0);
+      body.material=focused||active ? materials.focused : models[index].flags.inferred ? materials.inferred : materials.body;
+    }
     renderer.render(scene,camera);
     frames += 1;
     drawnAt = now;
@@ -192,6 +184,9 @@ export function createActivityScene(canvas, {attempts, reduced, autoplay, captur
     width = w; height = h;
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setSize(width,height,false);
+    camera.left = -width/2; camera.right = width/2;
+    camera.top = height/2; camera.bottom = -height/2;
+    camera.updateProjectionMatrix();
     request();
   }
 
@@ -199,9 +194,7 @@ export function createActivityScene(canvas, {attempts, reduced, autoplay, captur
     if(reduced || !models.length) return;
     if(replay || elapsed >= PLAY_MS){
       elapsed = 0;
-      const first = models[0], last = models.at(-1);
-      head = first.start + first.length / 2;
-      tail = last.start + last.length / 2;
+      playbackOrder=models.map(model=>model.id);
       startedAt = performance.now();
       stoppedAt = null;
     }
@@ -280,7 +273,9 @@ export function createActivityScene(canvas, {attempts, reduced, autoplay, captur
       if(reduced && elapsed < PLAY_MS){pause();elapsed=PLAY_MS;onState(false,false);request();}
     },
     play,pause,dispose,
+    select(id){if(selected!==id){selected=id;request();}},
     describe:()=>Object.freeze({solids:models,playing,elapsed,frames,pending:!!raf,drawnAt,startedAt,stoppedAt,
+      highlighted:selected,
       ...(capture && frames ? {position:camera.position.toArray(),
         bounds:bodies.map(body => projected(body,camera,width,height))} : {})}),
     ...(capture ? {silhouettes} : {}),

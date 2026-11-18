@@ -21,6 +21,7 @@ from test_review11 import Review11Tests
 from graphflow import activity, cli
 
 SCENARIOS = {
+    'graph-flow-states': 'Delivered, frontier, waiting, blocked, returned and unreachable relations',
     'graph-activity-unreadable': 'A damaged activity log with readable boundary records',
     'graph-activity': 'Mixed observed, stalled, repeated, boundary-only, and waiting work',
     'graph-verification': 'Graph kinds, parallel relations, current failure and retry history',
@@ -211,8 +212,10 @@ def activity_fixture(f):
             cursor += timedelta(milliseconds=gap)
             end = cursor + timedelta(milliseconds=duration)
             for event, at in (('PreToolUse', cursor), ('PostToolUseFailure' if failed else 'PostToolUse', end)):
+                secret = 'sk-payload-secret-123456789'
                 record = activity.observation(dict(hook_event_name=event, session_id='screens-' + node,
-                    tool_name=tool, tool_use_id=f'{attempt}-{index}'), stamp(at))
+                    tool_name=tool, tool_use_id=f'{attempt}-{index}', tool_input={'argument': secret},
+                    tool_response={'content': secret}, transcript_path=secret, error=secret), stamp(at))
                 record.update(node=node, attempt=attempt, via='cwd')
                 if record['phase'] == 'end':
                     record['duration_ms'] = duration
@@ -238,6 +241,22 @@ def activity_fixture(f):
 
 def build(root, scenario):
     f = Fixture(root, scenario)
+    if scenario == 'graph-flow-states':
+        f.raw['nodes'] = [work('a', '초안 준비'), work('done', '초안 반영', ['a']),
+                          work('next', '배포 준비', ['a']), work('broken', '예제 검사'),
+                          work('retry', '예제 정리', ['broken']), question(),
+                          work('release', '안내 공개', ['q']), work('late', '사용 기록 정리', ['release']),
+                          work('waiting', '추가 자료 수집'), work('use', '추가 자료 정리', ['waiting'])]
+        f.raw['nodes'][6]['needs'][0]['artifact'] = '허가'
+        f.post(True)
+        f.submit('a', True)
+        f.submit('done', True)
+        f.assign('broken')
+        f.call('start', 'broken')
+        f.call('submit', 'broken')
+        f.call('gate', 'broken', code=1)
+        f.decision = f.call('gate', 'q', code=1)['asks'][0]
+        return f.metadata()
     if scenario in ('graph-activity', 'graph-activity-unreadable'):
         activity_fixture(f)
         if scenario == 'graph-activity-unreadable':

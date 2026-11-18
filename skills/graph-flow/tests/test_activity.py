@@ -102,6 +102,10 @@ class ActivityTests(unittest.TestCase):
             self.assertLessEqual(len(phases), activity.PHASE_LIMIT)
             self.assertEqual(sum(p["count"] for p in phases), count)
             self.assertEqual(sum(p["duration_ms"] for p in phases), sum(durations + gaps))
+            for phase in phases:
+                self.assertEqual(sum(phase["tools"].values()), phase["count"])
+            self.assertEqual(sum(t["count"] for t in out["totals"].values()), count)
+            self.assertEqual(sum(t["duration_ms"] for t in out["totals"].values()), sum(durations + gaps))
             self.assertEqual(sorted(p["start_ms"] for p in phases), [p["start_ms"] for p in phases])
             with mock.patch.object(activity, "PHASE_LIMIT", 1000):
                 uncapped = activity.condense(rows, [], EPOCH + offset)["phases"]
@@ -192,11 +196,12 @@ class CaptureTests(unittest.TestCase):
             self.assertEqual(cli.main(argv + list(args)), code)
         return json.loads(out.getvalue())
 
-    def invoke(self, raw):
-        hooks = json.loads((PLUGIN / "hooks/hooks.json").read_text())["hooks"]
-        command = hooks["PreToolUse"][0]["hooks"][0]["command"]
+    def invoke(self, raw, host="claude", event="PreToolUse"):
+        name = "codex.json" if host == "codex" else "hooks.json"
+        hooks = json.loads((PLUGIN / "hooks" / name).read_text())["hooks"]
+        command = hooks[event][0]["hooks"][0]["command"]
         result = subprocess.run(["sh", "-c", command], cwd=self.root, text=True, capture_output=True,
-                                input=raw, env=dict(os.environ, CLAUDE_PLUGIN_ROOT=str(PLUGIN)))
+                                input=raw, env=dict(os.environ, CLAUDE_PLUGIN_ROOT=str(PLUGIN), PLUGIN_ROOT=str(PLUGIN)))
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "", ""))
 
     def test_a1_hook_secret_never_reaches_ledger_cli_mcp_or_served_view(self):
@@ -242,11 +247,49 @@ class CaptureTests(unittest.TestCase):
             httpd.server_close()
             thread.join(5)
         view = json.loads(served)["view"]
-        self.assertEqual(view["nodes"][0]["activity"][0]["phases"][0]["count"], 1)
+        attempt = view["nodes"][0]["activity"][0]
+        phase = attempt["phases"][0]
+        self.assertEqual(phase["count"], 1)
+        self.assertEqual(phase["tools"], {"Bash": 1})
+        self.assertEqual(phase["via"], ["session"])
+        self.assertEqual(phase["origin"], "observed")
+        self.assertEqual(phase["longest_ms"], phase["duration_ms"])
+        self.assertEqual(attempt["totals"], {"gf": {"count": 1, "duration_ms": phase["duration_ms"]}})
+        self.assertNotIn(secret, json.dumps(view["goal_flows"]))
         for value in (raw, json.dumps(leader), json.dumps(served_mcp), served):
             self.assertNotIn(secret, value)
         self.path.write_text(raw + '{"torn":')
         self.assertEqual(activity.read(self.run)["records"], rows)
+
+    def test_f8_documented_codex_calls_share_the_activity_schema(self):
+        secret = "sk-payload-secret-123456789"
+        common = dict(session_id="session-1", turn_id="turn-7", cwd=str(self.root), transcript_path=secret,
+                      permission_mode="default", model="fixture", tool_name="Bash", tool_use_id="call-1",
+                      tool_input={"command": "printf " + secret})
+        before = (self.run / "events.jsonl").read_bytes()
+        for event in ("PreToolUse", "PostToolUse"):
+            data = dict(common, hook_event_name=event)
+            if event == "PostToolUse":
+                data["tool_response"] = "Exit code: 1\n" + secret
+            self.invoke(json.dumps(data), "codex", event)
+        rows = activity.read(self.run)["records"]
+        self.assertEqual([r["phase"] for r in rows], ["start", "end"])
+        self.assertEqual([r["category"] for r in rows], ["tool", "tool"])
+        self.assertEqual([r["via"] for r in rows], ["cwd", "cwd"])
+        self.assertEqual(activity.attribution({"a": {"attempt": 1, "session": "claude:session-1"},
+            "b": {"attempt": 2, "session": "codex:session-1"}}, "session-1", None, "codex"), ("b", 2, "session"))
+        self.assertEqual(rows[0]["call"], rows[1]["call"])
+        self.assertEqual(set(rows[0]), {"ts", "phase", "category", "tool", "session", "call", "via", "node", "attempt"})
+        self.assertEqual(set(rows[1]) - set(rows[0]), {"duration_ms"})
+        self.assertNotIn(secret, self.path.read_text())
+        self.assertEqual((self.run / "events.jsonl").read_bytes(), before)
+        for bad in ([], {"hook_event_name": []}, dict(common, hook_event_name="SessionStart"),
+                    dict(common, hook_event_name="PreToolUse", turn_id=None),
+                    dict(common, hook_event_name="PreToolUse", tool_use_id=None)):
+            self.invoke(json.dumps(bad), "codex")
+        self.assertEqual(activity.read(self.run)["records"], rows)
+        next_turn = activity.observation(dict(common, hook_event_name="PreToolUse", turn_id="turn-8"), stamp(0), "codex")
+        self.assertNotEqual(next_turn["call"], rows[0]["call"])
 
     def test_a3_missing_run_malformed_payload_and_full_disk(self):
         self.invoke("not json")
