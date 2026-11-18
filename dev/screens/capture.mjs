@@ -1763,6 +1763,13 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
       await assertReading();
       await evaluate('document.activeElement.blur()');
       assert(defaultReading.shownKinds.includes('convergence'),'Converging transfer waits share a visible summary');
+      const summaryKeepsFocus=await evaluate(`(()=>{
+        const button=document.querySelector('.space-label-convergence');
+        button.focus();
+        document.querySelector('#map .map-viewport').dispatchEvent(new WheelEvent('wheel',{deltaX:1,cancelable:true,bubbles:true}));
+        return document.activeElement===button;
+      })()`);
+      assert(summaryKeepsFocus,'The convergence summary retains keyboard focus when the scene refreshes');
       await click('.space-label-convergence');
       assert(await evaluate("document.querySelector('#panel').dataset.trunk==='true' && document.querySelectorAll('#panel .edge-choices button').length>1"),
         'Selecting a convergence expands its related transfers');

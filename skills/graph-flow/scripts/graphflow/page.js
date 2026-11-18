@@ -4150,8 +4150,15 @@ async function receiveTimeIndex(index, snapshotGeneration) {
   timeBar.update(index);
 }
 
+let historyClock, historyClockLanguage;
 function historyStamp(at) {
-  return new Intl.DateTimeFormat(language,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(at);
+  if(historyClockLanguage!==language){
+    historyClockLanguage=language;
+    historyClock=new Intl.DateTimeFormat(language,{
+      month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,
+    });
+  }
+  return historyClock.format(at);
 }
 
 function historyDuration(ms, exact = false) {

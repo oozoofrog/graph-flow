@@ -458,11 +458,12 @@ function placeLabels(host,candidates,cards,inspected,width,height,openGroup) {
       [12-inspected.point.x,24-inspected.point.y]],
   };
   const ordered=[...candidates.filter(item=>item.id!==inspected?.key),...(tooltip?[tooltip]:[])].sort((a,b)=>a.rank-b.rank||(b.duration??0)-(a.duration??0));
+  const existing=new Map([...host.children].map(element=>[element.dataset.label,element]));
   const pending=ordered.map(item=>{
-    const element=document.createElement(item.relations?'button':'span');
+    const element=existing.get(item.id)??document.createElement(item.relations?'button':'span');
     if(item.relations){
       element.type='button';
-      element.addEventListener('click',()=>openGroup(item.relations));
+      element.onclick=()=>openGroup(item.relations);
     }
     element.className='space-label space-label-'+item.kind;
     element.dataset.align=item.align||'left';
@@ -473,14 +474,15 @@ function placeLabels(host,candidates,cards,inspected,width,height,openGroup) {
     if(item.duration!=null)element.dataset.duration=item.duration;
     if(item.tone)Object.assign(element.dataset,{role:item.tone,flow:item.cue});
     if(item.dim)element.dataset.emphasis='context';
-    element.textContent=item.text;
+    else delete element.dataset.emphasis;
+    if(element.textContent!==item.text)element.textContent=item.text;
     return {item,element};
   });
-  host.replaceChildren(...pending.map(({element})=>element));
+  for(const {element} of pending)if(!element.parentNode)host.append(element);
   // Read each text box once before writing any positions.
   const sizes=pending.map(({element})=>rectOf(element));
   const results={}, counts={shown:0,withheld:0};
-  const keep=[];
+  const keep=new Set();
   for(const [i,{item,element}] of pending.entries()){
     const {id,point,rank,align,duration=0}=item;
     const size=sizes[i], w=size.right-size.left, h=size.bottom-size.top;
@@ -503,7 +505,7 @@ function placeLabels(host,candidates,cards,inspected,width,height,openGroup) {
       occupied.push({rect,id,rank});
       element.dataset.align='left';
       element.style.left=rect.left+'px';element.style.top=rect.top+h/2+'px';
-      keep.push(element);
+      keep.add(element);
     }else{
       counts.withheld++;
       if(blocker)status='collision';
@@ -512,7 +514,7 @@ function placeLabels(host,candidates,cards,inspected,width,height,openGroup) {
       lines:item.lines,text:item.text,cue:item.cue,selected:!!item.selected,
       recordKind:item.record?.kind,failed:!!(item.record?.failed||item.line?.reverse)};
   }
-  host.replaceChildren(...keep);
+  for(const element of [...host.children])if(!keep.has(element))element.remove();
   return {...counts,results};
 }
 
