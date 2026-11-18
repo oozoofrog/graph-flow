@@ -132,6 +132,13 @@ try {
   await send('Emulation.setLocaleOverride', {locale:'ko-KR'});
   await send('Emulation.setTimezoneOverride', {timezoneId:'Asia/Seoul'});
   await send('Emulation.setEmulatedMedia', {features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  const gpu = await evaluate(`(()=>{
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (!gl) return null;
+    const debug = gl.getExtension('WEBGL_debug_renderer_info');
+    return gl.getParameter(debug ? debug.UNMASKED_RENDERER_WEBGL : gl.RENDERER);
+  })()`);
+  console.log('Chrome WebGL2 context:', gpu !== null ? 'available ('+gpu+')' : 'unavailable');
   for (const screen of manifest.filter(row => !only || only.has(row.number))) {
     const fixture = fixtures[screen.scenario];
     const filename = String(screen.number).padStart(2,'0')+'-'+screen.name+'.png';

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Concurrent dashboard opens share one detached server and wait for an authenticated response. The server binds directly to its numeric loopback address.
+
 - Publish Graph Flow as its own Claude Code and Codex marketplace.
 
 ## Graph Flow [0.3.0] — 2026-11-18

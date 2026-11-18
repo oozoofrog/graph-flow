@@ -4,8 +4,9 @@ Run from the repository root (Python standard library, Node with built-in WebSoc
 Google Chrome, and ffmpeg must already be available):
 
 ```bash
-python3 -I -S -B dev/screens/build_fixtures.py /Volumes/eyedisk/build/graph-flow-screens/r20
-node dev/screens/capture.mjs /Volumes/eyedisk/build/graph-flow-screens/r20
+OUT=./captures/graph-flow
+python3 -I -S -B dev/screens/build_fixtures.py "$OUT"
+SCREENS_PYTHON="$(command -v python3)" node dev/screens/capture.mjs "$OUT"
 ```
 
 Set `CHROME_BIN` if Chrome is installed elsewhere. The CI unittest suite runs a
