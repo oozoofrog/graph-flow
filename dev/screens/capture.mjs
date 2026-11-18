@@ -1807,6 +1807,15 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
     assert(!currentView.legend,'T9 no legend');
     assert.equal(await evaluate("document.querySelector('#edge-list').previousElementSibling.textContent"),
       english?'Relations':'관계 목록','T9 relation terminology');
+    if(english){
+      const englishChip=await evaluate(`(()=>{
+        const title=document.querySelector('#map [data-node=q] .node-title');
+        const list=document.querySelector('#map [data-i18n=listAll]');
+        return {width:title.getBoundingClientRect().width,title:title.textContent,list:list.textContent};
+      })()`);
+      assert(englishChip.width>32&&englishChip.title==='Release scope'&&englishChip.list==='Read the complete list',
+        'The English chip reserves room for the title and the navigation is translated');
+    }
     assert(currentView.cards.every(card=>card.upright),'T6 labels are screen-aligned');
     const coordinates=new Map(currentView.cards.map(card=>[card.id,card]));
     assert(space.lanes.every(lane=>near(lane.point,coordinates.get(lane.id))),'T4 graph cards sit on the projected cut');

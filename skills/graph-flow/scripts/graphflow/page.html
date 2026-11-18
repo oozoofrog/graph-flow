@@ -531,9 +531,13 @@ button:disabled::before{background:var(--soft)!important;border-color:var(--line
 #map[data-space] .node-position[data-fold=true] .node-title{white-space:normal;line-height:1.12;
  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 #map[data-space] .node-position[data-fold=true] .risk-level{display:none}
+#map[data-space] .node-position[data-fold=true] .node-status{max-width:40%;min-width:0;flex-wrap:nowrap}
+#map[data-space] .node-position[data-fold=true] .state-value{flex:none}
+#map[data-space] .node-position[data-fold=true] :is(.card-age,.card-attempt){
+ min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #map[data-space] .node-position[data-compact=true] .node-header{padding:0 5px}
 #map[data-space] .node-position[data-compact=true] .node-title{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#map[data-space] .node-position[data-compact=true] .card-attempt{display:none}
+#map[data-space] .node-position[data-compact=true] :is(.card-age,.card-attempt){display:none}
 .space-ink,.space-labels{position:absolute;pointer-events:none;overflow:hidden;z-index:0}
 .space-labels{z-index:3}
 .space-ink path{fill:none;stroke:var(--structure);stroke-width:1}
