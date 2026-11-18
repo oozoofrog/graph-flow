@@ -6,6 +6,7 @@ import {createHash} from 'node:crypto';
 import {existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, copyFileSync, readdirSync, unlinkSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {routeMetrics,exceedsRatchet} from '../../skills/graph-flow/tests/fixtures/routing_metrics.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const skill = path.resolve(here, '../../skills/graph-flow');
@@ -14,6 +15,7 @@ assert(process.argv[2] && !/^\/(private\/)?tmp\//.test(output), 'supply a durabl
 const only = process.argv[3] ? new Set(process.argv[3].split(',').map(Number)) : null;
 const forceSVG = process.env.SCREENS_RENDERER === 'svg';
 const manifest = JSON.parse(readFileSync(path.join(here, 'screens.json')));
+const ratchets = JSON.parse(readFileSync(path.join(skill,'tests/fixtures/routing_ratchets.json'))).screens;
 const fixtures = JSON.parse(readFileSync(path.join(output, 'fixtures/index.json')));
 const which = name => (process.env.PATH || '').split(path.delimiter).map(p => path.join(p, name)).find(p => existsSync(p));
 const chromePath = which('chromium') || which('google-chrome') || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -178,15 +180,23 @@ function graphDOM() {
       reference:[...e.querySelectorAll('.node-reference > :not(.attempt-caption)')].map(item=>item.textContent).join(''),
       status:e.querySelector('.node-status')?.textContent};
   });
-  const lines=Array.from(map.querySelectorAll('.edge-path[data-from]'),e=>{
-    const marker=document.querySelector(e.getAttribute('marker-end').slice(4,-1));
-    const a=e.getPointAtLength(0),b=e.getPointAtLength(e.getTotalLength());
-    return {key:identify(e),dash:getComputedStyle(e).strokeDasharray,shape:marker?.firstElementChild?.getAttribute('d'),
-      direction:marker?.getAttribute('orient'),
-      ends:[[a.x,a.y],[b.x,b.y]]};
+  const scene=map.graphScene;
+  const lines=Array.from(map.querySelectorAll('.edge-marker[data-edge-id]'),branch=>{
+    const edge=scene.edges.find(edge=>edge.id===branch.dataset.edgeId);
+    const strokes=scene.strokes.filter(part=>part.members.includes(edge.id)).map(part=>{
+      const path=map.querySelector(`[data-stroke-id="${part.id}"]`);
+      return getComputedStyle(path).strokeDasharray;
+    });
+    const markers=scene.markers.filter(mark=>mark.members.includes(edge.id)).map(mark=>{
+      const path=map.querySelector(`[data-marker-id="${mark.id}"]`);
+      const marker=document.querySelector(path.getAttribute('marker-end').slice(4,-1));
+      return {shape:marker?.firstElementChild?.getAttribute('d'),direction:marker?.getAttribute('orient')};
+    });
+    return {key:identify(branch),strokes,markers,
+      ends:[edge.points[0],edge.points.at(-1)].map(({x,y})=>[x,y])};
   });
   const count=map.querySelector('.map-visible');
-  return {scene:map.graphScene,lod:map.dataset.lod,diagram:cards('#map .node-card'),phone:cards('#phone-flow .node-card'),
+  return {scene,lod:map.dataset.lod,diagram:cards('#map .node-card'),phone:cards('#phone-flow .node-card'),
     ids:Array.from(document.querySelectorAll('#node-list > [data-node]'),e=>e.dataset.node),lines,
     phoneRelations:relations('#phone-flow .phone-handoff'),accessible:relations('#edge-list [data-relation]'),
     incoming:relations('#panel [data-relations="from"] [data-relation]'),outgoing:relations('#panel [data-relations="to"] [data-relation]'),
@@ -214,7 +224,7 @@ function assertGraphRecords(name, language, expected, observed, visibleTitles) {
         assert(item.glyphShown&&item.title===(level!=='far')&&item.full===(level==='near'),
           context+' R6 '+level+' cues '+JSON.stringify(item));
         assert.equal(item.laneShown,level!=='far'&&lane!==null,name+' R9 '+surface+' '+item.id+' lane visibility');
-        if(level==='near')assert.equal(item.attempts,expected.state[item.id]?.attempts??0,name+' R4 planar attempt count '+item.id);
+        if(level==='near')assert.equal(item.attempts,expected.state[item.id]?.attempts??0,name+' P3 planar attempt count '+item.id);
       }
       assert.equal(item.glyph==='◆',item.state==='awaiting',context+' Psi4 glyph '+item.glyph+' for '+item.state);
     }
@@ -239,12 +249,15 @@ function assertGraphRecords(name, language, expected, observed, visibleTitles) {
     compare('incoming panel',observed.incoming,expected.edges.filter(([,to])=>to===observed.selected));
     compare('outgoing panel',observed.outgoing,expected.edges.filter(([from])=>from===observed.selected));
   }
-  for(const {key,dash,shape,ends,direction} of observed.lines){
+  for(const {key,strokes,markers,ends} of observed.lines){
     const [from,to,relation,gate]=key;
     const context=name+' P2 SVG '+from+' → '+to+' '+relation;
-    assert.equal(dash,dashPatterns[gate],context+' gate pattern');
-    assert.equal(direction,'auto',context+' marker follows the routed direction');
-    assert.match(shape||'',markerShapes[relation],context+' expected marker for '+relation+', observed '+shape);
+    assert(strokes.length&&strokes.every(dash=>dash===dashPatterns[gate]),context+' gate pattern on every route portion');
+    assert(markers.length,context+' branch marker');
+    for(const {direction,shape} of markers){
+      assert.equal(direction,'auto',context+' marker follows the routed direction');
+      assert.match(shape||'',markerShapes[relation],context+' expected marker for '+relation+', observed '+shape);
+    }
     const a=scene.positions[from],b=scene.positions[to];
     assert(Math.abs(ends[0][0]-a.x-a.width)<.02&&Math.abs(ends[1][0]-b.x)<.02,context+' expected right port → left port, observed '+JSON.stringify(ends));
   }
@@ -259,31 +272,35 @@ function assertGraphRecords(name, language, expected, observed, visibleTitles) {
     assert.equal(counts.text,phrase,name+' M3 visible toolbar count');
   }
   assert.deepEqual(observed.diagram.map(c=>c.id),scene.cards.map(c=>c.id),name+' M1 card DOM order');
-  // Count strict interior intersections between horizontal and vertical route segments.
-  const segments=edge=>edge.points.slice(1).map((b,i)=>[edge.points[i],b]);
-  const crosses=([a,b],[c,d])=>a.y===b.y&&c.x===d.x&&c.x>Math.min(a.x,b.x)&&c.x<Math.max(a.x,b.x)&&a.y>Math.min(c.y,d.y)&&a.y<Math.max(c.y,d.y);
-  let crossings=0;
-  for(const [i,edge] of scene.edges.entries()){
+  for(const edge of scene.edges){
     const a=scene.positions[edge.from],b=scene.positions[edge.to];
     assert(a.layer<b.layer,name+' M1 '+edge.from+' → '+edge.to+' expected increasing layer, observed '+a.layer+' → '+b.layer);
-    for(const other of scene.edges.slice(i+1))for(const p of segments(edge))for(const q of segments(other)){
-      if(crosses(p,q)||crosses(q,p))crossings++;
-    }
   }
-  return crossings;
+  return routeMetrics(scene);
 }
 
 function assertRendererParity(name, scene, drawing) {
-  const {box, edges} = drawing;
-  assert.deepEqual(sorted(edges.map(e=>e.id)),sorted(scene.edges.map(e=>e.id)),name+' R1 drawn edge inventory');
-  for (const edge of scene.edges) {
-    const actual=edges.find(candidate=>candidate.id===edge.id);
-    assert.deepEqual([actual.relation,actual.gate,actual.visible],[edge.relation,edge.gate,true], name+' R1 edge '+edge.id);
-    assert.equal(actual.points.length,edge.points.length,name+' R1 point inventory '+edge.id);
-    for (const [i,point] of edge.points.entries()) {
-      const p=actual.points[i];
-      assert(Math.abs(p.x-point.x*box.scale-box.x)<=.5&&Math.abs(p.y-point.y*box.scale-box.y)<=.5,
-        name+' R1 projected point '+edge.id+'/'+i+' '+JSON.stringify({actual:p, point, box}));
+  const {box}=drawing;
+  const close=(actual,point,context)=>assert(
+    Math.abs(actual.x-point.x*box.scale-box.x)<=.5&&Math.abs(actual.y-point.y*box.scale-box.y)<=.5,
+    name+' R1 '+context+' '+JSON.stringify({actual,point,box}));
+  for(const kind of ['strokes','markers']){
+    const actual=drawing[kind];
+    assert.deepEqual(sorted(actual.map(part=>part.id)),sorted(scene[kind].map(part=>part.id)),name+' R1 drawn '+kind);
+    for(const model of scene[kind]){
+      const part=actual.find(candidate=>candidate.id===model.id),context=kind+'/'+model.id;
+      assert(part.visible,name+' R1 visible '+context);
+      if(kind==='strokes'){
+        assert.equal(part.gate,model.gate,name+' R1 gate '+context);
+        assert.equal(part.points.length,model.points.length,name+' R1 point inventory '+context);
+        model.points.forEach((point,i)=>close(part.points[i],point,context+'/'+i));
+      } else {
+        assert.equal(part.relation,model.relation,name+' R1 relation '+context);
+        const [a,b]=model.points,[start,tip]=part.points;
+        close(tip,b,context+' tip');
+        const dx=b.x-a.x,dy=b.y-a.y,px=tip.x-start.x,py=tip.y-start.y;
+        assert(dx*px+dy*py>0&&Math.abs(dx*py-dy*px)<.5,name+' R1 marker direction '+context);
+      }
     }
   }
 }
@@ -318,10 +335,13 @@ function assertRegistration(name, scene, measured) {
     }
   }
   for(const edge of scene.edges) {
-    const points=drawing.edges.find(candidate=>candidate.id===edge.id).points;
-    for(const [p,card,side] of [[points[0],cards[edge.from],'right'],[points.at(-1),cards[edge.to],'left']]){
-      close(p.x,card.x+(side==='right'?card.width:0),edge.id+' '+side+' boundary');
-      assert(p.y>=card.y-.5&&p.y<=card.y+card.height+.5,name+' R3 '+edge.id+' endpoint height');
+    const endpoints=[edge.points[0],edge.points.at(-1)];
+    for(const [i,side] of ['right','left'].entries()){
+      const original=endpoints[i],card=cards[i===0?edge.from:edge.to];
+      const stroke=scene.strokes.find(p=>p.members.includes(edge.id)&&p.points.some(q=>q.x===original.x&&q.y===original.y));
+      const point=drawing.strokes.find(p=>p.id===stroke.id).points[stroke.points.findIndex(q=>q.x===original.x&&q.y===original.y)];
+      close(point.x,card.x+(side==='right'?card.width:0),edge.id+' '+side+' boundary');
+      assert(point.y>=card.y-.5&&point.y<=card.y+card.height+.5,name+' R3 '+edge.id+' endpoint height');
     }
   }
 }
@@ -342,29 +362,29 @@ function assertDependencyFocus(name, records, graph, drawing) {
     directions.push(closure);
     for(const node of closure)related.add(node);
   }
-  assert.deepEqual(sorted(graph.diagram.filter(c=>c.path).map(c=>c.id)),sorted([...related]),name+' R4 focused record closure');
+  assert.deepEqual(sorted(graph.diagram.filter(c=>c.path).map(c=>c.id)),sorted([...related]),name+' R5 focused record closure');
   assert.deepEqual(sorted(graph.diagram.filter(c=>c.context).map(c=>c.id)),
-    sorted(id?graph.diagram.filter(c=>!related.has(c.id)).map(c=>c.id):[]),name+' R4 context inventory');
-  if(drawing.renderer==='webgl')for(const edge of drawing.edges){
-    const {from,to}=graph.scene.edges.find(candidate=>candidate.id===edge.id);
-    const lifted=to!=='_run_checks'&&(directions[0]?.has(from)||directions[1]?.has(to));
-    assert.equal(Boolean(edge.z),Boolean(lifted),name+' R4 expected recorded path depth '+edge.id);
-    if(edge.z)assert(edge.width>2,name+' R4 lifted stroke has planar emphasis '+edge.id);
+    sorted(id?graph.diagram.filter(c=>!related.has(c.id)).map(c=>c.id):[]),name+' R5 context inventory');
+  const path=new Set(graph.scene.edges.filter(({from,to})=>
+    to!=='_run_checks'&&(directions[0]?.has(from)||directions[1]?.has(to))).map(edge=>edge.id));
+  const focused=(kind,part)=>graph.scene[kind].find(model=>model.id===part.id).members.some(id=>path.has(id));
+  const contextRanks=[...drawing.strokes.filter(p=>!focused('strokes',p)),...drawing.markers.filter(p=>!focused('markers',p))].map(p=>p.order);
+  const focusedStrokes=drawing.strokes.filter(p=>focused('strokes',p));
+  const topContext=Math.max(-1,...contextRanks);
+  const topUnderlay=Math.max(-1,...focusedStrokes.map(p=>p.underlay));
+  for(const part of focusedStrokes){
+    assert(part.width>2,name+' R5 focused stroke emphasis '+part.id);
+    assert(part.underlay>topContext&&part.order>topUnderlay,name+' R5 focus ink clears dimmed crossings '+part.id);
+  }
+  for(const mark of drawing.markers.filter(p=>focused('markers',p))){
+    assert(mark.order>topContext&&mark.order>topUnderlay,name+' R5 focused marker clears dimmed crossings '+mark.id);
+  }
+  if(drawing.renderer==='webgl')for(const part of drawing.strokes){
     const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);
     const luminance=hex=>rgb(hex).map(c=>c<=.04045?c/12.92:((c+.055)/1.055)**2.4)
       .reduce((sum,c,i)=>sum+c*[.2126,.7152,.0722][i],0);
-    assert((luminance(drawing.box.background)+.05)/(luminance(edge.color)+.05)>=3,
-      name+' R5 WebGL stroke contrast '+edge.id);
-  }
-  if(drawing.renderer==='webgl'){
-    const expected=graph.lod==='near'?graph.diagram.filter(c=>records.state[c.id]?.attempts):[];
-    assert.deepEqual(sorted(drawing.plates.map(p=>p.id)),sorted(expected.map(c=>c.id)),name+' R4 attempt plate inventory');
-    for(const plate of drawing.plates) {
-      assert.equal(plate.z.length,records.state[plate.id].attempts,name+' R4 recorded attempt plates '+plate.id);
-      assert.equal(plate.z.length,expected.find(c=>c.id===plate.id).attempts,name+' R4 planar attempt caption '+plate.id);
-      assert(plate.z.every(z=>z<0)&&new Set(plate.z).size===plate.z.length,name+' R4 separate depth layers '+plate.id);
-      assert.equal(plate.visible,drawing.box.tilt,name+' R4 plate tilt visibility '+plate.id);
-    }
+    assert((luminance(drawing.box.background)+.05)/(luminance(part.color)+.05)>=3,
+      name+' R5 WebGL stroke contrast '+part.id);
   }
 }
 
@@ -394,7 +414,7 @@ function assertMinimap(name, graph, drawing, mini) {
 }
 
 function graphInk() {
-  const map=document.querySelector('#map'), {edges,box}=map.graphDrawing, scene=map.graphScene;
+  const map=document.querySelector('#map'), {strokes,box}=map.graphDrawing, scene=map.graphScene;
   const canvas=map.querySelector('canvas'), gl=canvas.getContext('webgl2');
   const {drawingBufferWidth:width,drawingBufferHeight:height}=gl;
   const pixels=new Uint8Array(width*height*4);
@@ -404,7 +424,7 @@ function graphInk() {
     return pixels[p+3]>100&&pixels[p]<170&&pixels[p+1]<180&&pixels[p+2]<200;
   };
   const dpr=box.dpr, samples=[];
-  for(const {id,points} of edges) {
+  for(const {id,points} of strokes) {
     let count=0, on=0;
     for(let i=1;i<points.length;i++){
       const a=points[i-1], b=points[i], length=Math.hypot(b.x-a.x,b.y-a.y);
@@ -426,13 +446,20 @@ function graphInk() {
     for(let row=top;row<bottom&&!found;row++)for(let col=left;col<right;col++)if(ink(col,row)){found=true;break;}
     if(found)interiors.push(card.id);
   }
-  return {samples,interiors,preserved:gl.getContextAttributes().preserveDrawingBuffer,error:gl.getError()};
+  const byId=new Map(samples.map(sample=>[sample.id,sample]));
+  const routes=scene.edges.map(edge=>scene.strokes.filter(p=>p.members.includes(edge.id)).reduce((total,part)=>{
+    const sample=byId.get(part.id);
+    total.count+=sample.count;total.on+=sample.on;
+    return total;
+  },{id:edge.id,count:0,on:0}));
+  return {samples,routes,interiors,preserved:gl.getContextAttributes().preserveDrawingBuffer,error:gl.getError()};
 }
 
 function assertGraphInk(name, ink) {
   assert(ink.preserved&&!ink.error,name+' R2 readable test framebuffer');
   assert.deepEqual(ink.interiors,[],name+' R2 off-route ink inside card interiors');
-  for(const {id,count,on} of ink.samples)if(count>=15)assert(on>0,name+' R2 missing ink for edge '+id);
+  for(const {id,count,on} of ink.routes)if(count>=15)assert(on>0,name+' R2 missing ink for edge '+id);
+  for(const {id,count,on} of ink.samples)if(count>=15)assert(on>0,name+' R2 missing ink for shaft '+id);
 }
 
 async function assertMotion(name) {
@@ -459,16 +486,18 @@ async function exerciseGraph(screen, graph) {
   const name=screen.name;
   const check=async step=>{
     await paint();
+    await until(`(()=>{
+      const map=document.querySelector('#map'),v=map.querySelector('.map-viewport'),s=map.querySelector('.map-stage');
+      const {box}=map.graphDrawing;
+      return box.width===v.clientWidth&&box.height===v.clientHeight&&box.scale===Number(map.dataset.scale)&&
+        Math.abs(box.x-parseFloat(s.style.left)+v.scrollLeft)<=.5&&Math.abs(box.y-parseFloat(s.style.top)+v.scrollTop)<=.5;
+    })()`);
     const scene=await evaluate("document.querySelector('#map').graphScene");
     const measured=await evaluate(`(${graphRegistration})()`);
     assertRendererParity(name+' '+step,scene,measured.drawing);
     assertRegistration(name+' '+step,scene,measured);
     return measured.drawing;
   };
-  if(screen.tilt&&graph.drawing.box.tilt) {
-    await evaluate("document.querySelector('.map-tilt').click()");
-    assert.equal((await check('tilt off')).box.tilt,false,name+' R3 tilt switch');
-  }
   await send('Emulation.setDeviceMetricsOverride',{
     width:screen.viewport.width-125,height:screen.viewport.height-55,deviceScaleFactor:2,mobile:false,
   });
@@ -479,20 +508,35 @@ async function exerciseGraph(screen, graph) {
       return c.width===r.width*devicePixelRatio&&c.height===r.height*devicePixelRatio})()`),name+' R3 backing resolution');
   }
   await evaluate("document.querySelector('.map-viewport').scrollBy(180,90)");
-  const panned=await check('pan');
+  await check('pan');
   const point=await evaluate(`(()=>{const v=document.querySelector('.map-viewport'),r=v.getBoundingClientRect();
     const left=r.x+v.clientLeft,top=r.y+v.clientTop;
     return {left,top,x:Math.round(left+v.clientWidth/2),y:Math.round(top+v.clientHeight/2)}})()`);
+  await evaluate(`(()=>{
+    const map=document.querySelector('#map'),v=map.querySelector('.map-viewport'),s=v.querySelector('.map-stage');
+    v.addEventListener('wheel',event=>{
+      const r=v.getBoundingClientRect(), scale=Number(map.dataset.scale);
+      window.routeWheelAnchor={
+        x:(event.clientX-r.left-v.clientLeft+v.scrollLeft-parseFloat(s.style.left))/scale,
+        y:(event.clientY-r.top-v.clientTop+v.scrollTop-parseFloat(s.style.top))/scale,
+      };
+    },{once:true,capture:true});
+  })()`);
   await send('Input.dispatchMouseEvent',{type:'mouseWheel',x:point.x,y:point.y,deltaX:0,deltaY:-100,modifiers:2});
   const zoomed=await check('cursor zoom');
   assert(zoomed.box.scale>resized.box.scale,name+' R3 wheel zoom changed scale');
   const unclamped=await evaluate(`(()=>{const v=document.querySelector('.map-viewport');
     return [v.scrollLeft>0&&v.scrollLeft<v.scrollWidth-v.clientWidth,v.scrollTop>0&&v.scrollTop<v.scrollHeight-v.clientHeight]})()`);
   assert(unclamped.some(Boolean),name+' R3 cursor zoom has an unclamped axis');
+  const after=await evaluate(`(()=>{
+    const v=document.querySelector('.map-viewport'),r=v.getBoundingClientRect();
+    return {x:r.left+v.clientLeft,y:r.top+v.clientTop};
+  })()`);
+  const anchor=await evaluate('window.routeWheelAnchor');
+  assert(anchor,name+' R3 wheel event reached the graph viewport');
   for(const [i,field] of ['x','y'].entries())if(unclamped[i]){
-    const local=point[field]-point[i?'top':'left'];
-    const anchor=(local-panned.box[field])/panned.box.scale;
-    assert(Math.abs(anchor*zoomed.box.scale+zoomed.box[field]-local)<=.5,name+' R3 cursor anchor '+field);
+    assert(Math.abs(anchor[field]*zoomed.box.scale+zoomed.box[field]+after[field]-point[field])<=.5,
+      name+' R3 cursor anchor '+field+' '+JSON.stringify({anchor,point,after,zoomed:zoomed.box}));
   }
   await evaluate("document.querySelector('.overview-note button').click()");
   await check('level change');
@@ -550,10 +594,75 @@ async function verifyFullInk(screen) {
     await paint();
     const ink=await evaluate(`(${graphInk})()`);
     assertGraphInk(screen.name+' ink tile '+x+','+y,ink);
-    for(const sample of ink.samples)if(sample.count>=15&&sample.on>0)covered.add(sample.id);
+    for(const sample of ink.routes)if(sample.count>=15&&sample.on>0)covered.add(sample.id);
   }
   const scene=await evaluate("document.querySelector('#map').graphScene");
   assert.deepEqual(sorted([...covered]),sorted(scene.edges.map(edge=>edge.id)),screen.name+' R2 visible ink searched over every edge');
+}
+
+async function captureLaneCards(screen, filename) {
+  const lod=screen.lane_crops;
+  assert.equal(await evaluate("document.querySelector('#map').dataset.lod"),lod,screen.name+' R9 lane crop level');
+  for(const [i,node] of ['reader','html','guide'].entries()){
+    const selector=`#map .node-card[data-node="${node}"]`;
+    await evaluate(`(()=>{
+      const card=document.querySelector(${JSON.stringify(selector)}),v=document.querySelector('.map-viewport');
+      const r=card.getBoundingClientRect(),b=v.getBoundingClientRect();
+      v.scrollBy(r.x+r.width/2-b.x-v.clientWidth/2,r.y+r.height/2-b.y-v.clientHeight/2);
+    })()`);
+    await paint();
+    const geometry=await evaluate(`(()=>{
+      const card=document.querySelector(${JSON.stringify(selector)}),r=card.getBoundingClientRect();
+      const v=document.querySelector('.map-viewport'),b=v.getBoundingClientRect();
+      const cue=card.querySelector('.lane-cue');
+      return {count:cue.childElementCount,visible:getComputedStyle(cue).visibility==='visible',
+        clear:r.left>=b.left+v.clientLeft-.5&&r.right<=b.left+v.clientLeft+v.clientWidth+.5&&
+          r.top>=b.top+v.clientTop-.5&&r.bottom<=b.top+v.clientTop+v.clientHeight+.5,
+        rect:{x:Math.floor(r.x+scrollX),y:Math.floor(r.y+scrollY),width:Math.ceil(r.width),height:Math.ceil(r.height),scale:1}};
+    })()`);
+    assert(geometry.count===i+1&&geometry.clear&&geometry.visible,screen.name+' R9 lane '+(i+1)+' '+JSON.stringify(geometry));
+    const {data}=await send('Page.captureScreenshot',{format:'png',clip:geometry.rect});
+    writeFileSync(path.join(verify,filename.replace('.png',`-lane-${i+1}.png`)),Buffer.from(data,'base64'));
+  }
+}
+
+async function assertMinimapClear(name) {
+  await evaluate("document.querySelector('.map-key').open=false");
+  await paint();
+  const obstruction=await evaluate(`(async()=>{
+    const v=document.querySelector('.map-viewport'),m=document.querySelector('.map-mini');
+    if(m.hidden)return [];
+    const initial=[v.scrollLeft,v.scrollTop], failures=[];
+    const width=v.scrollWidth-v.clientWidth,height=v.scrollHeight-v.clientHeight;
+    const paint=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    for(const [x,y] of [[0,0],[width,0],[0,height],[width,height]]){
+      v.scrollTo(x,y);await paint();
+      const area=v.getBoundingClientRect(),mini=m.getBoundingClientRect();
+      if(mini.top<area.bottom&&mini.bottom>area.top&&mini.left<area.right&&mini.right>area.left)
+        failures.push({x,y,viewport:area.toJSON(),minimap:mini.toJSON()});
+    }
+    for(const card of v.querySelectorAll('.node-card')){
+      const center=()=>{
+        const viewport=v.getBoundingClientRect(),r=card.getBoundingClientRect();
+        v.scrollBy(r.x+r.width/2-viewport.x-v.clientLeft-v.clientWidth/2,r.y+r.height/2-viewport.y-v.clientTop-v.clientHeight/2);
+      };
+      center();await paint();
+      // Offscreen navigation can reflow after moving to a different part of the graph.
+      center();await paint();
+      const bounds=card.getBoundingClientRect(),mini=m.getBoundingClientRect(),area=v.getBoundingClientRect();
+      const left=area.left+v.clientLeft,top=area.top+v.clientTop;
+      if(Math.max(top,bounds.top)<mini.bottom&&Math.min(top+v.clientHeight,bounds.bottom)>mini.top&&
+         Math.max(left,bounds.left)<mini.right&&Math.min(left+v.clientWidth,bounds.right)>mini.left)
+        failures.push({card:card.dataset.node,bounds:bounds.toJSON(),minimap:mini.toJSON()});
+      if((bounds.width<=v.clientWidth&&(bounds.left<left-.5||bounds.right>left+v.clientWidth+.5))||
+         (bounds.height<=v.clientHeight&&(bounds.top<top-.5||bounds.bottom>top+v.clientHeight+.5)))
+        failures.push({card:card.dataset.node,bounds:bounds.toJSON(),viewport:area.toJSON(),client:[left,top,v.clientWidth,v.clientHeight],scroll:[v.scrollLeft,v.scrollTop,v.scrollWidth,v.scrollHeight]});
+    }
+    v.scrollTo(...initial);
+    await paint();
+    return failures;
+  })()`);
+  assert.deepEqual(obstruction,[],name+' R9 every viewport pixel stays clear of the minimap at the four scroll extremes');
 }
 
 async function exerciseMinimap(name) {
@@ -576,7 +685,7 @@ function graphAppearance() {
   const visible=e=>e.getClientRects().length>0&&getComputedStyle(e).visibility==='visible';
   const graph='#map, #phone-flow, #panel, #accessible, #phone-view-toggle';
   const roots=[...document.querySelectorAll(graph)];
-  const probes={text:[],marks:[],targets:[],tilted:[]};
+  const probes={text:[],marks:[],targets:[],unaligned:[]};
   const rgb=value=>value.match(/[\d.]+/g).map(Number);
   const blend=(front,back,opacity=1)=>{
     const a=(front[3]??1)*opacity;
@@ -602,7 +711,7 @@ function graphAppearance() {
     if(!(e instanceof HTMLElement)||!visible(e))continue;
     if(e.matches('.map-stage,.node-position')||e.closest('.node-card,.edge-chip')) {
       const matrix=new DOMMatrixReadOnly(getComputedStyle(e).transform);
-      if(!matrix.is2D||matrix.b!==0||matrix.c!==0||matrix.a<=0||matrix.d<=0)probes.tilted.push(context(e));
+      if(!matrix.is2D||matrix.b!==0||matrix.c!==0||matrix.a<=0||matrix.d<=0)probes.unaligned.push(context(e));
     }
     if(![...e.childNodes].some(n=>n.nodeType===Node.TEXT_NODE&&n.textContent.trim()))continue;
     const css=getComputedStyle(e),glyph=e.classList.contains('status-glyph');
@@ -623,7 +732,10 @@ function graphAppearance() {
     probes.marks.push(probe(e,css[property],bg,3));
   }
   for(const e of document.querySelectorAll('.lane-cue i'))if(visible(e)){
-    probes.marks.push(probe(e,getComputedStyle(e).backgroundColor,background(e.parentElement),3));
+    const item=probe(e,getComputedStyle(e).backgroundColor,background(e.parentElement),3);
+    const rect=e.getBoundingClientRect(),next=e.nextElementSibling?.getBoundingClientRect();
+    item.laneMark={height:rect.height,width:rect.width,gap:next?next.left-rect.right:null};
+    probes.marks.push(item);
   }
   if(innerWidth===390)for(const e of document.querySelectorAll('#attention :is(button,summary,a[href]),#flow :is(button,summary,a[href]),#accessible :is(button,summary,a[href]),#decision :is(button,summary,a[href],label:has(input[type=checkbox]))')){
     if(!visible(e))continue;
@@ -650,9 +762,13 @@ function assertLegend(name, language, edges, items) {
 }
 
 function assertAppearance(name, appearance) {
-  assert.deepEqual(appearance.tilted,[],name+' R5 labels stay screen-aligned');
+  assert.deepEqual(appearance.unaligned,[],name+' R3 labels stay screen-aligned');
   for(const item of [...appearance.text,...appearance.marks]){
     assert(item.ratio>=item.threshold,name+' Psi2 '+item.id+' '+(item.text||'')+' expected contrast ≥ '+item.threshold+', observed '+item.ratio.toFixed(2)+' ('+item.color+' on '+item.background+')');
+    if(item.laneMark){
+      const {height,width,gap}=item.laneMark;
+      assert(height>=15.99&&width>=3&&!(gap!==null&&gap<3),name+' R9 lane mark size and separation '+JSON.stringify(item));
+    }
     if(item.apparentSize!==undefined)assert(item.apparentSize>=11.99,name+' Psi3 '+item.id+' '+item.text+' expected ≥ 12 CSS px, observed '+item.apparentSize);
   }
   for(const {id,width,height,floor} of appearance.targets){
@@ -727,13 +843,6 @@ try {
       await until(`!!document.querySelector('#map').graphScene && document.documentElement.lang===${JSON.stringify(language)}`);
       await delay(450);
       for(const action of screen.interactions) await interaction(action, fixture);
-      if(screen.tilt&&!forceSVG&&webgl2) {
-        await until("!document.querySelector('.map-tilt').hidden");
-        await evaluate("document.querySelector('.map-tilt').focus({preventScroll:true})");
-        await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32,text:' '});
-        await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
-        await until("document.querySelector('#map').graphDrawing.box.tilt");
-      }
       await evaluate('document.fonts.ready');
       const dom = await evaluate(`({title:document.querySelector('#title').textContent,language:document.documentElement.lang,text:document.body.innerText,level:document.querySelector('#map').dataset.level,scale:document.querySelector('#map').dataset.scale,scrollY,buttons:[...document.querySelectorAll('button')].filter(b=>b.getBoundingClientRect().width).map(b=>({text:b.textContent,disabled:b.disabled}))})`);
       assert.equal(dom.language,language);
@@ -768,17 +877,19 @@ try {
       assert.equal(audit.panelFirstLines.length,0,'E2 no text is sliced at the top of the panel scroll area');
       assert(audit.contentFits,'E6 content must fit the measured card');
       const expected=graphRecords(fixture), graph=await evaluate(`(${graphDOM})()`);
-      const crossings=assertGraphRecords(screen.name,language,expected,graph,audit.shown?audit.visibleTitles.length:undefined);
+      const metrics=assertGraphRecords(screen.name,language,expected,graph,audit.shown?audit.visibleTitles.length:undefined);
+      if(graph.scene.edges.length&&ratchets[screen.number])
+        assert(!exceedsRatchet(metrics,ratchets[screen.number]),screen.name+' M2 route ratchet '+metrics+' exceeds '+ratchets[screen.number]);
       if(audit.shown&&graph.scene.edges.length) {
         if(!forceSVG&&webgl2)await until("document.querySelector('#map').dataset.renderer==='webgl'");
         const drawing=await evaluate("document.querySelector('#map').graphDrawing");
         graph.drawing=drawing;
         assert.equal(drawing.renderer,forceSVG||!webgl2?'svg':'webgl',screen.name+' active renderer');
-        if(!drawing.box.tilt)assertRendererParity(screen.name,graph.scene,drawing);
+        assertRendererParity(screen.name,graph.scene,drawing);
         assertRegistration(screen.name,graph.scene,await evaluate(`(${graphRegistration})()`));
         assertDependencyFocus(screen.name,expected,graph,drawing);
         assertMinimap(screen.name,graph,drawing,await evaluate(`(${minimapDOM})()`));
-        if(drawing.renderer==='webgl'&&!drawing.box.tilt)assertGraphInk(screen.name,await evaluate(`(${graphInk})()`));
+        if(drawing.renderer==='webgl')assertGraphInk(screen.name,await evaluate(`(${graphInk})()`));
       }
       if(screen.show_card){
         const geometry=await evaluate(`(()=>{
@@ -820,11 +931,11 @@ try {
         assert.equal(await evaluate("document.activeElement.closest('[data-node]')?.dataset.node"),to,screen.name+' M1 Tab from '+from+' across the row break');
         await paint();
         const tabDrawing=await evaluate("document.querySelector('#map').graphDrawing");
-        assert.equal(tabDrawing.box.focusId,to,screen.name+' R4 native keyboard focus');
+        assert.equal(tabDrawing.box.focusId,to,screen.name+' R5 native keyboard focus');
         assertDependencyFocus(screen.name+' Tab',expected,await evaluate(`(${graphDOM})()`),tabDrawing);
         await evaluate('document.activeElement.blur()');
       }
-      dom.graphVerification={cards:graph.scene.cards.length,edges:graph.scene.edges.length,crossings};
+      dom.graphVerification={cards:graph.scene.cards.length,edges:graph.scene.edges.length,crossings:metrics[0],metrics};
       const appearance=await evaluate(`(${graphAppearance})()`);
       if(screen.minimum_zoom){
         assert(Math.abs(appearance.scale-.7)<.0001&&graph.lod==='far',screen.name+' Psi3/R6 expected 70% far scale, observed '+appearance.scale);
@@ -897,7 +1008,9 @@ try {
         assertLegend(screen.name,language,expected.edges,appearance.legend);
       }
       if(grayBoxes)dom.graphVerification.grayDifferences=compareGrayGlyphs(screen.name,path.join(verify,filename.replace('.png','-gray.png')),grayBoxes);
-      if(screen.number===103||screen.tilt)await exerciseGraph(screen,graph);
+      if(screen.lane_crops)await captureLaneCards(screen,filename);
+      if([103,108,111].includes(screen.number))await assertMinimapClear(screen.name);
+      if(screen.number===103)await exerciseGraph(screen,graph);
       if(screen.diagnostics){
         dom.diagnostics=await panDiagnostics();
         console.log('Diagnostics '+screen.name+' '+JSON.stringify(dom.diagnostics));

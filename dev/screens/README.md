@@ -9,7 +9,7 @@ node plugins/graph-flow/dev/screens/capture.mjs /Volumes/eyedisk/build/graph-flo
 ```
 
 The builder replaces only its marked `fixtures/` directory. The capture command
-writes the 111 numbered PNGs to `final/`, copies them and makes the requested ffmpeg
+writes the 113 numbered PNGs to `final/`, copies them and makes the requested ffmpeg
 variants in `verify/`, and records DOM observations, hashes, and process cleanup
 outside those directories. A capture can mutate its isolated fixtures, such as when it recovers a key. An optional third argument, e.g. `5,16`, recaptures only
 those numbers. Rebuild fixtures before a fresh full capture. No installs or real
@@ -50,8 +50,7 @@ across a wrapped row, empty counts, long phone detail and minimum phone zoom.
 The capture checks the visible colors and geometry and records the number of routed
 segment crossings for each scene. Scene 102 also checks grayscale cue crops.
 
-Scenes 109–111 capture the optional tilt, the 60-node chain and the dense three-layer
-fixture. The default run probes headless Chrome with SwiftShader and requires
+Scenes 110–112 capture the 60-node chain and the dense three-layer fixture with and without a selected card. Scenes 113–114 capture and crop all three lane badges at mid and near zoom. The routing ratchet uses the fixture limits under `skills/graph-flow/tests/fixtures/routing_ratchets.json`. The default run probes headless Chrome with SwiftShader and requires
 WebGL2 on eligible diagrams if the probe succeeds. Rebuild the fixtures in a
 second output directory and set `SCREENS_RENDERER=svg` for the forced fallback run.
 The capture records first-frame timing, observed pan frame intervals and

@@ -226,14 +226,16 @@ button:disabled,button.primary:disabled,.plan-actions button:disabled{background
  #map .node-card button,#map .node-card summary{min-width:52px;min-height:52px}
  #attention .ref,#flow .ref,#accessible .ref,#decision .ref{display:inline-flex;align-items:center;min-width:24px;min-height:24px}
 }
-.map-area{position:relative;flex:1;min-height:0}
+.map-area{position:relative;flex:none;min-height:0;--mini-height:90px;--mini-width:144px}
 .map-area>.map-viewport{position:absolute;inset:0;z-index:1}
+.map-area:has(>.map-mini:not([hidden]))>.map-viewport{bottom:calc(var(--mini-height) + 12px)}
 .graph-webgl{position:absolute;top:0;left:0;width:0;height:0;pointer-events:none}
 .graph-webgl canvas{position:absolute;top:0;left:0;display:block}
 #map[data-renderer="webgl"] .edge-layer{visibility:hidden}
 .node-position.graph-path{z-index:3}.graph-path .node-card:not(.expanded){outline:2px solid #345bc1;outline-offset:2px}
 .graph-context .node-card{background:#f2f5f8}.graph-context .node-title{color:#536174}
 .edge-path[data-weight="path"]{stroke-width:3}
+.edge-marker{fill:none;stroke:none;stroke-width:2}.edge-marker[data-weight="path"]{stroke-width:3}
 .edge-path[data-weight="context"],.graph-context .relation-stroke{stroke:#748090}
 .graph-context .relation-fill{fill:#748090}
 .node-card .type-icon{width:var(--kind-size,20px);height:var(--kind-size,20px)}
@@ -241,17 +243,15 @@ button:disabled,button.primary:disabled,.plan-actions button:disabled{background
 .node-position .overview-card .status-glyph{font-size:var(--status-size,20px)}
 #map[data-lod="far"] .node-position :is(.node-title,.unread-mark,.change-mark,.lane-cue){display:none}
 #map[data-lod="far"] .node-position .node-header{min-height:64px;justify-content:center;grid-template-columns:var(--kind-size) var(--status-size)}
-.map-mini{position:absolute;right:24px;bottom:22px;z-index:4;padding:0;width:144px;height:90px;display:block;border:1px solid #748090;border-radius:8px;background:#fff;cursor:crosshair;touch-action:none;overflow:hidden}
+.map-mini{position:absolute;right:14px;bottom:6px;padding:0;width:var(--mini-width);height:var(--mini-height);display:block;border:1px solid #748090;border-radius:8px;background:#fff;cursor:crosshair;touch-action:none;overflow:hidden}
 .map-mini svg,.map-mini canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .map-mini[data-renderer="webgl"] svg{visibility:hidden}.mini-window{fill:none;stroke:#345bc1;stroke-width:1.5}
-@media(min-width:761px){#map.has-expanded .map-mini{left:24px;right:auto}}
-@media(max-width:760px){.map-mini{top:8px;bottom:auto;width:104px;height:66px;right:20px}}
-.lane-cue{display:inline-flex;flex:none;gap:2px;align-items:center;color:#536174}
-.lane-cue i{height:10px;width:2px;border-radius:1px;background:currentColor}
+@media(max-width:760px){.map-area{--mini-width:104px;--mini-height:66px}}
+.lane-cue{display:inline-flex;flex:none;gap:4px;align-items:center;padding:2px 5px;color:#394b63;background:#edf1f5;border-radius:4px}
+.lane-cue i{height:var(--lane-mark-height,17px);width:4px;border-radius:1px;background:currentColor}
 .node-title-line .lane-cue{margin-left:auto}
-.overview-card .lane-cue{grid-row:2;grid-column:3}
+.overview-card .lane-cue{grid-row:2;grid-column:3;justify-self:end}
 .lane-key{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
-.map-toolbar .map-tilt{font-size:17px}.map-tilt[aria-pressed="true"]{background:#e8eeff;border-color:#4565b2;color:#254487}
 </style>
 <script type="importmap" nonce="__NONCE__">
 {"imports":{"three":"/static/vendor/three/build/three.module.js"}}

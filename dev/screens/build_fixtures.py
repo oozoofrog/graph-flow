@@ -23,7 +23,7 @@ SCENARIOS = {
     'graph-verification': 'Graph kinds, parallel relations, current failure and retry history',
     'graph-wrap': 'A chain whose authored order differs from dependency order',
     'graph-chain-60': 'Sixty stages in a dependency chain',
-    'graph-dense': 'Three layers with all nine relations in each adjacent pair',
+    'graph-dense': 'Three complete adjacent layers for comparing full context and a selected dependency path',
     'graph-empty': 'An initialized run with no posted plan',
     'check-lines': '검사 네 개의 제목과 통과·실패·아직 안 함 표시',
     'notices': '뒤 작업의 파일을 쓰는 전체 검사와 작업 전 통과 알림',

@@ -371,7 +371,6 @@ const STRINGS = {
     "minimap": "그래프 미니맵",
     "riskLane": "위험 단계 {n}",
     "riskLegend": "위험 단계",
-    "tiltGraph": "그래프 기울이기",
     "visibleResult": " + 전체 결과 확인 {n}개",
     "listAll": "목록으로 모두 읽기",
     "questionsForNode": "내게 물을 내용",
@@ -1059,7 +1058,6 @@ const STRINGS = {
     "minimap": "Graph minimap",
     "riskLane": "Risk level {n}",
     "riskLegend": "Risk level",
-    "tiltGraph": "Tilt graph",
     "visibleResult": " + {n} whole-result card",
     "listAll": "Read the complete list",
     "questionsForNode": "For your response",
@@ -1735,6 +1733,129 @@ export function detailCardHeight(node) {
   const facts=(node.deliverables?.length?1:0)+(node.planned_checks?.length?1:0)+(node.runLevel?1:0);
   return 112+facts*27+(node.planned_checks?.some(c=>c.runs_own_files)?32:0)+(node.kind==='decision'?32:0)+(node.kind==='review'||node.reviewers?.length?28:0)+(node.planned_checks?.some(c=>c.type==='human')||node.kind==='decision'?27:0);
 }
+function simplifyRoute(points) {
+  const distinct=points.filter((p,i)=>!i||p.x!==points[i-1].x||p.y!==points[i-1].y);
+  return distinct.filter((p,i,a)=>!i||i===a.length-1||
+    !((a[i-1].x===p.x&&p.x===a[i+1].x)||(a[i-1].y===p.y&&p.y===a[i+1].y)));
+}
+
+// Assign one track to each eligible fan or individual relation in this channel.
+function routeChannel(channel,vertices,routes,right,next,inset,shared) {
+  const pieces=channel.map(link=>{
+    const {from,to,route}=link;
+    return {route,a:{v:vertices.get(from)},b:{v:vertices.get(to)}};
+  });
+  const grouped=new Map(), tracks=[];
+  const far=shared==='a'?'b':'a';
+  for(const piece of pieces) {
+    const r=routes[piece.route];
+    let track;
+    if(shared&&!piece.a.v.dummy&&!piece.b.v.dummy) {
+      const key=JSON.stringify([piece[shared].v.id,r.relation||'hands_over',r.gateState,r.label||'']);
+      track=grouped.get(key);
+      if(track?.pieces.some(other=>other[far].v===piece[far].v))track=null;
+      if(!grouped.has(key))grouped.set(key,track={pieces:[],shared});
+    }
+    if(!track)track={pieces:[],shared:null};
+    if(!track.pieces.length)tracks.push(track);
+    track.pieces.push(piece);
+    piece.track=track;
+  }
+
+  const center=v=>v.y+v.height/2;
+  const ports={a:new Map(),b:new Map()};
+  for(const side of ['a','b']) {
+    const other=side==='a'?'b':'a';
+    for(const p of pieces){
+      const end=p[side], cardPorts=ports[side].get(end.v)||[];
+      ports[side].set(end.v,cardPorts);
+      let port=side===p.track.shared?cardPorts.find(port=>port.track===p.track):null;
+      if(!port){port={track:p.track,v:end.v,side,count:0,toward:0};cardPorts.push(port);}
+      port.count++;
+      port.toward+=center(p[other].v);
+      end.port=port;
+    }
+    for(const [v,list] of ports[side]){
+      list.sort((a,b)=>a.toward/a.count-b.toward/b.count);
+      list.forEach((port,i)=>{
+        port.y=v.port??(v.y+v.height*(i+1)/(list.length+1));
+      });
+    }
+  }
+  // Leads may share an ordinate only for a straight connection or a common port.
+  const all=['a','b'].flatMap(side=>[...ports[side].values()].flat());
+  const limits=port=>{
+    if(port.v.dummy)return [port.y,port.y];
+    const list=ports[port.side].get(port.v),i=list.indexOf(port);
+    const low=i?list[i-1].y+14:port.v.y+12;
+    const high=i+1<list.length?list[i+1].y-14:port.v.y+port.v.height-12;
+    return [low,high];
+  };
+  const available=(ideal,low,high,occupied)=>{
+    for(let d=0;d<=Math.ceil(high-low)*2;d++){
+      const y=ideal+(d%2?1:-1)*Math.ceil(d/2);
+      if(y>=low&&y<=high&&occupied.every(port=>Math.abs(port.y-y)>=1))return y;
+    }
+  };
+  // Fixed dummy leads take precedence. Move a colliding real port locally without changing port order.
+  const placed=all.filter(p=>p.v.dummy);
+  for(const port of all.filter(p=>!p.v.dummy)){
+    port.y=available(port.y,...limits(port),placed)??port.y;
+    placed.push(port);
+  }
+  for(const track of tracks){
+    const aligned=[...track.pieces].sort((p,q)=>Math.abs(p.a.port.y-p.b.port.y)-Math.abs(q.a.port.y-q.b.port.y));
+    for(const {a,b} of aligned){
+      const [al,ah]=limits(a.port),[bl,bh]=limits(b.port);
+      const low=Math.max(al,bl),high=Math.min(ah,bh);
+      const ideal=Math.max(low,Math.min(high,(a.port.y+b.port.y)/2));
+      const y=available(ideal,low,high,all.filter(p=>p!==a.port&&p!==b.port));
+      if(y===undefined)continue;
+      a.port.y=b.port.y=y;
+      break;
+    }
+  }
+  const ordered=(a,b)=>a.y-b.y;
+  for(const track of tracks) {
+    track.a=[...new Set(track.pieces.map(p=>p.a.port))].sort(ordered);
+    track.b=[...new Set(track.pieces.map(p=>p.b.port))].sort(ordered);
+    const ys=[...track.a,...track.b].map(p=>p.y);
+    track.low=Math.min(...ys);track.high=Math.max(...ys);
+  }
+  // For fixed ports, a pair's crossing cost depends only on which track is on the left.
+  const inside=(track,port)=>port.y>track.low&&port.y<track.high;
+  const costs=new Map(tracks.map(a=>[a,new Map(tracks.map(b=>[b,
+    b.a.filter(p=>inside(a,p)).length+a.b.filter(p=>inside(b,p)).length]))]));
+  tracks.sort((a,b)=>(a.b[0].y-a.a[0].y)-(b.b[0].y-b.a[0].y)||a.pieces[0].route-b.pieces[0].route);
+  for(let sweep=0;sweep<4;sweep++)for(const track of [...tracks]) {
+    const index=tracks.indexOf(track);
+    let best=index,delta=0,bestDelta=0;
+    for(let j=index-1;j>=0;j--){
+      const other=tracks[j];delta+=costs.get(track).get(other)-costs.get(other).get(track);
+      if(delta<bestDelta){best=j;bestDelta=delta;}
+    }
+    delta=0;
+    for(let j=index+1;j<tracks.length;j++){
+      const other=tracks[j];delta+=costs.get(other).get(track)-costs.get(track).get(other);
+      if(delta<bestDelta){best=j;bestDelta=delta;}
+    }
+    if(best!==index){tracks.splice(index,1);tracks.splice(best,0,track);}
+  }
+  let crossings=0,bends=0,runs=0,length=0;
+  tracks.forEach((track,i)=>{
+    track.x=right+inset+(next-right-inset*2)*(i+1)/(tracks.length+1);
+    for(const other of tracks.slice(i+1))crossings+=costs.get(track).get(other);
+    runs+=track.a.length+track.b.length+(track.high!==track.low?1:-1);
+    for(const p of track.pieces) {
+      const a={x:right,y:p.a.port.y},b={x:next,y:p.b.port.y};
+      p.points=simplifyRoute([a,{x:track.x,y:a.y},{x:track.x,y:b.y},b]);
+      if(a.y!==b.y)bends+=2;
+      length+=next-right+Math.abs(a.y-b.y);
+    }
+  });
+  return {tracks:tracks.map(({x,shared,pieces})=>({x,shared,pieces:pieces.map(({route,points})=>({route,points}))})),crossings,bends,runs,length};
+}
+
 export function layeredLayout(nodes, edges, decisions = [], sort = true, options = {}) {
   const overview = options.level === 'overview', portGap = 20, inset = overview ? 12 : 26;
   const byId = new Map(nodes.map(n => [n.id, n])), vertices = new Map(), links = [];
@@ -1783,11 +1904,19 @@ export function layeredLayout(nodes, edges, decisions = [], sort = true, options
     const cost=crossings();if(cost<bestCost){bestCost=cost;best=layers.map(ids=>[...ids]);}
   }
   layers.splice(0,layers.length,...best);
+  if(sort)for(let sweep=0;sweep<4;sweep++) {
+    for(const ids of layers)for(let i=1;i<ids.length;i++) {
+      [ids[i-1],ids[i]]=[ids[i],ids[i-1]];
+      const cost=crossings();
+      if(cost<bestCost)bestCost=cost;
+      else [ids[i-1],ids[i]]=[ids[i],ids[i-1]];
+    }
+  }
   const widths=layers.map(ids=>overview?156:Math.min(options.maxCardWidth ?? Infinity,Math.max(264,...ids.filter(id=>byId.has(id)).map(id=>Math.max((byId.get(id).summary||byId.get(id).goal||'').length>180?480:0,Math.min(280,Math.ceil(textWidth(byId.get(id).title,18,9))+40))))));
   for(const v of vertices.values()) {
     v.width=widths[v.layer];
     const degree=Math.max(links.filter(e=>e.from===v.id).length,links.filter(e=>e.to===v.id).length);
-    const portHeight=(options.clearance||0)+40+portGap*(degree+2*Math.max(0,degree-3));
+    const portHeight=40+portGap*(degree+2*Math.max(0,degree-3));
     v.height=overview ? (v.dummy ? 28 : Math.max(v.node?.planned_checks?.some(c=>c.runs_own_files)?104:80,portHeight)) : v.dummy?44:Math.max(detailCardHeight(v.node),portHeight)+Math.max(0,Math.ceil(textWidth(v.node.title,18,9)/(v.width-40))-1)*26;
   }
   for(const v of vertices.values())if(!v.dummy && options.measure)v.height=Math.max(v.height,options.measure(v.node,v.width));
@@ -1811,47 +1940,34 @@ export function layeredLayout(nodes, edges, decisions = [], sort = true, options
   const channels=layers.slice(1).map((_,d)=>links.filter(e=>vertices.get(e.from).layer===d));
   let x=margin;
   layers.forEach((ids,d)=>{for(const id of ids)vertices.get(id).x=x;x+=widths[d]+Math.max(overview?56:108,inset*2+((channels[d]?.length||0)+1)*20);});
-  // Distinct horizontal ordinates prevent a target lead from joining an unrelated source lead.
-  const usedY=[];
-  const ordinate=(ideal,low,high,edge,channels)=>{
-    for(let step=0;step<10000;step++){
-      const y=ideal+(step%2?1:-1)*Math.ceil(step/2)*portGap;
-      if(y>=low && y<=high && usedY.every(n=>n.edge===edge||!n.channels.some(c=>channels.includes(c))||Math.abs(n.y-y)>=portGap)){usedY.push({y,edge,channels});return y;}
-    }
-    // Dense fans can leave free ports between the regular spacing grid.
-    const free=Array.from({length:Math.max(0,Math.floor(high)-Math.ceil(low)+1)},(_,i)=>Math.ceil(low)+i).sort((a,b)=>Math.abs(a-ideal)-Math.abs(b-ideal));
-    for(const y of free)if(usedY.every(n=>n.edge===edge||!n.channels.some(c=>channels.includes(c))||Math.abs(n.y-y)>=portGap)){usedY.push({y,edge,channels});return y;}
-    throw new Error('Graph ports exceed card capacity');
-  };
-  try {
+  // A dummy keeps its ordinate across both channels and clears every real card in its layer.
+  const dummyPorts=layers.map(()=>[]);
   for(const ids of layers)for(const id of ids){
     const v=vertices.get(id);
-    if(v.dummy){v.port=ordinate(v.y+v.height/2,v.y+2,v.y+v.height-2,v.route,[v.layer-1,v.layer]);continue;}
-    for(const side of ['start','end']){
-      const rs=routes.filter(r=>r[side==='start'?'from':'to']===id);
-      const neighbour=r=>vertices.get(r.chain[side==='start'?1:r.chain.length-2]);
-      rs.sort((a,b)=>{const p=neighbour(a),q=neighbour(b);return p.y+p.height/2-q.y-q.height/2||a.index-b.index;});
-      rs.forEach((r,i)=>r[side]={x:v.x+(side==='start'?v.width:0),y:ordinate(v.y+v.height*(i+1)/(rs.length+1),v.y+12,v.y+v.height-12,r.index,[v.layer-(side==='end'?1:0)])});
-    }
+    if(!v.dummy)continue;
+    const left=dummyPorts[v.layer-1], right=dummyPorts[v.layer], center=v.y+v.height/2;
+    const taken=[...left,...right];
+    v.port=center;
+    while(taken.some(y=>Math.abs(v.port-y)<1))v.port++;
+    left.push(v.port);right.push(v.port);
   }
-  } catch(error) {
-    if((options.clearance||0)>routes.length*80)throw error;
-    return layeredLayout(nodes,edges,decisions,sort,{...options,clearance:(options.clearance||0)+40});
-  }
-  const segmentCross=(a,b,c,d)=>a.y===b.y&&c.x===d.x&&c.x>Math.min(a.x,b.x)&&c.x<Math.max(a.x,b.x)&&a.y>Math.min(c.y,d.y)&&a.y<Math.max(c.y,d.y);
-  const parts=[];
+  const bundles=[];
   channels.forEach((channel,d)=>{
     const right=vertices.get(layers[d][0]).x+widths[d],next=vertices.get(layers[d+1][0]).x;
-    const pieces=channel.map(e=>{const r=routes[e.route],a=vertices.get(e.from),b=vertices.get(e.to);return {route:r.index,a:a.dummy?{x:a.x+a.width,y:a.port}:r.start,b:b.dummy?{x:b.x,y:b.port}:r.end};});
-    const points=(p,i)=>{const track=right+inset+(next-right-inset*2)*(i+1)/(pieces.length+1);return [p.a,{x:track,y:p.a.y},{x:track,y:p.b.y},p.b];};
-    const cost=()=>{let n=0;pieces.forEach((p,i)=>pieces.slice(i+1).forEach((q,j)=>{const a=points(p,i),b=points(q,i+1+j);for(let k=1;k<4;k++)for(let l=1;l<4;l++)if(segmentCross(a[k-1],a[k],b[l-1],b[l])||segmentCross(b[l-1],b[l],a[k-1],a[k]))n++;}));return n;};
-    pieces.sort((a,b)=>(a.b.y-a.a.y)-(b.b.y-b.a.y)||a.route-b.route);
-    for(let sweep=0;sweep<6;sweep++)for(let i=0;i<pieces.length-1;i++){const before=cost();[pieces[i],pieces[i+1]]=[pieces[i+1],pieces[i]];if(cost()>=before)[pieces[i],pieces[i+1]]=[pieces[i+1],pieces[i]];}
-    pieces.forEach((p,i)=>parts.push({...p,layer:d,points:points(p,i)}));
+    const candidates=[null,'a','b'].map(shared=>routeChannel(channel,vertices,routes,right,next,inset,shared));
+    const {tracks}=candidates.sort((a,b)=>a.crossings-b.crossings||a.runs-b.runs||a.bends-b.bends||a.length-b.length)[0];
+    for(const track of tracks) {
+      if(track.pieces.length>1)bundles.push(track);
+      for(const p of track.pieces) {
+        const r=routes[p.route];
+        (r.parts ||= []).push(p.points);
+      }
+    }
   });
   for(const r of routes){
-    const points=parts.filter(p=>p.route===r.index).sort((a,b)=>a.layer-b.layer).flatMap(p=>p.points).filter((p,i,a)=>!i||p.x!==a[i-1].x||p.y!==a[i-1].y);
-    r.points=points.filter((p,i,a)=>!i||i===a.length-1||!((a[i-1].x===p.x&&p.x===a[i+1].x)||(a[i-1].y===p.y&&p.y===a[i+1].y)));
+    r.points=simplifyRoute(r.parts?.flat()||[]);
+    r.start=r.points[0];r.end=r.points.at(-1);
+    delete r.parts;
   }
   const positions=Object.fromEntries([...vertices].filter(([,v])=>!v.dummy).map(([id,v])=>[id,{x:v.x,y:v.y,width:v.width,height:v.height,depth:v.layer,layer:v.layer}]));
   const cardRects=Object.entries(positions).map(([id,p])=>({id,...p})),chips=[];
@@ -1879,7 +1995,7 @@ export function layeredLayout(nodes, edges, decisions = [], sort = true, options
   }
   return {positions,layers:layers.map(ids=>ids.filter(id=>byId.has(id))),order:layers.flat().filter(id=>byId.has(id)),routes,chips,cardRects,
     terminals:nodes.filter(n=>!routes.some(r=>r.from===n.id)).map(n=>n.id),
-    bounds:{width:Math.max(100,...cardRects.map(p=>p.x+p.width+margin)),height:tallest+margin*2},vertical:false};
+    bounds:{width:Math.max(100,...cardRects.map(p=>p.x+p.width+margin)),height:tallest+margin*2},vertical:false,bundles};
 }
 
 export function compactOverview(layout,width) {
@@ -1899,6 +2015,49 @@ export function compactOverview(layout,width) {
   return {...layout,positions,routes,chips:[],cardRects,bounds:{width:Math.max(...cardRects.map(r=>r.x+r.width))+margin,height:Math.max(...cardRects.map(r=>r.y+r.height))+margin}};
 }
 
+function sceneStrokes(edges,bundles) {
+  const strokes=[],markers=[],byId=new Map(edges.map(edge=>[edge.id,edge]));
+  const bundled=new Set(bundles.flatMap(track=>track.pieces.map(p=>String(p.route))));
+  const add=(points,members,bundle,distance=0)=>{
+    if(points.length<2)return;
+    strokes.push({id:String(strokes.length),points,members,bundle,distance,gate:byId.get(members[0]).style.gate});
+  };
+  const mark=(points,members)=>{
+    const [a,b]=points.slice(-2);
+    if(a.x===b.x&&a.y===b.y)return;
+    markers.push({id:String(markers.length),points:[a,b],members,relation:byId.get(members[0]).style.relation});
+  };
+  for(const edge of edges)if(edge.points.length>=2&&!bundled.has(edge.id)){
+    add(edge.points,[edge.id],edge.id);
+    mark(edge.points,[edge.id]);
+  }
+  for(const {x,shared,pieces} of bundles){
+    const members=pieces.map(p=>String(p.route)),bundle=members[0];
+    const startSide=shared==='a';
+    const port=pieces[0].points.at(startSide?0:-1),hub={x,y:port.y};
+    const lead=Math.abs(x-port.x);
+    add([port,hub],members,bundle);
+    if(!startSide)mark([hub,port],members);
+    const branches=pieces.map(({route,points})=>({id:String(route),end:points.at(startSide?-1:0)}));
+    for(const direction of [-1,1]){
+      const side=branches.filter(({end})=>Math.sign(end.y-hub.y)===direction)
+        .sort((a,b)=>direction*(a.end.y-b.end.y));
+      let last=hub;
+      for(const [i,{end}] of side.entries()){
+        const joint={x,y:end.y};
+        add([last,joint],side.slice(i).map(branch=>branch.id),bundle,lead+Math.abs(last.y-hub.y));
+        last=joint;
+      }
+    }
+    for(const {id,end} of branches){
+      const joint={x,y:end.y};
+      add([joint,end],[id],bundle,lead+Math.abs(end.y-hub.y));
+      mark(startSide?[joint,end]:[end,joint],[id]);
+    }
+  }
+  return {strokes,markers};
+}
+
 // Geometry is already measured in stage CSS pixels. Renderers share this data, not DOM or layout internals.
 export function createGraphScene(nodes, layout, decisions, level) {
   const byId = new Map(nodes.map(node => [node.id, node]));
@@ -1906,7 +2065,7 @@ export function createGraphScene(nodes, layout, decisions, level) {
     const node = byId.get(id);
     const {x, y, width, height, layer} = layout.positions[id];
     return {id, kind:node.kind || 'work', state:displayState(node, decisions), level, x, y, width, height, layer, order,
-      lane:node.effective_lane??node.lane??null, attempts:node.attempts||0};
+      lane:node.effective_lane??node.lane??null};
   });
   const positions = Object.fromEntries(cards.map(card => [card.id, card]));
   const edges = layout.routes.map(route => ({
@@ -1915,7 +2074,23 @@ export function createGraphScene(nodes, layout, decisions, level) {
     style:{gate:route.gateState, relation:route.relation || 'hands_over'},
     chip:route.chip, text:route.text
   }));
-  return {level, bounds:layout.bounds, cards, edges, positions, order:cards.map(card => card.id), chips:layout.chips};
+  return {level, bounds:layout.bounds, cards, edges, ...sceneStrokes(edges,layout.bundles||[]), positions, order:cards.map(card => card.id), chips:layout.chips};
+}
+
+function graphInkOrder(scene,focusId,focus) {
+  const weight=members=>members.some(id=>focus?.edges.has(id))?'path':focusId?'context':'normal';
+  const bundles=new Map();
+  for(const stroke of scene.strokes)if(!bundles.has(stroke.bundle))bundles.set(stroke.bundle,bundles.size*2);
+  const markerOrder=bundles.size*2, foreground=markerOrder+1;
+  const strokes=new Map(scene.strokes.map(({id,members,bundle})=>{
+    const emphasis=weight(members), base=emphasis==='path'?foreground:bundles.get(bundle);
+    return [id,{weight:emphasis,base,ink:base+1}];
+  }));
+  const markers=new Map(scene.markers.map(({id,members})=>{
+    const emphasis=weight(members);
+    return [id,{weight:emphasis,ink:emphasis==='path'?foreground+2:markerOrder}];
+  }));
+  return {strokes,markers};
 }
 
 export function dependencyFocus(scene, id) {
@@ -1946,7 +2121,7 @@ export function roundedRoute(points, radius = 5) {
   let path=`M${pts[0].x} ${pts[0].y}`;
   for(let i=1;i<pts.length-1;i++){
     const a=pts[i-1],b=pts[i],c=pts[i+1],before=Math.hypot(b.x-a.x,b.y-a.y),after=Math.hypot(c.x-b.x,c.y-b.y),r=Math.min(radius,before/2,after/2);
-    if((a.x===b.x&&b.x===c.x)||(a.y===b.y&&b.y===c.y)){path+=` L${b.x} ${b.y}`;continue;}
+    if(!r||(a.x===b.x&&b.x===c.x)||(a.y===b.y&&b.y===c.y)){path+=` L${b.x} ${b.y}`;continue;}
     path+=` L${b.x+(a.x-b.x)*r/before} ${b.y+(a.y-b.y)*r/before} Q${b.x} ${b.y} ${b.x+(c.x-b.x)*r/after} ${b.y+(c.y-b.y)*r/after}`;
   }
   const end=pts.at(-1);return path+` L${end.x} ${end.y}`;
@@ -3080,16 +3255,6 @@ function wholeMapLines(card,viewport,scale) {
   }
 }
 
-function svgRoutePoints(line) {
-  const segments=[...line.getAttribute('d').matchAll(/([MLQ])([^MLQ]+)/g)];
-  // A quadratic's control point is the original corner of the routed polyline.
-  return segments.flatMap(([,command,coordinates],i)=>{
-    if(command==='L'&&segments[i+1]?.[1]==='Q')return [];
-    const [x,y]=coordinates.trim().split(/\s+/).map(Number);
-    return [{x,y}];
-  });
-}
-
 const MINIMAP_WIDTH=142, MINIMAP_HEIGHT=88, MINIMAP_PAD=7;
 const MINI_KINDS={
   work:{color:'#335cad',points:[[-1,-1],[1,-1],[1,1],[-1,1]]},
@@ -3105,9 +3270,13 @@ function createMinimap(area,viewport) {
   const canvas=el('canvas');canvas.hidden=true;canvas.setAttribute('aria-hidden','true');
   plot.append(marks,indicator);mini.append(plot,canvas);area.append(mini);
   let scene, projection, miniFrame, drag;
+  function reserve(layout,scale,height) {
+    const width=viewport.clientWidth;
+    mini.hidden=!width||!layout.cards.length||(layout.bounds.width*scale<=width&&layout.bounds.height*scale<=height);
+    return mini.hidden?0:mini.offsetHeight+12;
+  }
   function update(layout,box) {
     const {bounds,cards}=layout;
-    mini.hidden=!box.width||!cards.length||(bounds.width*box.scale<=box.width&&bounds.height*box.scale<=box.height);
     if(mini.hidden){miniFrame=null;return;}
     if(scene!==layout){
       scene=layout;
@@ -3155,7 +3324,7 @@ function createMinimap(area,viewport) {
     const r=plot.getBoundingClientRect();
     navigate({clientX:r.left+r.width/2,clientY:r.top+r.height/2});
   });
-  return {update,canvas,frame:()=>miniFrame,setGPU:active=>{
+  return {reserve,update,canvas,frame:()=>miniFrame,setGPU:active=>{
     canvas.hidden=!active;
     mini.dataset.renderer=active?'webgl':'svg';
   }};
@@ -3179,15 +3348,10 @@ function createMap() {
   map.dataset.renderer='svg';
   const capture=startup.searchParams.get('graphTest')==='1';
   let gpu=null, gpuRequested=startup.searchParams.get('renderer')==='svg'||typeof WebGL2RenderingContext==='undefined';
-  let lastDraw, drawPending=false, svgRoutes=[], keyboardNode=null, focusId=null, focus, tilted=false;
-  const tiltButton=button('◫',()=>{
-    tilted=!tilted;tiltButton.setAttribute('aria-pressed',String(tilted));requestDrawing();
-  },'map-tilt');
-  tiltButton.hidden=true;tiltButton.dataset.i18nLabel='tiltGraph';tiltButton.title=t('tiltGraph');
-  tiltButton.setAttribute('aria-pressed','false');
+  let lastDraw, drawPending=false, svgStrokes=[], svgMarkers=[], keyboardNode=null, focusId=null, focus;
   const viewBox=()=>({width:viewport.clientWidth,height:viewport.clientHeight,scale,
     x:origin.x-viewport.scrollLeft,y:origin.y-viewport.scrollTop,dpr:globalThis.devicePixelRatio||1,
-    insetX:viewport.clientLeft,insetY:viewport.clientTop,focusId,tilt:tilted,
+    insetX:viewport.clientLeft,insetY:viewport.clientTop,focusId,
     background:$('flow').classList.contains('sent-plan')?'#e8ecf0':'#f5f7f9'});
   function updateFocus() {
     if(!layout)return;
@@ -3198,10 +3362,22 @@ function createMap() {
       element.classList.toggle('graph-path',focus.cards.has(id));
       element.classList.toggle('graph-context',!!focusId&&!focus.cards.has(id));
     }
-    for(const {edge,line} of svgRoutes) {
-      const weight=focus.edges.has(edge.id)?'path':focusId?'context':'normal';
+    const order=graphInkOrder(layout,focusId,focus);
+    const layers=[];
+    for(const {model,line,underlay} of svgStrokes) {
+      const {weight,base,ink}=order.strokes.get(model.id);
       line.dataset.weight=weight;
-      line.setAttribute('marker-end',`url(#arrow-${edge.style.relation}${weight==='context'?'-context':''})`);
+      layers.push([base,underlay],[ink,line]);
+    }
+    for(const {model,line} of svgMarkers){
+      const {weight,ink}=order.markers.get(model.id);
+      line.dataset.weight=weight;
+      line.setAttribute('marker-end',`url(#arrow-${model.relation}${weight==='context'?'-context':''})`);
+      layers.push([ink,line]);
+    }
+    for(const [rank,element] of layers.sort((a,b)=>a[0]-b[0])){
+      element.dataset.order=rank;
+      drawing.append(element);
     }
     requestDrawing();
   }
@@ -3214,8 +3390,6 @@ function createMap() {
   });
   function useSVG() {
     gpu=null;surface.hidden=true;mini.setGPU(false);map.dataset.renderer='svg';
-    if(document.activeElement===tiltButton)viewport.focus({preventScroll:true});
-    tilted=false;tiltButton.hidden=true;tiltButton.setAttribute('aria-pressed','false');
   }
   function requestDrawing() {
     if(!layout||!viewport.clientWidth||!viewport.clientHeight)return;
@@ -3235,28 +3409,31 @@ function createMap() {
       if(!gpu||!viewport.clientWidth||!viewport.clientHeight)return;
       const next=viewBox();
       try {
-        gpu.draw(layout,next,RELATION_MARKS,focus);
+        gpu.draw(layout,next,RELATION_MARKS,graphInkOrder(layout,focusId,focus));
         mini.setGPU(gpu.drawMinimap(mini.frame()));
         lastDraw={layout,box:next};
         surface.style.left=next.insetX+'px';surface.style.top=next.insetY+'px';
         surface.hidden=false;map.dataset.renderer='webgl';
-        tiltButton.hidden=!layout.cards.length;
       } catch { useSVG(); }
     });
   }
   Object.defineProperty(map,'graphDrawing',{get:()=>{
     if(!layout)return null;
     const box=viewBox(), rect=contentRect(viewport);
-    if(gpu&&lastDraw)return {renderer:'webgl',box:{...lastDraw.box},edges:gpu.describe(),plates:gpu.describePlates(),
+    if(gpu&&lastDraw)return {renderer:'webgl',box:{...lastDraw.box},...gpu.describe(),
       minimapMarks:gpu.describeMinimap(),...gpu.diagnostics()};
-    return {renderer:'svg',box,edges:svgRoutes.map(({line})=>{
+    const inspect=({model,line,underlay})=>{
       const matrix=line.getScreenCTM();
-      const points=svgRoutePoints(line).map(({x,y})=>({
-        x:matrix.a*x+matrix.c*y+matrix.e-rect.left,
-        y:matrix.b*x+matrix.d*y+matrix.f-rect.top,
-      }));
-      return {id:line.dataset.edgeId,relation:line.dataset.relation,gate:line.dataset.gate,points,visible:getComputedStyle(line).visibility==='visible'};
-    })};
+      const points=line.getAttribute('d').slice(1).split(' L').map(pair=>{
+        const [x,y]=pair.split(' ').map(Number);
+        return {x:matrix.a*x+matrix.c*y+matrix.e-rect.left,y:matrix.b*x+matrix.d*y+matrix.f-rect.top};
+      });
+      const css=getComputedStyle(line);
+      const order=[...drawing.children];
+      return {id:model.id,points,visible:css.visibility==='visible',gate:model.gate,relation:model.relation,
+        weight:line.dataset.weight,width:parseFloat(css.strokeWidth),order:order.indexOf(line),underlay:order.indexOf(underlay)};
+    };
+    return {renderer:'svg',box,strokes:svgStrokes.map(inspect),markers:svgMarkers.map(inspect)};
   }});
   const zoomText=el('output');zoomText.setAttribute('aria-live','polite');
   const rememberScroll=()=>{scrollPosition={left:viewport.scrollLeft,top:viewport.scrollTop};};
@@ -3271,10 +3448,26 @@ function createMap() {
     level=next.level;scale=next.scale;
     if(changed)update(rawData,chosenNode);else size();
     const mapped=changed?mapAnchor(before,layout,anchor):anchor;
-    const after=contentRect(viewport);
-    point=screenPoint?{x:screenPoint.x-after.left,y:screenPoint.y-after.top}:{x:viewport.clientWidth/2,y:viewport.clientHeight/2};
-    viewport.scrollLeft=mapped.x*scale+origin.x-point.x;viewport.scrollTop=mapped.y*scale+origin.y-point.y;
+    const restoreAnchor=()=>{
+      const after=contentRect(viewport);
+      const x=screenPoint?screenPoint.x-after.left:viewport.clientWidth/2;
+      const y=screenPoint?screenPoint.y-after.top:viewport.clientHeight/2;
+      viewport.scrollLeft=Math.round(mapped.x*scale+origin.x-x);
+      viewport.scrollTop=Math.round(mapped.y*scale+origin.y-y);
+      return {...after,height:toolbar.offsetHeight};
+    };
+    const placement=restoreAnchor();
     rememberScroll();panIntent=false;clearTimeout(snapTimer);outside();
+    if(screenPoint){
+      // Hold a row that wrapped while the cursor anchor changed the scroll position.
+      const current=contentRect(viewport);
+      if(Math.abs(current.left-placement.left)>=.01||Math.abs(current.top-placement.top)>=.01){
+        toolbar.style.minHeight=Math.max(placement.height,toolbar.offsetHeight)+'px';
+        restoreAnchor();
+        rememberScroll();
+        outside();
+      }
+    }
   };
   const start=()=>{
     const plan=!!data.plan_approval && !(data.plan_approval.verified && data.plan_approval.outcome==='approved');
@@ -3293,7 +3486,7 @@ function createMap() {
   const overviewNote=el('span',undefined,'overview-note'),overviewLabel=button(t('overviewLevel'),()=>{automatic=true;level='overview';scale=fitScale(layouts.overview.bounds,viewport.clientWidth-24,viewport.clientHeight-24);update(rawData,chosenNode);start();}),detailButton=button(t('detailLevel'),()=>{automatic=false;level='detail';scale=1;update(rawData,chosenNode);start();});
   overviewLabel.dataset.i18n='overviewLevel';detailButton.dataset.i18n='detailLevel';
   overviewNote.append(overviewLabel,detailButton);overflow.append(button(t('listAll'),()=>{$('accessible').open=true;$('accessible').scrollIntoView({block:'start'});},'small'));
-  toolbar.append(zoomOut,zoomIn,fitButton,zoomText,overviewNote,tiltButton,overflow);
+  toolbar.append(zoomOut,zoomIn,fitButton,zoomText,overviewNote,overflow);
   zoomOut.dataset.i18nLabel='zoomOut';zoomIn.dataset.i18nLabel='zoomIn';viewport.dataset.i18nLabel='mapHelp';
   const mapTitle=el('div',undefined,'map-title'), name=el('strong',t('graph')), direction=el('span',t('mapDirection'));
   name.dataset.i18n='graph';direction.dataset.i18n='mapDirection';mapTitle.append(name,direction);toolbar.prepend(mapTitle);translate();
@@ -3305,9 +3498,7 @@ function createMap() {
   }
   function outside() {
     if(!layout)return;
-    mini.update(layout,viewBox());
-    if(!viewport.clientWidth){updateCounts(0);return;}
-    requestDrawing();
+    if(!viewport.clientWidth){mini.update(layout,viewBox());updateCounts(0);return;}
     const w=viewport.clientWidth,h=viewport.clientHeight,ox=origin.x,oy=origin.y,far=graphDetail(level,scale)==='far',vr=contentRect(viewport);
     const groups={offLeft:[],offRight:[],offTop:[],offBottom:[]}; let visible=0;
     for(const n of data.nodes) {
@@ -3339,6 +3530,8 @@ function createMap() {
         viewport.scrollTop=Math.max(0,p.y*scale-Math.max(12,(h-p.height*scale)/2)+oy);outside();viewport.focus({preventScroll:true});
       };
     }
+    mini.update(layout,viewBox());
+    requestDrawing();
   }
   let snapTimer=null,panIntent=false;
   function snapTitles(){
@@ -3362,15 +3555,19 @@ function createMap() {
   function size() {
     if(!layout)return;
     if(map.getBoundingClientRect){
+      const phone=matchMedia('(max-width:760px)').matches;
       const selectedHeight=(layout.positions[chosenNode]?.height||0)*scale;
-      const toolbarHeight=toolbar.offsetHeight||60;
-      const minimum=matchMedia('(max-width:760px)').matches?toolbarHeight+200:300;
-      const available=Math.max(minimum,selectedHeight+toolbarHeight+50,innerHeight-map.getBoundingClientRect().top-38);
-      map.style.height=available+'px';
+      const legendHeight=parseFloat(toolbar.style.marginBottom)||0;
+      // Size the scrolling area independently of wrapping navigation controls.
+      const minimum=Math.max(phone?214:230,selectedHeight+48);
+      const available=Math.max(minimum,innerHeight-map.getBoundingClientRect().top-38-(phone?120:60)-legendHeight);
+      const scrollbar=viewport.offsetHeight-viewport.clientHeight||0;
+      const dock=mini.reserve(layout,scale,available-scrollbar);
+      area.style.height=Math.max(minimum,available-dock)+dock+'px';
+      map.style.height='auto';
       const panel=$('panel');
       const headingHeight=panel.querySelector('.panel-bar')?.offsetHeight||0;
-      // Leave room for body padding and a line of text below the pinned heading.
-      panel.style.height=Math.max(available,headingHeight+80)+'px';
+      panel.style.height=Math.max(map.offsetHeight,headingHeight+80)+'px';
     }
     const w=viewport.clientWidth||900,h=viewport.clientHeight||600;
     if(!placed)origin={x:Math.max(0,(w-layout.bounds.width*scale)/2),y:Math.max(0,(h-layout.bounds.height*scale)/2)};
@@ -3378,20 +3575,25 @@ function createMap() {
     stage.style.setProperty('--map-text',Math.max(14,12/scale)+'px');
     stage.style.setProperty('--kind-size',Math.max(20,20/scale)+'px');
     stage.style.setProperty('--status-size',Math.max(20,16/scale)+'px');
-    Object.assign(spacer.style,{width:layout.bounds.width*scale>w?layout.bounds.width*scale+'px':'100%',height:layout.bounds.height*scale>h?layout.bounds.height*scale+'px':'100%'});
+    stage.style.setProperty('--lane-mark-height',Math.max(17,17/scale)+'px');
+    // Keep the final card clear of the reserved scrollbar gutter at minimum zoom.
+    Object.assign(spacer.style,{
+      width:layout.bounds.width*scale>w?Math.ceil(layout.bounds.width*scale+(viewport.clientLeft||0))+'px':'100%',
+      height:layout.bounds.height*scale>h?layout.bounds.height*scale+'px':'100%',
+    });
     if(!$('panel').hidden && $('panel').onscroll)$('panel').onscroll();
     zoomText.textContent=t(level==='overview'?'overviewLevel':'detailLevel')+' '+Math.round(scale*100)+'%';zoomOut.disabled=level==='overview'&&scale<=MIN_MAP_SCALE;zoomOut.title=zoomOut.disabled?t('minZoom'):t('zoomOut');zoomIn.disabled=level==='detail'&&scale>=1.6;updateReadout();rememberScroll();outside();
-    tiltButton.title=t('tiltGraph');
   }
   const maxCardWidth=()=>matchMedia('(max-width:760px)').matches ? Math.max(156,(viewport.clientWidth || innerWidth-72)-24) : Infinity;
   let measuredWidth;
   const setRect=(element,rect)=>Object.assign(element.style,{left:rect.x+'px',top:rect.y+'px',width:rect.width+'px',height:rect.height+'px'});
   function update(next,id) {
     rawData=next;next=planFlow(next,language);
+    toolbar.style.minHeight='';
     if(layout)size();
     const planKey=JSON.stringify([next.nodes.map(n=>[n.id,n.title,n.kind,n.target]),next.edges.map(e=>[e.from,e.to,e.relation,e.label])]);
     if(planKey!==layoutKey){layoutKey=planKey;if(!placed){automatic=true;level='detail';}}
-    const reveal=id&&id!==chosenNode;data=next;chosenNode=id;map.classList.toggle('has-expanded',!!id);
+    const reveal=id&&id!==chosenNode;data=next;chosenNode=id;
     measuredWidth=maxCardWidth();
     layouts=Object.fromEntries(['detail','overview'].map(level=>[level,layeredLayout(data.nodes,data.edges.map(e=>({...e,displayLabel:e.label?label(e.label):''})),data.decisions,true,{level,language,wrapLongChains:true,maxCardWidth:measuredWidth,measure:(n,width)=>{
       const sample=nodeCard(n,n.id===id,level);sample.classList.add('card-measure');sample.style.width=width+'px';sample.style.setProperty('--map-text','14px');
@@ -3447,7 +3649,7 @@ function createMap() {
     // Reorder existing controls without replacing them: tab order follows the drawing.
     for(const card of layout.cards){const e=nodes.get(card.id);setRect(e,card);stage.append(e);}
     if(drawing)drawing.remove();drawing=svg('svg',{width:layout.bounds.width,height:layout.bounds.height,class:'edge-layer','aria-hidden':'true'});
-    svgRoutes=[];
+    svgStrokes=[];svgMarkers=[];
     const defs=svg('defs');
     for(const relation of Object.keys(RELATION_MARKS)) {
       for(const context of [false,true]) {
@@ -3458,13 +3660,22 @@ function createMap() {
     }
     drawing.append(defs);stage.prepend(drawing);
     for(const element of chips.values())element.remove();chips.clear();
+    for(const model of layout.strokes){
+      const d=roundedRoute(model.points,0);
+      const underlay=svg('path',{d,class:'edge-underlay'});
+      const line=svg('path',{d,class:'edge-path '+model.gate,'data-stroke-id':model.id,'stroke-dashoffset':-model.distance});
+      svgStrokes.push({model,line,underlay});
+    }
+    const edgesById=new Map(layout.edges.map(edge=>[edge.id,edge]));
+    for(const model of layout.markers){
+      const {relation,members}=model;
+      const attributes=members.length===1?{...edgeAttributes(edgesById.get(members[0])),'data-edge-id':members[0]}:{};
+      const line=svg('path',{d:roundedRoute(model.points,0),...attributes,class:'edge-marker',
+        'data-marker-id':model.id,'marker-end':`url(#arrow-${relation})`});
+      svgMarkers.push({model,line});
+    }
     for(const route of layout.edges) {
-      const {chip:c}=route;
-      const d=roundedRoute(route.points);
-      const {gate,relation}=route.style;
-      const line=svg('path',{d,...edgeAttributes(route),'data-edge-id':route.id,class:'edge-path '+gate,'marker-end':`url(#arrow-${relation})`});
-      svgRoutes.push({edge:route,line});
-      drawing.append(svg('path',{d,class:'edge-underlay'}),line);
+      const {chip:c,style:{gate}}=route;
       if(!c||chips.has(c.first))continue;
       const chip=el('div',undefined,'edge-chip '+gate);
       const source=data.nodes.find(n=>n.id===route.from),targets=layout.edges.filter(r=>r.chip===c).map(r=>title(data.nodes.find(n=>n.id===r.to))).join(', ');

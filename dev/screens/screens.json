@@ -1842,23 +1842,6 @@
     "minimum_zoom": true
   },
   {
-    "number": 109,
-    "name": "graph-tilt-attempts",
-    "scenario": "graph-verification",
-    "url": "/?t={token}#project={project}&run={run}",
-    "viewport": {
-      "name": "desktop",
-      "width": 1440,
-      "height": 900
-    },
-    "interactions": [
-      {"action": "button", "text": "상세 보기"},
-      {"action": "click", "selector": "#map [data-node=\"d\"] .node-header"}
-    ],
-    "group": "GRAPH-VERIFICATION",
-    "tilt": true
-  },
-  {
     "number": 110,
     "name": "graph-chain-sixty",
     "scenario": "graph-chain-60",
@@ -1881,5 +1864,37 @@
     ],
     "group": "GRAPH-VERIFICATION",
     "diagnostics": true
+  },
+  {
+    "number": 112,
+    "name": "graph-dense-selected",
+    "scenario": "graph-dense",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "desktop", "width": 1440, "height": 900},
+    "interactions": [
+      {"action": "button", "text": "상세 보기"},
+      {"action": "click", "selector": "#map [data-node=\"e\"] .node-header"}
+    ],
+    "group": "GRAPH-VERIFICATION"
+  },
+  {
+    "number": 113,
+    "name": "graph-lanes-mid",
+    "scenario": "real",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "desktop", "width": 1440, "height": 900},
+    "interactions": [{"action": "button", "text": "간략 보기"}],
+    "lane_crops": "mid",
+    "group": "GRAPH-VERIFICATION"
+  },
+  {
+    "number": 114,
+    "name": "graph-lanes-near",
+    "scenario": "real",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "desktop", "width": 1440, "height": 900},
+    "interactions": [{"action": "button", "text": "상세 보기"}],
+    "lane_crops": "near",
+    "group": "GRAPH-VERIFICATION"
   }
 ]

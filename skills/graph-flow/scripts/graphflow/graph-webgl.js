@@ -1,6 +1,6 @@
 import {
   BufferGeometry, DoubleSide, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial,
-  OrthographicCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer,
+  OrthographicCamera, Scene, Vector3, WebGLRenderer,
 } from 'three';
 import {LineMaterial} from './vendor/three/examples/jsm/lines/LineMaterial.js';
 import {LineSegments2} from './vendor/three/examples/jsm/lines/LineSegments2.js';
@@ -26,7 +26,7 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
   const renderer = new WebGLRenderer({canvas, context, alpha:true, antialias:true, preserveDrawingBuffer});
   const camera = new OrthographicCamera(0, 1, 0, -1, 0, 2000);
   const scene = new Scene();
-  const graph = new Group(), plates = new Group();
+  const graph = new Group();
   scene.add(graph);
   const color = 0x607287;
   const contextColor = 0x748090;
@@ -65,22 +65,19 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
   contextStroke.color.set(contextColor);
   const contextFill = markerFill.clone();
   contextFill.color.set(contextColor);
-  const plateFill = new MeshBasicMaterial({color:0xe9eef4,side:DoubleSide});
-  const plateStroke = new LineMaterial({color:contextColor,linewidth:1.25});
-  let drawnLayout, edges = [], frame, frames = 0, firstFrame, frameTime, minimap;
+  let drawnLayout, strokes = [], markers = [], frame, frames = 0, firstFrame, frameTime, minimap;
   let miniFailed = false;
 
   function markerFor(mark) {
-    const marker = new Group();
     const points = mark.paths.map(path => path.map(([x,y]) => ({x:x-10,y:y-5})));
     if (mark.fill) {
       const geometry = new BufferGeometry();
       geometry.setAttribute('position', new Float32BufferAttribute(points[0].flatMap(({x,y}) => [x,-y,0]), 3));
-      marker.add(new Mesh(geometry, markerFill));
+      return new Mesh(geometry, markerFill);
     } else {
       const segments = points.flatMap(path => path.slice(1).flatMap((end,i) =>
         [path[i].x,-path[i].y,0,end.x,-end.y,0]));
-      marker.add(stroke(new LineSegmentsGeometry().setPositions(segments), markerStroke, 0));
+      return stroke(new LineSegmentsGeometry().setPositions(segments), markerStroke, 0);
     }
     return marker;
   }
@@ -90,68 +87,51 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
     graph.traverse(object => { if (object.geometry) oldGeometry.add(object.geometry); });
     for (const geometry of oldGeometry) geometry.dispose();
     graph.clear();
-    plates.clear();
-    graph.add(plates);
-    if(layout.level==='detail')for(const card of layout.cards.filter(card=>card.attempts)){
-      const {id,x,y,width,height,attempts}=card;
-      const outline = rectangle({x:x+2,y:y+2,width:width-4,height:height-4});
-      const fill = new PlaneGeometry(width-4,height-4);
-      const stack = new Group();
-      stack.name = id;
-      for(let index=1;index<=attempts;index++){
-        const plate = new Group(), face = new Mesh(fill,plateFill);
-        face.position.set(x+width/2,-y-height/2,0);
-        plate.position.z = -index*20;
-        plate.add(face,stroke(outline,plateStroke,1));
-        stack.add(plate);
-      }
-      plates.add(stack);
-    }
-    edges = layout.edges.map((edge, index) => {
-      const {points, style:{relation,gate}} = edge;
-      const guide = routeGeometry(points);
-      const group = new Group();
-      const line = stroke(guide, gates[gate], index*3+1).computeLineDistances();
-      const marker = markerFor(marks[relation]);
-      const b = points.at(-1), a = points.at(-2);
+    strokes = layout.strokes.map(model => {
+      const geometry = routeGeometry(model.points);
+      const line = stroke(geometry, gates[model.gate], 0).computeLineDistances();
+      const distances = geometry.attributes.instanceDistanceStart.data.array;
+      for (let i=0;i<distances.length;i++) distances[i]+=model.distance;
+      const backdrop = stroke(geometry, underlay, 0);
+      graph.add(backdrop,line);
+      return {model,line,backdrop};
+    });
+    markers = layout.markers.map(model => {
+      const marker = markerFor(marks[model.relation]);
+      const [a,b] = model.points;
       marker.position.set(b.x,-b.y,0);
       marker.rotation.z = Math.atan2(a.y-b.y,b.x-a.x);
-      marker.children[0].renderOrder = index*3+2;
-      group.add(stroke(guide, underlay, index*3), line, marker);
-      graph.add(group);
-      return {id:edge.id,gate,relation,group,line,marker};
+      graph.add(marker);
+      return {model,marker};
     });
     drawnLayout = layout;
   }
 
-  function draw(layout, box, marks, focus) {
+  function draw(layout, box, marks, order) {
     const start = performance.now();
     if (drawnLayout !== layout) rebuild(layout, marks);
     const {width,height,scale,x,y,dpr,background} = box;
     if (!frame || frame.dpr !== dpr) renderer.setPixelRatio(dpr);
     if (!frame || frame.dpr !== dpr || frame.width !== width || frame.height !== height) renderer.setSize(width,height);
-    const angle = box.tilt ? Math.PI/10 : 0;
-    const cos = Math.cos(angle), sin = Math.sin(angle);
-    // Keep the z=0 plane registered with the DOM while revealing depth along y.
-    graph.scale.y = 1/cos;
-    camera.rotation.x = angle;
-    camera.position.set(-x/scale,y/(scale*cos)-1000*sin,1000*cos);
+    camera.position.set(-x/scale,y/scale,1000);
     camera.right = width/scale;
     camera.bottom = -height/scale;
     camera.updateProjectionMatrix();
     underlay.color.set(background);
     for (const family of [gates,contextGates,pathGates])for(const material of Object.values(family))material.dashScale=scale;
-    for (const {id, gate, group, line, marker} of edges) {
-      const emphasized = focus?.edges.has(id);
-      const dimmed = box.focusId && !emphasized;
-      line.material = (emphasized?pathGates:dimmed?contextGates:gates)[gate];
-      group.renderOrder = marker.renderOrder = emphasized ? 1 : 0;
-      group.position.z = emphasized ? 12 : 0;
-      const mark=marker.children[0];
-      mark.material = mark.isLineSegments2 ? (dimmed?contextStroke:markerStroke) : (dimmed?contextFill:markerFill);
-      marker.scale.setScalar((emphasized?1.7:1.4)/scale);
+    for (const {model,line,backdrop} of strokes) {
+      const {weight,base,ink}=order.strokes.get(model.id);
+      line.material = (weight==='path'?pathGates:weight==='context'?contextGates:gates)[model.gate];
+      backdrop.renderOrder=base;
+      line.renderOrder=ink;
     }
-    plates.visible = box.tilt;
+    for (const {model,marker} of markers) {
+      const {weight,ink}=order.markers.get(model.id);
+      const dimmed=weight==='context';
+      marker.renderOrder=ink;
+      marker.material = marker.isLineSegments2 ? (dimmed?contextStroke:markerStroke) : (dimmed?contextFill:markerFill);
+      marker.scale.setScalar((weight==='path'?1.7:1.4)/scale);
+    }
     renderer.render(scene,camera);
     frame = box;
     frames++;
@@ -160,20 +140,26 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
   }
 
   function describe() {
-    if (!frame) return [];
+    if (!frame) return {strokes:[],markers:[]};
     const {width,height} = frame;
     const project = point => {
       point.project(camera);
       return {x:(point.x+1)*width/2,y:(1-point.y)*height/2};
     };
-    return edges.map(({id, gate, relation, line, group}) => {
+    const shafts = strokes.map(({model,line,backdrop}) => {
       const {instanceStart, instanceEnd} = line.geometry.attributes;
       const world = (attribute,i) => line.localToWorld(new Vector3().fromBufferAttribute(attribute,i));
       const points = [project(world(instanceStart,0))];
       for(let i=0;i<instanceEnd.count;i++) points.push(project(world(instanceEnd,i)));
-      return {id, relation, gate, points, visible:line.visible,z:group.position.z,
-        width:line.material.linewidth, color:'#'+line.material.color.getHexString()};
+      return {id:model.id,gate:model.gate,points,visible:line.visible,
+        order:line.renderOrder,underlay:backdrop.renderOrder,
+        width:line.material.linewidth,color:'#'+line.material.color.getHexString()};
     });
+    const heads = markers.map(({model,marker})=>({
+      id:model.id,relation:model.relation,visible:marker.visible,order:marker.renderOrder,
+      points:[-1,0].map(x=>project(marker.localToWorld(new Vector3(x,0,0)))),
+    }));
+    return {strokes:shafts,markers:heads};
   }
 
   canvas.addEventListener('webglcontextlost', () => {
@@ -181,9 +167,7 @@ export function createWebGLGraph(canvas, onLoss, preserveDrawingBuffer, miniCanv
     renderer.dispose();
     minimap?.dispose();
   }, {once:true});
-  return {draw, describe, describePlates:()=>plates.children.map(stack=>({
-    id:stack.name,z:stack.children.map(plate=>plate.position.z),visible:plates.visible,
-  })), describeMinimap:()=>minimap?.describe()??[], diagnostics:() => ({frames,firstFrame,frameTime}),
+  return {draw, describe, describeMinimap:()=>minimap?.describe()??[], diagnostics:() => ({frames,firstFrame,frameTime}),
     drawMinimap(next) {
       if (!next || miniFailed) return false;
       try {
