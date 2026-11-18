@@ -287,22 +287,59 @@ existing event motion. Manual seeking resets the motion baseline.
 
 The graph, space-time and side views use the same layout. In space-time the
 cards and relation edges sit together on the time cut. The floor is the run
-start. Each pillar stacks a node's observed work, checks, verification waits
-and human waits. Patterned segments identify work categories. Hollow segments
-identify inferred thinking and waits. Idle spans are visible along thin
-lifetime poles. A transfer line runs from a recorded handoff or return to the
-receiving attempt's start, clipped to the cut while that start is missing.
-Marks at both ends and a word label for waits of at least one minute show its
-timing. A drop line connects the last recorded extent to the node's card.
+start. Patterned pillars show observed work, checks, verification waits and
+human waits. Hollow segments identify inferred thinking and waits. Idle
+gaps are visible along thin lifetime poles. A drop line joins the last
+recorded extent to the node's card on the cut.
 
-Time frames and two opposing labels mark regular levels. The side view spreads
-nodes by layer then row and makes time vertical. It keeps the pillars and
-transfer lines and gives each drawn interval a word label. The space-time
-view labels long intervals and the selected path. The relation list and both
-forms of relation ink open the same drawer. The three view buttons also use
-keys 1, 2 and 3. Drag an empty fitted stage to tilt or rotate, or use Alt-drag
-when the flat stage can scroll. Shift plus the arrow keys adjusts the pose.
-The side view scrolls horizontally for plans with more lanes than fit.
+Attempt starts, check runs, verdicts, submissions, returns and question
+boundaries use distinct shapes at their recorded times. A check with
+measured duration also has a span. Boundary marks have accessible names
+and show words on the selected path and on hover or keyboard focus when
+they fit. The node and relation drawers give the underlying records in
+time order, including every member of an aggregated span. Instantaneous
+records have no duration in their words.
+
+The inline label budget uses actual CSS pixel bounds in both time views.
+A span needs at least one 15 CSS px line of scaled height. Its words stay
+inside the stage and, in the side view, inside its lane. Cards, axis and
+cut labels reserve their bounds first. The remaining order is human waits
+and relations awaiting an answer, returned or failed records, the
+selected path, other records and active relation tags, then quiet
+delivered or not-yet-reachable tags. Within a class, longer real durations
+precede shorter ones, with scene order breaking ties. Hover or focus can
+show a single callout in available space. The browser exposes the shown
+and withheld counts to the capture harness.
+
+Consecutive calls of the same category and attempt with less than a
+second between them are grouped when each maps to less than one line.
+The segment envelope covers its members. Its count and duration add
+the same measured call contributions used by activity condensation.
+Observed work shorter than 5 CSS px is drawn upward from its exact
+recorded foot to 5 CSS px. A two-slash mark identifies the enlargement.
+Time labels and transfers use the recorded times.
+
+A transfer begins at a recorded handoff or return and ends at the
+receiver's recorded start, or at the cut while a start is pending. Each
+line has both endpoints. By default, a wait label is eligible once the
+wait reaches 10% of the full run range. This keeps incidental waits quiet
+and applies the same relative test to minutes and days. The fit budget
+still applies. Transfers converging at the same receiver start or pending
+cut can share a count and maximum wait. Selecting that summary opens the
+related transfers. The relation list, line hit targets and focused marks
+use the same drawer. Each wait remains available there and on hover or
+focus.
+
+Time frames and labels on both sides mark regular levels. The side view
+orders lanes by layer then row, keeps the card chip at the cut, and gives
+each lane at least 158 CSS px. The side view scrolls horizontally when
+the lane set exceeds the stage. The two sets of axis labels stay at the
+viewport edges. In space-time, nearby cards reduce their title detail
+and size at the same projected anchors before labels are placed.
+
+The three view buttons also use keys 1, 2 and 3. Drag an empty fitted
+stage to tilt or rotate, or use Alt-drag when the flat stage can scroll.
+Shift plus the arrow keys adjusts the pose.
 
 Linear is the default scale. Gaps longer than 30 minutes with zero recorded
 events or measured work across the whole run are shortened at one common
@@ -365,13 +402,19 @@ These checks implement Graph Flow principles P1, P3 and P6 by testing the data m
 | G6 | Only fresh events start motion. | Injected timestamps for the motion inventory, lifetime, pause, reduced motion, baseline and flash cadence. | `test_g6_deterministic_event_clock_and_loop_inventory`, `recordCalls`, `verifyHandoffPulse`, `recordAnswer` |
 | T1 | The same state derivation serves ledger prefixes and Live. | Every execution and activity boundary across rework, decisions, a revised plan and unobserved work. | `test_t1_history_at_every_ledger_boundary` |
 | T2 | The cut clips graph facts and time geometry. | Future attempts, decisions, and transfers, including a receiver that has yet to start. | `test_t2_t3_real_intervals_and_shared_gap_scale`, `captureSpacetime` |
-| T3 | Time comes from recorded boundaries and one invertible scale. | Exact segment and transfer endpoints, drop lines, and accurately labelled compression under both scales. | `test_t2_t3_real_intervals_and_shared_gap_scale`, `captureSpacetime` |
+| T3 | Recorded boundaries use one invertible scale. A marked minimum-height work segment keeps its exact foot. | Exact ticks, transfer endpoints, span feet, unstretched tops and drop lines, plus real compression durations under both scales. | `test_t2_t3_real_intervals_and_shared_gap_scale`, `captureSpacetime` |
 | T4 | The graph is drawn on the time cut. | Card rectangles and rendered route points against the projection within 0.5 CSS px, and native transfer selection. | `test_t4_t5_t6_one_orthographic_scene`, `captureSpacetime` |
-| T5 | Side lanes preserve order and share a vertical time axis. | Equal y at equal time, nonoverlapping lanes, and layer-then-row order. | `test_t4_t5_t6_one_orthographic_scene`, `captureSpacetime` |
+| T5 | Side lanes preserve order and share a vertical time axis. | Equal y at equal time, nonoverlapping lanes, layer-then-row order, and card chips that move with horizontal scroll. | `test_t4_t5_t6_one_orthographic_scene`, `captureSpacetime` |
 | T6 | Continuous pose changes preserve card identity and upright text. | Frame displacement, intermediate and exact terminal poses, native DOM identity and reduced-motion snap. | `test_t4_t5_t6_one_orthographic_scene`, `captureSpacetime` |
 | T7 | History is visible and read-only. | Past label, suppressed answer action, and restored live action. | `captureSpacetime` |
 | T8 | Only a replayed boundary or a new live record starts record motion. | Manual seek, opening, single handoff per relation, the four-token limit, expiration and SVG. | `captureSpacetime`, `test_g6_deterministic_event_clock_and_loop_inventory` |
-| T9 | Labels belong to their own marks and selections. | Segment words, “관계 목록”, and no legend. | `captureSpacetime` |
+| T9 | Words belong to marks and selections within the screen budget. | Boundary shape and accessible name, selected words and ordered drawer, “관계 목록”, and no legend. | `captureSpacetime` |
+| L1 | Visible stage labels fit together and clear cards. | Actual DOM rectangles at the default pose and with selection, including axis and boundary labels. | `assertReading` |
+| L2 | Every represented record is reachable in words. | Compare SVG record IDs with the union of actual selected drawer rows and count shown and withheld labels. | `assertReading`, `assertDrawer` |
+| L3 | Displayed durations equal recorded or explicitly cut durations. | Read units back from labels and compare with the ledger, measured calls and line endpoints. Instantaneous marks have no duration. | `assertReading` |
+| L4 | Collision resolution follows the documented priority. | Check the rank for each record kind and the intersecting accepted label that withheld a candidate. | `assertReading` |
+| L5 | The work minimum preserves the recorded foot and identifies exaggeration. | Compare each SVG face with its scale, verify the 5 px minimum and require a visible two-slash path on enlarged work. | `assertReading` |
+| L6 | Visual aggregation preserves the recorded counts and durations. | Check per-member sums and the measured condensation total for the twelve-call fixture, whose envelope differs from its measured duration. | `assertReading`, `captureSpacetime` |
 | G7 | Labels have separate positions on individual branches. | Scene and DOM rectangles for cards and relation tags, including dense routes and shared trunks. | `assertInstrument` |
 
 

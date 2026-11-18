@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.4.0-dev
 
+- The space-time and side views use shaped marks for instantaneous records and fit words around the cards and time ticks. Adjacent short calls can share a measured total, converging transfers can share their longest wait, and every drawn record remains readable in the detail drawer.
+
 - Replay and scrub the dashboard's recorded history in the flat graph, space-time and side views. The shared time cut preserves historical plan revisions, card state and relation details. The time bar names waits, returns, revisions and shortened gaps. Past views are read-only, and SVG retains the flat graph and static side view.
 
 - Concurrent dashboard opens share one detached server and wait for an authenticated response. The server binds directly to its numeric loopback address.

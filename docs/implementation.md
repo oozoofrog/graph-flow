@@ -267,6 +267,32 @@ active attempt at its recorded reset boundary. Plan revisions change the structu
 boundary. All of this serves the recorded trajectory (P12) and keeps the
 existing human-stop baseline (P10).
 
+`spaceHistory` derives the cut's boundary markers, positive-length spans
+and transfers. Drawing and the ordered drawer share execution sequence
+IDs and activity index IDs from the loaded history version. The drawer
+lists the recorded members even when the scene combines them. The
+activity view adds each normalized call's duration and failed flag from
+the same call pairing used by `condense`. The geometry uses observed
+endpoints. Measured durations add across overlapping calls and retain
+millisecond precision in the time views.
+
+`spaceProjection` anchors typed boundary marks, span feet, transfer
+endpoints and card centers. The 5 CSS px work minimum extends only the
+top of observed work and adds a two-slash mark. The real scaled height
+controls the 15 CSS px inline label minimum and grouping. The SVG stage
+and its screen-aligned DOM use one measured fit pass for axis, interval,
+boundary, transfer and relation labels. Card rectangles are reserved
+before placement. Priority is human waits, failures and returns, the
+selected path, other spans and active relation tags, then quiet tags.
+Within a class the pass considers longer recorded durations first and
+uses scene order for ties. A transfer wait must reach 10% of the indexed
+run range for its default label. Converging waits can use a selectable
+summary for the receiving boundary or cut. Side lanes reserve at least
+158 CSS px and scroll under stationary axis labels. Its card chips remain
+on the time cut. Tilted cards use a smaller title layout if projected
+neighbors need room. See the [time view grammar and T1–T9 and L1–L6
+checks](../skills/graph-flow/references/dashboard.md#time-and-view-grammar).
+
 ### Activity presentation input
 
 The graph shares a time-based DOM strip between WebGL and SVG. The active
