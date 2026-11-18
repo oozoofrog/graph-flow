@@ -518,7 +518,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(data["view"].pop("run_contract"), {})
         self.assertEqual(data["view"].pop("integrity"), [])
         self.assertEqual(data["view"], {"title": "", "summary": "", "context": {}, "requirements": [], "language": "en", "nodes": [], "edges": [], "decisions": [], "answered": [],
-                                      "lessons": [], "notices": [], "stale_decisions": [], "complete": False, "run": "empty",
+                                      "lessons": [], "notices": [], "stale_decisions": [], "complete": False, "final_result": None, "run": "empty",
                                       "plan_counts": {"work": 0, "review": 0, "decision": 0, "checks": 0, "decisions": 0},
                                   "plan_error": False, "key_mismatch": False, "location_mismatch":False, "has_work":False, "goal": "", "planned_questions": [],
                                   "integration_checks": [], "promoted_checks": [], "superseded": [], "constraints": [],
@@ -593,7 +593,7 @@ class ServerTests(unittest.TestCase):
         status, data = self.json_request("GET", "/api/run?" + urlencode({"project": str(project.resolve()), "run": run.name}))
         self.assertEqual(status, 200)
         view = data["view"]
-        self.assertEqual(set(view), {"title", "summary", "context", "requirements", "language", "nodes", "edges", "decisions", "answered", "lessons", "counts", "complete",
+        self.assertEqual(set(view), {"title", "summary", "context", "requirements", "language", "nodes", "edges", "decisions", "answered", "lessons", "counts", "complete", "final_result",
                                      "run", "project", "timeline", "plan_approval", "plan_counts", "plan_error", "key_mismatch", "location_mismatch", "has_work",
                                  "goal", "planned_questions", "integration_checks", "promoted_checks", "superseded", "constraints", "key_recovery", "legacy", "replaced_unverifiable", "stale_decisions", "recovery_identity", "run_contract", "integrity", "notices"})
         self.assertEqual(view["title"], raw["title"])
@@ -609,10 +609,10 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(waiting["laps"], [])
         self.assertEqual(review["laps"], [])
         self.assertEqual(view["edges"], [
-            {"from": "retry", "to": "waiting", "label": "Draft", "relation": "hands_over", "delivered": False, "gate": "returned"},
+            {"from": "retry", "to": "waiting", "label": "Draft", "relation": "hands_over", "delivered": False, "gate": "closed"},
             {"from": "human", "to": "waiting", "label": "Chosen wording", "relation": "hands_over", "delivered": False, "gate": "waiting_for_you"},
             {"from": "done", "to": "waiting", "label": "Finished result", "relation": "hands_over", "delivered": True, "gate": "open"},
-            {"from": "review-retry", "to": "retry", "label": "", "relation": "reviews", "delivered": False, "gate": "closed"}])
+            {"from": "retry", "to": "review-retry", "label": "", "relation": "reviews", "delivered": False, "gate": "closed"}])
         asked = view["decisions"][0].pop("asked")
         self.assertRegex(asked, r"^\d{4}-\d\d-\d\dT")
         self.assertEqual(view["decisions"][0].pop("asked_by")["role"], "leader")
@@ -667,7 +667,7 @@ class ServerTests(unittest.TestCase):
         view = server._view(current, state.derive(current, []), [], self.projects[0])
         self.assertEqual([(e["from"], e["to"], e["relation"]) for e in view["edges"]],
                          [("choice", "work", "waits_for_decision"), ("work", "review", "hands_over"),
-                          ("review", "work", "reviews")])
+                          ("work", "review", "reviews")])
 
     def test_view_decision_node_context_free_decisions_and_completion(self):
         raw = {"schema_version": 1, "goal": "Choose a direction", "nodes": [

@@ -20,6 +20,9 @@ from test_review11 import Review11Tests
 from graphflow import cli
 
 SCENARIOS = {
+    'graph-verification': 'Graph kinds, parallel relations, current failure and retry history',
+    'graph-wrap': 'A chain whose authored order differs from dependency order',
+    'graph-empty': 'An initialized run with no posted plan',
     'check-lines': '검사 네 개의 제목과 통과·실패·아직 안 함 표시',
     'notices': '뒤 작업의 파일을 쓰는 전체 검사와 작업 전 통과 알림',
     'trajectory': '세 번째 제출: 전체 검사 반려, 자체 검사 반려, 실패 후 통과한 검토',
@@ -173,6 +176,40 @@ def branching(count):
 
 def build(root, scenario):
     f = Fixture(root, scenario)
+    if scenario == 'graph-empty':
+        return f.metadata()
+    if scenario == 'graph-wrap':
+        steps = [work(f's{i}', f'단계 {i}', [f's{i-1}'] if i else []) for i in range(9)]
+        f.raw['nodes'] = list(reversed(steps))
+        f.post(True)
+        return f.metadata()
+    if scenario == 'graph-verification':
+        f.raw['nodes'] = [work('a', '예제 확인'), work('b', '복구 안내'), work('c', '복구 안내'),
+                          work('d', '안내 고치기'), work('p', '자료 정리'), question(),
+                          work('t', '안내 편집', ['b', 'p', 'q']), review('t')]
+        _, b, _, d, _, _, _, reviewer = f.raw['nodes']
+        for node in (b, d):
+            node['checks'].append(dict(id='example', type='cmd', title='예제 파일을 확인할 수 있어요',
+                                       run='test -s missing-example.txt'))
+        f.raw['nodes'][-2]['needs'][-1]['artifact'] = '허가'
+        reviewer['needs'] = [dict(**{'from': 't'}, artifact='결과', label='편집한 안내')]
+        f.raw['integration_checks'] = [dict(id='all', type='cmd', title='전체 안내를 열 수 있어요',
+                                            run='test -s missing-final.txt', requires_passed=['t'])]
+        f.post(True)
+        f.decision = f.call('decide', 'ask', '--kind', 'information', '--question', '이 예제를 따라갈 수 있을까요?', '--node', 'a')['id']
+        for node in ('b', 'd'):
+            f.submit(node)
+            f.call('gate', node, code=1)
+        f.submit('p', True)
+        f.call('start', 'd')
+        f.call('decide', 'ask', '--kind', 'information', '--question', '정리한 자료를 누가 읽을까요?', '--node', 'p')
+        f.call('gate', 'q', code=1)
+        assert f.call('gate', '--final', code=1)['result'] == 'failed'
+        # Exercise the reader of historical events with an unrecognized actor role.
+        with mock.patch.dict(os.environ, f.env, clear=True):
+            Review11Tests.rewrite(f, lambda events: next(e for e in events
+                if e['type'] == 'gate.verdict' and e['data']['node'] == 'b')['actor'].update(role='historical'))
+        return f.metadata()
     if scenario == 'check-lines':
         f.raw['nodes'][0]['checks'] += [
             dict(id='restore', type='cmd', title='문제가 생기면 되돌리는 순서가 있어요', run='test -f restore.txt'),

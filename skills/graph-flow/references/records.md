@@ -146,7 +146,7 @@ Incomplete tail: readers ignore a final line that does not end in a newline or d
 | `review.submit` | `node` (the review node), `attempt`, `target`, `target_submission`, `verdict` (`pass`, `fail`), `findings` (list of `{severity, file, line, text}` with optional free-form `evidence`; `text` is one plain sentence a person will read on the dashboard, with paths, commands, ids and exit codes in `evidence`) |
 | `merge.result` | `merged` (list of `{node, commit, head}`), `conflicted` (list of `{node, commit, files}`) |
 | `gate.verdict` | `node`, `attempt`, `submission` (or `null`), `verdict`, `rule`, `rejection` (or `null`), `tested_head`; optional `skipped_checks` entries with `check`, `title`, `pending_nodes`, and optional advisory `notices` |
-| `gate.final` | `result` (`passed`, `failed`), `failed_checks`, `tested_head` |
+| `gate.final` | `result` (`passed`, `failed`, `unverified`), `failed_checks`, `tested_head` |
 | `node.reopen` | `node`, `reason` |
 | `decision.ask` | `id`, `node` (or `null`), `submission` (or `null`), `check` (or `null`), `purpose` (`node`, `human_check`, `lane3`, `trajectory`, `hold`, `free`), `kind`, `question`, `evidence` `{command, files, checks}` |
 | `decision.answer` | `id`, `outcome`, `answer`, `source` (`dashboard`, `terminal`), `sig` (section 7) |
@@ -177,7 +177,7 @@ Decisions are bound, not counted: a decision is **stale** when its node's `basis
 
 ```json
 {
-  "run": {"id": "notes_export", "plan_revision": 1, "status": "open", "host": ["t3_delegate"], "final": null},
+  "run": {"id": "notes_export", "plan_revision": 1, "status": "open", "host": ["t3_delegate"], "final": null, "current_final": null},
   "nodes": {
     "export": {
       "status": "submitted",
@@ -250,7 +250,7 @@ Decisions are bound, not counted: a decision is **stale** when its node's `basis
 - `checks[<id>]` has `loop` and `gate`, each the latest `check.result` data of the **current attempt** for that phase, or `null`. `verdict` is the latest `gate.verdict` data for the current submission (for a decision node: since its basis), or `null`. `rejections` lists the rejection objects of this node's `reject` and `replan` verdicts since its basis, in order. `merged_head` is the `head` of the latest `merge.result` entry for the current submission's commit, or `null`; `submission`, `verdict`, and `merged_head` are cleared by `node.start`.
 - `reviews` (work nodes only) lists every review node that targets the node and has submitted since its own basis (its status is `submitted`, `unverified`, `held`, `awaiting_approval`, or `passed`), with that review node's `status`, its `target_submission`, verdict, findings, and its assignment `family` (or `null`). The gate, not the list, decides which entries match the current submission.
 - `open_decisions` holds the ids of open, non-stale decisions bound to the node. `decisions` holds every decision; `status` is `open`, `answered`, or `superseded`.
-- `run.final` is the last `gate.final` data plus its `seq`, or `null`. `run.status` is `complete` only when the plan has at least one node, every node is `passed`, the last `gate.final` has result `passed`, and its `seq` is greater than the `seq` of every `plan.set`, `node.reopen`, and `gate.verdict` event; otherwise `open`.
+- `run.final` is the last `gate.final` data plus its `seq`, or `null`. `run.current_final` contains that verdict only if it is newer than every plan post, node reopen, valid attempt start, and node verdict. `run.status` is `complete` when the plan has at least one node, every node is `passed`, submitted commits meet the merge requirements, and `run.current_final.result` is `passed`. Otherwise it is `open`.
 
 | Node status | Reached by |
 | --- | --- |

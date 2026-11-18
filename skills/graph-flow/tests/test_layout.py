@@ -14,7 +14,7 @@ class LayoutTests(unittest.TestCase):
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source=readFileSync(process.argv[2],'utf8');
-const {layeredLayout,roundedRoute}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const {layeredLayout,roundedRoute,compactOverview,createGraphScene}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const data=JSON.parse(process.argv[3]);
 for(const level of ['detail','overview']) {
 const options={level,wrapLongChains:!!data.wrapLongChains};
@@ -53,6 +53,29 @@ const changed=data.nodes.map(n=>({...n,status:'running',attempts:3,laps:['return
 assert.deepEqual(layout.cardRects,layeredLayout(changed,data.edges.map(e=>({...e,gate:'returned'})),[],true,options).cardRects,'status polling cannot move cards');
 for(const layer of layout.layers)assert.equal(new Set(layer.map(id=>layout.positions[id].width)).size,1);
 if(level==='overview')assert.equal(layout.chips.length,0);
+const sceneFor=width=>{
+  const base=layeredLayout(data.nodes,data.edges,[],true,options);
+  return createGraphScene(data.nodes,width?compactOverview(base,width):base,[],level);
+};
+for(const width of level==='overview'&&data.wrapLongChains?[0,1000,319]:[0]){
+ const scene=sceneFor(width), context=(data.name || data.nodes.map(n=>n.id).join(','))+'/'+level+'/'+width;
+ assert.deepEqual(scene,sceneFor(width),context+' M4 same records and dimensions give the same scene');
+ const ids=scene.cards.map(c=>c.id);
+ assert.deepEqual(ids.sort(),data.nodes.map(n=>n.id).sort(),context+' M3 card ids match the input');
+ const relations=edges=>edges.map(({from,to,relation,gate,label})=>[from,to,relation,gate||null,label||'']).sort();
+ assert.deepEqual(relations(scene.edges),relations(data.edges),context+' P4 relation identities match the input');
+ for(const [i,a] of scene.cards.entries())for(const b of scene.cards.slice(i+1)){
+   assert(!overlap(a,b),context+' M2 expected disjoint cards, observed '+JSON.stringify([a,b]));
+ }
+ for(const edge of scene.edges){
+   const a=scene.positions[edge.from],b=scene.positions[edge.to];
+   const identity=context+' edge '+edge.id+' '+a.id+' → '+b.id;
+   assert(a.layer<b.layer&&a.order<b.order,identity+' M1 expected forward layers and order, observed '+JSON.stringify([a,b]));
+   for(const [p,q] of segments(edge))for(const c of scene.cards.filter(c=>c.id!==a.id&&c.id!==b.id)){
+     assert(!enters(p,q,c),identity+' M2 expected clear interior, observed '+JSON.stringify({segment:[p,q],card:c}));
+   }
+ }
+}
 }
 '''
         result=subprocess.run([shutil.which('node'),'--input-type=module','-',str(ROOT/'scripts/graphflow/page.js'),json.dumps(data)],input=script,text=True,capture_output=True)
@@ -78,7 +101,7 @@ if(level==='overview')assert.equal(layout.chips.length,0);
 
     def test_two_relations_one_pair(self):
         data=self.graph('ab',[('a','b')]);data['nodes'][1].update(kind='review',target='a')
-        data['edges'].append({'from':'b','to':'a','relation':'reviews'})
+        data['edges'].append({'from':'a','to':'b','relation':'reviews'})
         self.check_graph(data)
 
     def test_real_ro_plan(self):

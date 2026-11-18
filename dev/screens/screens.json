@@ -1677,5 +1677,160 @@
       }
     ],
     "group": "DECISIONS"
+  },
+  {
+    "number": 102,
+    "name": "graph-record-cues",
+    "scenario": "graph-verification",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "button",
+        "text": "간략 보기"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "gray_cues": {
+      "a": "awaiting",
+      "b": "returned",
+      "c": "notStarted"
+    }
+  },
+  {
+    "number": 103,
+    "name": "graph-record-panel",
+    "scenario": "graph-verification",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "button",
+        "text": "상세 보기"
+      },
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"r\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION"
+  },
+  {
+    "number": 104,
+    "name": "graph-record-phone",
+    "scenario": "graph-verification",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "phone",
+      "width": 390,
+      "height": 844
+    },
+    "interactions": [],
+    "group": "GRAPH-VERIFICATION"
+  },
+  {
+    "number": 105,
+    "name": "graph-wrapped-order",
+    "scenario": "graph-wrap",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "button",
+        "text": "간략 보기"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "tab_chain": true
+  },
+  {
+    "number": 106,
+    "name": "graph-empty",
+    "scenario": "graph-empty",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [],
+    "group": "GRAPH-VERIFICATION",
+    "language": "en"
+  },
+  {
+    "number": 107,
+    "name": "graph-long-detail-phone",
+    "scenario": "long-text",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "phone",
+      "width": 390,
+      "height": 844
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#phone-view-toggle"
+      },
+      {
+        "action": "button",
+        "text": "상세 보기"
+      },
+      {
+        "action": "into",
+        "selector": "#map"
+      },
+      {
+        "action": "scroll",
+        "selector": ".map-viewport",
+        "x": 0,
+        "y": 48
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "show_card": "a"
+  },
+  {
+    "number": 108,
+    "name": "graph-minimum-zoom-phone",
+    "scenario": "graph-verification",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "phone",
+      "width": 390,
+      "height": 844
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#phone-view-toggle"
+      },
+      {
+        "action": "button",
+        "text": "간략 보기"
+      },
+      {
+        "action": "button",
+        "text": "−"
+      },
+      {
+        "action": "button",
+        "text": "−"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "minimum_zoom": true
   }
 ]

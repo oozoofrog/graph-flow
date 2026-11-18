@@ -172,7 +172,7 @@ import assert from 'node:assert/strict';
 process.on('uncaughtException', error=>{console.error(error.stack.replace(/data:text[^: ]+/g,'page.js'));process.exit(1);});
 import {readFileSync} from 'node:fs';
 const source = readFileSync(process.argv[2], 'utf8');
-const {createDecisionController, decisionQuestion, purposeWording, purposeAction, viewLanguage, edgeRelationLabel, fitScale, MIN_FIT_SCALE, edgeChipText, cometCount, layeredLayout, crossingCount, displayState, statusGlyph, checkWording, checkTitle, offscreenDirection, planFlow,fitStart, planCounts, fitGraph, zoomLevel, mapAnchor, intersectsViewport, commandTitle, overviewMarkText} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+const {createDecisionController, decisionQuestion, purposeWording, purposeAction, viewLanguage, edgeRelationLabel, fitScale, MIN_FIT_SCALE, edgeChipText, cometCount, layeredLayout, crossingCount, displayState, statusGlyph, checkWording, checkTitle, offscreenDirection, planFlow,fitStart, planCounts, fitGraph, zoomLevel, mapAnchor, intersectsViewport, commandTitle, overviewMarkText, createGraphScene, STATE_VOCABULARY} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 const first = {project:'/project', run:'first'}, second = {project:'/project', run:'second'};
 const decision = {id:'d7', purpose:'lane3', kind:'authorization', failed:[], files:[{name:'Result',path:'result.txt'}]};
 const controller = createDecisionController();
@@ -228,7 +228,7 @@ assert.equal(fitScale({width:900,height:400},855,500,true),.95);
 
     def test_plan_flow_ends_with_recorded_run_contract_and_keeps_counts(self):
         self.run_controller(r"""
-const original={nodes:[{id:'a',kind:'work'},{id:'b',kind:'work'},{id:'r',kind:'review'}],edges:[{from:'a',to:'b',relation:'hands_over'},{from:'r',to:'b',relation:'reviews'}],goal:'Whole goal',integration_checks:[{id:'all',command:'test -f result'}],promoted_checks:[{id:'fixed',command:'true'}],plan_counts:{work:2,review:1,decision:0}};
+const original={nodes:[{id:'a',kind:'work'},{id:'b',kind:'work'},{id:'r',kind:'review'}],edges:[{from:'a',to:'b',relation:'hands_over'},{from:'b',to:'r',relation:'reviews'}],goal:'Whole goal',integration_checks:[{id:'all',command:'test -f result'}],promoted_checks:[{id:'fixed',command:'true'}],plan_counts:{work:2,review:1,decision:0}};
 const before=JSON.stringify(original), flow=planFlow(original,'en');
 assert.equal(JSON.stringify(original),before);
 assert.equal(flow.nodes.at(-1).runLevel,true);
@@ -279,7 +279,7 @@ assert.equal(checkTitle({type:'cmd',command:'test -s a.txt',title:'검사 명령
 
     def test_relation_labels_and_loop_states(self):
         self.run_controller(r"""
-for(const [lang,labels] of [['ko',['넘겨줌','검토를 맡겼어요','결정을 기다림']],['en',['hands over','reviewed by','waits for a decision']]]) {
+for(const [lang,labels] of [['ko',['넘겨줌','검토 담당','결정을 기다림']],['en',['hands over','reviewed by','waits for a decision']]]) {
   ['hands_over','reviews','waits_for_decision'].forEach((relation,i)=>assert.equal(edgeRelationLabel({relation,label:''},lang),labels[i]));
   assert.equal(edgeRelationLabel({relation:'hands_over',label:'Readable result'},lang),labels[0]+': Readable result');
 }
@@ -719,7 +719,7 @@ assert.equal(statusGlyph('running'),'▶');
     def test_card_history_never_competes_with_current_status(self):
         js=(S / 'scripts/graphflow/page.js').read_text()
         card=js.split('function nodeCard(',1)[1].split('function createMap()',1)[0]
-        self.assertIn("t('returnedActor'",card)
+        self.assertIn("returnActor(n)",card)
         self.assertIn('returnedLine(n)',card)
         self.assertNotIn('checkWording',card)
         self.assertNotIn('failure-mark',card)

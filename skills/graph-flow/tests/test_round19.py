@@ -45,10 +45,10 @@ const compact=api.nodeCard(n,false,'overview');assert.equal(compact.querySelecto
 
     def test_u2_measured_heights_preserve_order_and_dependencies(self):
         self.js(r"""
-const ns=[{id:'a',title:'가'.repeat(60)},{id:'b',title:'나'.repeat(60)},{id:'r',kind:'review',target:'a'}],es=[{from:'a',to:'b'},{from:'r',to:'a',relation:'reviews'}];
+const ns=[{id:'a',title:'가'.repeat(60)},{id:'b',title:'나'.repeat(60)},{id:'r',kind:'review',target:'a'}],es=[{from:'a',to:'b'},{from:'a',to:'r',relation:'reviews'}];
 for(const level of ['detail','overview']){
  const before=layeredLayout(ns,es,[],true,{level}),after=layeredLayout(ns,es,[],true,{level,measure:n=>n.id==='a'?900:600});
- assert.deepEqual(after.order,before.order);assert.deepEqual(after.routes.map(r=>[r.from,r.to]),forwardEdges(es).map(r=>[r.from,r.to]));
+ assert.deepEqual(after.order,before.order);assert.deepEqual(after.routes.map(r=>[r.from,r.to]),es.map(r=>[r.from,r.to]));
  assert(after.positions.a.height>=900);assert(after.positions.b.height>=600);
  const chain=Array.from({length:10},(_,i)=>({id:'n'+i,title:'가'.repeat(60)})),edges=chain.slice(1).map((n,i)=>({from:chain[i].id,to:n.id}));
  const wrapped=layeredLayout(chain,edges,[],true,{level,wrapLongChains:true,measure:()=>300});

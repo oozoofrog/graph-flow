@@ -31,6 +31,8 @@ const STRINGS = {
     "running": "만들고 있어요",
     "retrying": "고치고 있어요",
     "submitted": "검토를 기다려요",
+    "verificationPending": "확인이 더 필요해요",
+    "failedFinal": "전체 검사 실패",
     "awaiting": "내 답을 기다리는 일",
     "held": "다음 방향을 기다려요",
     "exhausted": "다음 계획이 필요해요",
@@ -117,7 +119,7 @@ const STRINGS = {
     "review": "검토",
     "decision": "결정",
     "handsOver": "넘겨줌",
-    "reviews": "검토를 맡겼어요",
+    "reviews": "검토 담당",
     "waitsForDecision": "결정을 기다림",
     "towardGoal": "목표로",
     "reviewSentence": "{target}을(를) {lens}의 눈으로 검토해요",
@@ -237,9 +239,10 @@ const STRINGS = {
     "answeredApproval": "결과를 받아들이기로 답했어요",
     "answeredRevision": "고쳐 달라고 답했어요",
     "answeredRejection": "받아들이지 않기로 답했어요",
-    "lineSampleOpen": "결과 전달",
-    "lineSampleClosed": "전달 대기",
-    "lineSampleReview": "검토 관계",
+    "lineSampleOpen": "전달 완료",
+    "lineSampleClosed": "전달 전",
+    "lineSampleWaiting": "답변 대기",
+    "lineSampleReturned": "반려됨",
     "attemptShort": "{n}번째 시도",
     "earlierHistory": "이전 시도 기록",
     "failureUnknownAttempt": "✕ 기록된 시도에서 “{names}” 확인이 통과하지 못했어요",
@@ -363,7 +366,8 @@ const STRINGS = {
     "noWorkRecorded": "아직 실행한 작업 기록이 없어요. 승인 전에는 시작하지 않아요.",
     "planOpen": "계획 읽기",
     "futureDelivery": "{who}에서 받아요",
-    "visiblePlan": "계획 카드 {total}개 + 전체 결과 확인 1개 · {n}개 제목이 보여요",
+    "visiblePlan": "계획 카드 {total}개{result} · {n}개 제목이 보여요",
+    "visibleResult": " + 전체 결과 확인 {n}개",
     "listAll": "목록으로 모두 읽기",
     "questionsForNode": "내게 물을 내용",
     "findingsOutput": "검토 의견",
@@ -463,6 +467,8 @@ const STRINGS = {
     "whos_running": "작업 담당자가 만들고 있어요",
     "whos_retrying": "작업 담당자가 고치고 있어요",
     "whos_submitted": "진행 담당자가 검사와 검토를 확인해요",
+    "whos_verificationPending": "진행 담당자가 남은 검사를 확인해요",
+    "whos_failedFinal": "진행 담당자가 실패한 전체 검사를 확인해요",
     "whos_passed": "이 일은 끝났어요",
     "whos_awaiting": "내 답을 기다려요",
     "whos_returned": "작업 담당자가 고쳐요",
@@ -708,6 +714,8 @@ const STRINGS = {
     "running": "Making it",
     "retrying": "Redoing work that came back",
     "submitted": "Waiting for review",
+    "verificationPending": "Verification pending",
+    "failedFinal": "Final check failed",
     "awaiting": "Work awaiting my answer",
     "held": "Waiting for the next direction",
     "exhausted": "Needs a new plan",
@@ -914,9 +922,10 @@ const STRINGS = {
     "answeredApproval": "Answered: accept the result",
     "answeredRevision": "Answered: request changes",
     "answeredRejection": "Answered: reject the result",
-    "lineSampleOpen": "Handoff",
-    "lineSampleClosed": "Handoff pending",
-    "lineSampleReview": "Review",
+    "lineSampleOpen": "Delivered",
+    "lineSampleClosed": "Pending",
+    "lineSampleWaiting": "Awaiting answer",
+    "lineSampleReturned": "Returned",
     "attemptShort": "Attempt {n}",
     "earlierHistory": "Earlier attempt history",
     "failureUnknownAttempt": "✕ In the recorded attempt, “{names}” did not pass",
@@ -1040,7 +1049,8 @@ const STRINGS = {
     "noWorkRecorded": "No work has been recorded. Execution waits for approval.",
     "planOpen": "Read plan",
     "futureDelivery": "To be received by {who}",
-    "visiblePlan": "{total} plan cards + 1 whole-result card · {n} titles visible",
+    "visiblePlan": "{total} plan cards{result} · {n} titles visible",
+    "visibleResult": " + {n} whole-result card",
     "listAll": "Read the complete list",
     "questionsForNode": "For your response",
     "findingsOutput": "Review notes",
@@ -1140,6 +1150,8 @@ const STRINGS = {
     "whos_running": "The worker is producing the result",
     "whos_retrying": "The worker is correcting the result",
     "whos_submitted": "The coordinator checks results and reviews",
+    "whos_verificationPending": "The coordinator checks what is still unverified",
+    "whos_failedFinal": "The coordinator checks the failed final checks",
     "whos_passed": "This piece is finished",
     "whos_awaiting": "Waiting for your answer",
     "whos_returned": "The worker corrects it next",
@@ -1533,15 +1545,20 @@ export const MIN_FIT_SCALE = 6 / 7;
 export function edgeRelationLabel(edge, language = 'en') {
   const words = STRINGS[language];
   if (edge.relation === 'toward_goal') return words.towardGoal;
-  if (edge.relation === 'reviews') return words.reviews;
-  if (edge.relation === 'waits_for_decision') return words.waitsForDecision;
-  return words.handsOver + (edge.label ? ': ' + edge.label : '');
+  const name=({reviews:words.reviews,waits_for_decision:words.waitsForDecision})[edge.relation] || words.handsOver;
+  return name + (edge.label ? ': ' + edge.label : '');
 }
-// Text on a line has one meaning: the name of what is handed over. Reviews and decisions are shown by the line itself.
+const GATE_LABELS = {open:'lineSampleOpen', closed:'lineSampleClosed', waiting_for_you:'lineSampleWaiting', returned:'lineSampleReturned'};
+const RELATION_MARKS = {
+  hands_over:{d:'M0 0 10 5 0 10Z', fill:true},
+  waits_for_decision:{d:'M1 1 9 5 1 9', fill:false},
+  reviews:{d:'M1 1 5 5 1 9 M5 1 9 5 5 9', fill:false},
+};
+// A handoff chip names the delivered item.
 export function edgeChipText(edge) {
   return (edge.relation || 'hands_over') === 'hands_over' && edge.label ? edge.label : '';
 }
-export const STATE_VOCABULARY = Object.fromEntries(['notStarted','running','reviewing','retrying','submitted','passed','awaiting','returned','exhausted','held','preapprovalSubmitted','planRevisionState'].map(state=>[state,{name:state,whoseMove:'whos_'+state}]));
+export const STATE_VOCABULARY = Object.fromEntries(['notStarted','running','reviewing','retrying','submitted','passed','awaiting','returned','exhausted','held','preapprovalSubmitted','planRevisionState','verificationPending','failedFinal'].map(state=>[state,{name:state,whoseMove:'whos_'+state}]));
 export function stateWords(state, language='en') {
   const entry=STATE_VOCABULARY[state] || STATE_VOCABULARY.notStarted;
   return {name:STRINGS[language][entry.name],whoseMove:STRINGS[language][entry.whoseMove]};
@@ -1581,14 +1598,16 @@ export function displayState(node, decisions = []) {
   if (decisions.some(d => d.node === node.id)) return 'awaiting';
   if (node.status === 'passed' || node.answered) return 'passed';
   if (node.status === 'running') return node.kind==='review'?'reviewing':node.attempts > 1 ? 'retrying' : 'running';
-  if (['submitted','unverified'].includes(node.status)) return 'submitted';
+  if (node.runLevel && node.status === 'failed') return 'failedFinal';
+  if (node.status === 'submitted') return 'submitted';
+  if (node.status === 'unverified') return 'verificationPending';
   if (['replan','exhausted'].includes(node.status)) return 'exhausted';
   if (node.status === 'rejected') return 'returned';
   if (['held','awaiting_approval'].includes(node.status)) return 'held';
   return 'notStarted';
 }
 export function statusGlyph(state) {
-  return {planRevisionState:'Ⅱ',preapprovalSubmitted:'⇥', passed:'✓', reviewing:'▶', running:'▶', retrying:'↪', submitted:'◷', awaiting:'◆', returned:'↩', notStarted:'○', exhausted:'!', held:'Ⅱ'}[state];
+  return {planRevisionState:'↻',preapprovalSubmitted:'⇥', passed:'✓', reviewing:'⌕', running:'▶', retrying:'↪', submitted:'◷', awaiting:'◆', returned:'↩', notStarted:'○', exhausted:'!', held:'Ⅱ', verificationPending:'…', failedFinal:'✕'}[state];
 }
 export function commandTitle(check) {
   const command = check.command || check.run;
@@ -1645,7 +1664,7 @@ export function zoomLevel(level, scale, amount) {
 }
 // Preserve the nearest card's local point when its layout changes size.
 export function mapAnchor(before, after, point) {
-  const rects = before.cardRects;
+  const rects = before.cards || before.cardRects;
   const distance = r => Math.hypot(Math.max(r.x-point.x,0,point.x-r.x-r.width), Math.max(r.y-point.y,0,point.y-r.y-r.height));
   const rect = [...rects].sort((a,b)=>distance(a)-distance(b))[0];
   if (!rect || !after.positions[rect.id]) return point;
@@ -1668,14 +1687,14 @@ export function planFlow(data, language = 'en') {
   const id = '_run_checks', strings = STRINGS[language];
   const checks = [...(data.integration_checks || []), ...(data.promoted_checks || [])];
   const node = {id, kind:'goal', title:strings.runChecksTitle, summary:strings.runChecksAfter,
-    goal:data.goal, runLevel:true, plan_revision_wait:data.nodes.some(n=>n.plan_revision_wait), status:data.complete?'passed':'pending', attempts:0,
+    goal:data.goal, runLevel:true, plan_revision_wait:data.nodes.some(n=>n.plan_revision_wait), status:data.complete?'passed':data.final_result==='failed'?'failed':data.final_result==='unverified'?'unverified':'pending', attempts:0,
     owns:[], needs:[], reads:[], declared_outputs:[], inputs:[], outputs:[], deliverables:[],
     planned_checks:checks, returned_reasons:[], laps:[]};
-  const forward = forwardEdges(data.edges), terminal = data.nodes.filter(n => !forward.some(e => e.from === n.id));
+  const terminal = data.nodes.filter(n => !data.edges.some(e => e.from === n.id));
   const edges=[...data.edges,...terminal.map(n=>({
     from:n.id,to:id,relation:'hands_over',label:'',gate:n.status==='passed'?'open':'closed',delivered:n.status==='passed',runLevel:true}))];
   const nodes=[...data.nodes,node].map(n=>({...n,inputs:[],outputs:[]})),byId=new Map(nodes.map(n=>[n.id,n]));
-  for(const edge of forwardEdges(edges)) {
+  for(const edge of edges) {
     const from=byId.get(edge.from),to=byId.get(edge.to);if(!from||!to)continue;
     to.inputs.push({...edge,other_id:from.id,other_title:from.title});
     from.outputs.push({...edge,other_id:to.id,other_title:to.title});
@@ -1699,9 +1718,6 @@ export function crossingCount(routes, positions) {
   }));
   return count;
 }
-export function forwardEdges(edges) {
-  return edges.map(e => e.relation === 'reviews' ? {...e, from:e.to, to:e.from} : e);
-}
 export function detailCardHeight(node) {
   const facts=(node.deliverables?.length?1:0)+(node.planned_checks?.length?1:0)+(node.runLevel?1:0);
   return 112+facts*27+(node.planned_checks?.some(c=>c.runs_own_files)?32:0)+(node.kind==='decision'?32:0)+(node.kind==='review'||node.reviewers?.length?28:0)+(node.planned_checks?.some(c=>c.type==='human')||node.kind==='decision'?27:0);
@@ -1709,9 +1725,8 @@ export function detailCardHeight(node) {
 export function layeredLayout(nodes, edges, decisions = [], sort = true, options = {}) {
   const overview = options.level === 'overview', portGap = 20, inset = overview ? 12 : 26;
   const byId = new Map(nodes.map(n => [n.id, n])), vertices = new Map(), links = [];
-  const routes = forwardEdges(edges).filter(e => byId.has(e.from) && byId.has(e.to)).map((e,index) => {
-    const waiting = decisions.find(d => d.node === e.from);
-    return {...e,index,bundle:index,text:overview?'':edgeChipText(e),chip:null,gateState:waiting?'waiting_for_you':e.gate==='returned'?'closed':e.gate||'closed',decision:waiting?.id};
+  const routes = edges.filter(e => byId.has(e.from) && byId.has(e.to)).map((e,index) => {
+    return {...e,index,text:overview?'':edgeChipText({...e,label:e.displayLabel ?? e.label}),chip:null,gateState:e.gate || 'closed'};
   });
   const parents = id => routes.filter(e => e.to === id).map(e => e.from);
   const depths = new Map();
@@ -1755,7 +1770,7 @@ export function layeredLayout(nodes, edges, decisions = [], sort = true, options
     const cost=crossings();if(cost<bestCost){bestCost=cost;best=layers.map(ids=>[...ids]);}
   }
   layers.splice(0,layers.length,...best);
-  const widths=layers.map(ids=>overview?156:Math.max(264,...ids.filter(id=>byId.has(id)).map(id=>Math.max((byId.get(id).summary||byId.get(id).goal||'').length>180?480:0,Math.min(280,Math.ceil(textWidth(byId.get(id).title,18,9))+40)))));
+  const widths=layers.map(ids=>overview?156:Math.min(options.maxCardWidth ?? Infinity,Math.max(264,...ids.filter(id=>byId.has(id)).map(id=>Math.max((byId.get(id).summary||byId.get(id).goal||'').length>180?480:0,Math.min(280,Math.ceil(textWidth(byId.get(id).title,18,9))+40))))));
   for(const v of vertices.values()) {
     v.width=widths[v.layer];
     const degree=Math.max(links.filter(e=>e.from===v.id).length,links.filter(e=>e.to===v.id).length);
@@ -1871,6 +1886,25 @@ export function compactOverview(layout,width) {
   return {...layout,positions,routes,chips:[],cardRects,bounds:{width:Math.max(...cardRects.map(r=>r.x+r.width))+margin,height:Math.max(...cardRects.map(r=>r.y+r.height))+margin}};
 }
 
+// Geometry is already measured in stage CSS pixels. Renderers share this data, not DOM or layout internals.
+export function createGraphScene(nodes, layout, decisions, level) {
+  const byId = new Map(nodes.map(node => [node.id, node]));
+  const cards = layout.order.map((id, order) => {
+    const node = byId.get(id);
+    const {x, y, width, height, layer} = layout.positions[id];
+    return {id, kind:node.kind || 'work', state:displayState(node, decisions), level, x, y, width, height, layer, order};
+  });
+  const positions = Object.fromEntries(cards.map(card => [card.id, card]));
+  const edges = layout.routes.map(route => ({
+    id:String(route.index), from:route.from, to:route.to, direction:'source-to-target',
+    relation:route.relation, gate:route.gate, label:route.label || '', points:route.points,
+    style:{gate:route.gateState, relation:route.relation || 'hands_over',
+      flowing:route.gateState === 'open' && ['running','reviewing','retrying'].includes(positions[route.to].state)},
+    chip:route.chip, text:route.text
+  }));
+  return {level, bounds:layout.bounds, cards, edges, positions, order:cards.map(card => card.id), chips:layout.chips};
+}
+
 export function roundedRoute(points, radius = 5) {
   const pts=points.filter((p,i)=>!i||p.x!==points[i-1].x||p.y!==points[i-1].y);
   if(!pts.length)return '';
@@ -1971,7 +2005,7 @@ function decisionHeading(parent, d, tag) {
   if (!d.free && d.purpose === 'trajectory') textList(parent, (d.trajectory_reasons || []).map(key => t(key)));
 }
 function needs(node) { return view.decisions.some(d => d.node === node.id); }
-function status(node) { return node.kind==='review'&&node.status==='running'?t('reviewing'):stateWords(displayState(node,view.decisions),language).name; }
+function status(node) { return stateWords(displayState(node,view.decisions),language).name; }
 function attempts(node) { if(['decision','goal'].includes(node.kind))return ''; return t(node.attempts?'attempt':'unusedAttempts', {n:node.attempts||0,max:node.max_attempts||3}); }
 function card(heading, body, paper = false) { const c = el('div', undefined, 'card' + (paper ? ' paper' : '')); c.append(el('p', heading, 'eyebrow')); if (body) c.append(el('p', body)); return c; }
 function textList(parent, items, empty = 'notRecorded') { const list = el('ul'); if (!items.length) list.append(el('li', t(empty))); else items.forEach(text => list.append(el('li', text))); parent.append(list); }
@@ -2021,11 +2055,24 @@ function authorNote(parent,context) {
 function plannedQuestion(q) {
   return q.answered?t('answeredQuestion',{...q,outcome:t(q.outcome==='approved'?(q.kind==='authorization'?'answeredPermission':'answeredApproval'):q.outcome==='answered'?'evAnswered':'answeredRevision'),answer:q.answer||''}):t(q.when==='node'?'whenDecision':q.when==='trajectory'?'whenTrajectory':'whenAfterWork')+' '+q.question;
 }
+function edgeAttributes(edge) {
+  return {'data-from':edge.from, 'data-to':edge.to, 'data-relation':edge.relation,
+    'data-gate':edge.gate, 'data-label':edge.label || ''};
+}
+function markRelation(element, edge) {
+  for (const [name,value] of Object.entries(edgeAttributes(edge))) element.setAttribute(name,value);
+  return element;
+}
+function gateText(edge) { return t(GATE_LABELS[edge.gate] || GATE_LABELS.closed); }
 function relationFacts(parent,node) {
   for(const [key,rows,direction] of [['planNeeds',node.inputs||[],'from'],['planOutputs',node.outputs||[],'to']]){
     parent.append(el('h3',t(key)));
     const list=el('ul');list.dataset.relations=direction;
-    for(const row of rows){const item=el('li',row.runLevel&&direction==='to'?t('includedIn',{title:row.other_title}):[row.label?outputLabel(row.label):t(row.relation==='reviews'?'reviewInput':row.relation==='waits_for_decision'?'approvalOutput':'handoff'),t(direction)+' '+otherTitle(row.other_title)].filter(Boolean).join(' · '));item.dataset.otherNode=row.other_id;list.append(item);}
+    for(const row of rows){
+      const text=row.runLevel&&direction==='to'?t('includedIn',{title:row.other_title}):t(direction)+' '+otherTitle(row.other_title);
+      const item=markRelation(el('li',[text,relationText(row),gateText(row)].join(' · ')),row);
+      item.dataset.otherNode=row.other_id;list.append(item);
+    }
     if(!rows.length)list.append(el('li',t('noHandoffs')));parent.append(list);
   }
 }
@@ -2099,6 +2146,11 @@ function planFacts(parent, node) {
 }
 function planBlocked() { if(!view)return false; const a=view.plan_approval; return !!(view.plan_error || view.key_mismatch || view.location_mismatch || a && !(a.status==='answered' && a.verified && a.outcome==='approved')); }
 function problemTitle() { const a=view.plan_approval; return t(view.location_mismatch?'projectMoved':view.key_mismatch?'planKeyHeading':view.plan_error?'planTampered':!a?.id?'planMissing':a.status==='answered'&&!a.verified?'planUnverified':a.status==='open'?(view.has_work?'planContinueQuestion':'planWaiting'):'planSentBack'); }
+function returnActor(node) {
+  const roles={leader:'returnLeader',reviewer:'returnReviewer',worker:'roleWorker',human:'roleHuman',tool:'roleTool'};
+  const role=node.returned_by?.role;
+  return Object.hasOwn(roles,role) ? t('returnedActor',{who:t(roles[role])}) : '';
+}
 function returnedLine(n) {
   const row=[...view.timeline].reverse().find(r=>r.node===n.id&&r.kind==='attempt'&&r.attempt===n.attempts);
   const failure=row?.checks?.find(c=>c.result==='failed');
@@ -2297,6 +2349,7 @@ function panel() {
   const node = flowNode(selected);
   shell.hidden = !node; $('flow').classList.toggle('has-selection', !!node);
   if (!node) return;
+  shell.dataset.node=node.id;
   shell.setAttribute('aria-label', title(node));
   const close = button('×', () => {
     const id = selected; selectNode(id);
@@ -2317,7 +2370,10 @@ function panel() {
   if (node.runLevel || view.plan_approval && !(view.plan_approval.verified && view.plan_approval.outcome === 'approved')) {
     planFacts(p, node); if(!node.runLevel)p.append(referenceDetails); p.scrollTop=scroll; return;
   }
-  if (displayState(node,view.decisions)==='returned') p.append(el('p',t('returnedShort',{who:t(node.returned_by?.role==='reviewer'?'roleReviewer':'roleLeader'),reason:returnedLine(node)})));
+  if (displayState(node,view.decisions)==='returned') {
+    const actor=returnActor(node);
+    p.append(el('p',[returnedLine(node),actor].filter(Boolean).join(' · ')));
+  }
   p.append(referenceDetails, el('p', attempts(node)));
   const rows = view.timeline.filter(r => r.node === node.id && r.kind === 'attempt').sort((a,b)=>b.seq-a.seq);
   if (rows.length) p.append(el('p', t('attemptsOf'), 'eyebrow'));
@@ -2365,7 +2421,7 @@ function rowSentence(r) {
   const checks=current?.planned_checks||[],total=Math.max((r.checks||[]).length,checks.filter(c=>c.type!=='human').length),human=checks.filter(c=>c.type==='human').length;
   const outcome = total && r.state !== 'running' ? t('checkProgress',{total,passed})+(human?' · '+t('humanCheckCount',{n:human}):'') : '';
   const stateKey=displayState({status:({returned:'rejected',needs_you:'awaiting_approval'}[r.state]||r.state),attempts:n},current&&needs(current)&&!['returned','replan','passed'].includes(r.state)?[{node:undefined}]:[]);
-  return [current?.kind==='review'&&r.state==='running'?t('reviewing'):stateWords(stateKey,language).name,outcome,r.returned_by?t('returnedActor',{who:who(r.returned_by)}):''].filter(Boolean).join(' · ');
+  return [current?.kind==='review'&&r.state==='running'?t('reviewing'):stateWords(stateKey,language).name,outcome,returnActor(r)].filter(Boolean).join(' · ');
 }
 function rowTone(r) {
   const current=view.nodes.find(n=>n.id===r.node && n.attempts===r.attempt);
@@ -2500,16 +2556,16 @@ function accessible() {
   const repeated=work.length>20&&new Set(templates).size===1;
   if(repeated){const note=el('li',t('repeatedSteps',{n:work.length}),'repeated-note');note.style.counterIncrement='list-item 0';$('node-list').append(note);}
   const order = layeredLayout(flow.nodes,flow.edges,flow.decisions).order;
-  [...flow.nodes].sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id)).forEach(n => { const item = el('li', undefined, 'card'); item.append(button(title(n), () => selectNode(n.id)), el('p', n.runLevel?t('runChecksAfter'):status(n))); if(!n.runLevel)item.append(el('p', attempts(n), 'muted')); if(planBlocked()){if(flow.nodes.length>20){const more=el('details');more.open=$('node-list').children.length===(repeated?1:0);more.append(el('summary',t('moreDetails')));planFacts(more,n);item.append(more);}else planFacts(item,n);} else item.append(el('p', n.runLevel?view.goal:n.summary)); if (n.returned_reasons.length) textList(item, n.returned_reasons.flatMap((reasons,i)=>reasons.map(reason=>t('earlierFailure',{n:i+1,reason}))), 'noReason'); $('node-list').append(item); });
-  forwardEdges(flow.edges).forEach(e => { const a = flow.nodes.find(n => n.id === e.from), b = flow.nodes.find(n => n.id === e.to); $('edge-list').append(el('li', `${title(a)} → ${title(b)} · ${relationText(e)} · ${t(e.delivered ? 'delivered' : 'notDelivered')}`)); });
+  [...flow.nodes].sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id)).forEach(n => { const item = el('li', undefined, 'card'); item.dataset.node=n.id; item.append(button(title(n), () => selectNode(n.id)), el('p', status(n))); if(!n.runLevel)item.append(el('p', attempts(n), 'muted')); if(planBlocked()){if(flow.nodes.length>20){const more=el('details');more.open=$('node-list').children.length===(repeated?1:0);more.append(el('summary',t('moreDetails')));planFacts(more,n);item.append(more);}else planFacts(item,n);} else item.append(el('p', n.runLevel?view.goal:n.summary)); if (n.returned_reasons.length) textList(item, n.returned_reasons.flatMap((reasons,i)=>reasons.map(reason=>t('earlierFailure',{n:i+1,reason}))), 'noReason'); $('node-list').append(item); });
+  flow.edges.forEach(e => { const a = flow.nodes.find(n => n.id === e.from), b = flow.nodes.find(n => n.id === e.to); $('edge-list').append(markRelation(el('li', `${title(a)} → ${title(b)} · ${relationText(e)} · ${gateText(e)}`),e)); });
   view.decisions.forEach(d => { const item = el('li'); decisionHeading(item, d, 'h3'); failedBlock(item, d); if (d.context.why) item.append(el('p', d.context.why)); $('decision-list').append(item); });
   if (!view.decisions.length) $('decision-list').append(el('li', t('nothingTitle')));
   const listHeading=$('accessible').querySelector('h2');if(listHeading)listHeading.textContent=planCounts(view.plan_counts,language);
   const phone=$('phone-flow');clear(phone);
   for(const id of order){
     const n=flow.nodes.find(n=>n.id===id),item=el('li');item.append(nodeCard(n,n.id===selected));
-    const edges=forwardEdges(flow.edges).filter(e=>e.from===id);
-    for(const e of edges){const handoff=el('p',undefined,'phone-handoff');handoff.append(el('span',`${title(n)} → ${title(flow.nodes.find(n=>n.id===e.to))}`));item.append(handoff);}
+    const edges=flow.edges.filter(e=>e.from===id);
+    for(const e of edges){const handoff=markRelation(el('p',`${title(n)} → ${title(flow.nodes.find(n=>n.id===e.to))} · ${relationText(e)} · ${gateText(e)}`,'phone-handoff'),e);item.append(handoff);}
     phone.append(item);
   }
   wholePhoneCards();setTimeout(recordGraphRead,0);
@@ -2861,46 +2917,60 @@ function svg(tag, attributes = {}) {
   const element=document.createElementNS(['http:', '', 'www.w3.org/2000/svg'].join('/'),tag);
   Object.entries(attributes).forEach(([key,value])=>element.setAttribute(key,String(value)));return element;
 }
+function edgeMarker(relation) {
+  const {d,fill}=RELATION_MARKS[relation];
+  return svg('path',{d,class:fill?'relation-fill':'relation-stroke'});
+}
+function lineSample(kind, text, relation) {
+  const sample=el('span',undefined,'line-sample');
+  const icon=svg('svg',{viewBox:'0 0 48 16','aria-hidden':'true'});
+  icon.append(svg('path',{d:'M1 8H'+(relation?36:47),class:'edge-path '+kind}));
+  if(relation){
+    const mark=edgeMarker(relation);
+    mark.setAttribute('transform','translate(36 3)');
+    icon.append(mark);
+  }
+  sample.append(icon,el('span',text));
+  return sample;
+}
 function typeIcon(kind) {
-  const icon=svg('svg',{viewBox:'0 0 24 24','aria-hidden':'true',class:'type-icon'});
+  const icon=svg('svg',{viewBox:'0 0 24 24','aria-hidden':'true',class:'type-icon','data-kind':kind});
   const paths={work:'M5 4H19V20H5Z M8 8H16 M8 12H16 M8 16H12',review:'M10 3A7 7 0 1 0 10 17A7 7 0 1 0 10 3 M15 15L21 21 M7 10L9 12L13 8',decision:'M12 3L22 12L12 21L2 12Z M12 7V13 M12 16V17',goal:'M5 21V3 M5 4H20L16 9L20 14H5'};
   icon.append(svg('path',{d:paths[kind]||paths.work,fill:'none',stroke:'currentColor','stroke-width':1.6,'stroke-linejoin':'round','stroke-linecap':'round'}));
   return icon;
 }
-function cardTone(n) {if(n.status==='rejected')return 'returned-card';return needs(n)||['held','awaiting_approval'].includes(n.status)?'waiting_for_you':n.status==='passed'||n.answered?'passed':['running','submitted','unverified'].includes(n.status)?'current':'unused';}
+function cardTone(n, state = displayState(n,view.decisions)) {if(['returned','failedFinal'].includes(state))return 'returned-card';return needs(n)||['held','awaiting_approval'].includes(n.status)?'waiting_for_you':n.status==='passed'||n.answered?'passed':['running','submitted','unverified'].includes(n.status)?'current':'unused';}
 // A stable play mark is legible in a still frame and without colour.
 function walker() {
   const mark=el('span','▶','walker');mark.setAttribute('aria-hidden','true');return mark;
 }
 // A rebuilt element joins a looping animation at the phase it would have reached.
 function inPhase(element, period) {element.style.animationDelay=-(performance.now()%period)+'ms';return element;}
-function nodeDescription(n) {return n.runLevel?`${t('runChecksTitle')}. ${t('runChecksAfter')}`:`${t(n.kind||'work')}. ${title(n)}. ${status(n)}. ${attempts(n)}. ${t('returnTimes',{n:cometCount(n)})}`;}
-function nodeCard(n, expanded = false, level = 'detail') {
-  const root=el('article',undefined,'node-card '+cardTone(n)+(['running','reviewing','retrying'].includes(displayState(n,view.decisions))?' working':'')+(expanded?' expanded':''));root.dataset.node=n.id;if(planBlocked())root.classList.add('read-status');
+function nodeDescription(n,state) {const name=stateWords(state,language).name;return n.runLevel?`${t('runChecksTitle')}. ${name}. ${t('runChecksAfter')}`:`${t(n.kind||'work')}. ${title(n)}. ${name}. ${attempts(n)}. ${t('returnTimes',{n:cometCount(n)})}`;}
+function nodeCard(n, expanded = false, level = 'detail', state = displayState(n, view.decisions)) {
+  const root=el('article',undefined,'node-card '+cardTone(n,state)+(['running','reviewing','retrying'].includes(state)?' working':'')+(expanded?' expanded':''));root.dataset.node=n.id;root.dataset.state=state;if(planBlocked())root.classList.add('read-status');
   if(planBlocked())root.append(el('p',t('cardUnread'),'unread-mark'));
   const change=planChanges?.find(c=>c.id===n.id);if(change)root.append(el('p',t(change.kind),'change-mark'));
   const header=button('',()=>{
     selectNode(n.id);
   },'node-header');
-  header.setAttribute('aria-label',nodeDescription(n));header.setAttribute('aria-expanded',String(expanded));
+  header.setAttribute('aria-label',nodeDescription(n,state));header.setAttribute('aria-expanded',String(expanded));
   if (level === 'overview') {
     root.classList.add('overview-card');
-    const state = displayState(n, view.decisions), marks = [];
-    if (n.kind === 'review') marks.push('⌕ '+t('review'));
+    const marks = [];
     if (cometCount(n) || state === 'returned') marks.push('↩');
-    if (view.decisions.some(d=>d.node===n.id)) marks.push('◆ '+t('yourTurn'));
     if ((view.planned_questions || []).some(q=>q.node===n.id)) marks.push(t('questionsMark'));
-    header.title = title(n)+' · '+status(n)+(marks.length?' · '+marks.join(' · '):'')+(cometCount(n)&&n.returned_by?' · '+t('returnedActor',{who:who(n.returned_by)}):'');
-    header.append(el('span',statusGlyph(state),'status-glyph'),el('strong',title(n),'node-title'));
+    header.title = title(n)+' · '+stateWords(state,language).name+(marks.length?' · '+marks.join(' · '):'')+(state==='returned'&&returnActor(n)?' · '+returnActor(n):'');
+    header.append(el('span',statusGlyph(state),'status-glyph'),typeIcon(n.kind || 'work'),el('strong',title(n),'node-title'));
 
 
     root.append(header); return root;
   }
-  const state = displayState(n, view.decisions), statusLine = el('span', status(n), 'node-status');
+  const statusLine = el('span', stateWords(state,language).name, 'node-status');
   statusLine.prepend(el('span', statusGlyph(state), 'status-glyph'));
   header.append(statusLine);
   const titleLine=el('span',undefined,'node-title-line');
-  if(n.kind && n.kind!=='work')titleLine.append(typeIcon(n.kind));
+  titleLine.append(typeIcon(n.kind || 'work'));
   titleLine.append(el('strong',title(n),'node-title'));header.append(titleLine);
   const reference=el('div',undefined,'ref-line node-reference');
   if(n.planned_checks?.some(c=>c.runs_own_files)){const mark=el('span',t('ownCheckMark'),'own-check-mark');mark.title=t('ownCheckEffect');reference.append(mark);}
@@ -2909,10 +2979,10 @@ function nodeCard(n, expanded = false, level = 'detail') {
   if(n.attempts)reference.append(el('span',attempts(n),'attempt-caption'));
   const decision=view.decisions.find(d=>d.node===n.id);
   const footer=el('div',undefined,'node-footer');
-  if(!decision && displayState(n,view.decisions)==='returned') {
+  if(!decision && state==='returned') {
     const reason=returnedLine(n);
     const line=el('span',reason);line.title=line.textContent;footer.append(line);
-    clear(reference);reference.append(el('span',t('returnedActor',{who:t(n.returned_by?.role==='reviewer'?'returnReviewer':'returnLeader')})));
+    clear(reference);const actor=returnActor(n);if(actor)reference.append(el('span',actor));
   }
   const essentials=el('div',undefined,'node-essentials');
   essentials.append(el('p',nodeSentence(n,view.nodes,language),'node-sentence'));
@@ -2971,6 +3041,7 @@ function createMap() {
   legend.addEventListener('toggle',()=>{toolbar.style.marginBottom=legend.open?key.offsetHeight+'px':'0px';size();if(automatic)fit();else{panIntent=true;snapTitles();}});
   const visibleCount=el('span',undefined,'map-visible'),overflowButtons=new Map();overflow.append(visibleCount);
   let data={nodes:[],edges:[],decisions:[]},chosenNode=null,layout=null,scale=1,automatic=true,level='detail',layouts=null,rawData=null;
+  Object.defineProperty(map, 'graphScene', {get:() => layout && structuredClone(layout)});
   const nodes=new Map(),chips=new Map(),seen=new Map();let drawing=null,placed=false,initialFitPending=false,layoutKey='',origin={x:0,y:0};
   const zoomText=el('output');zoomText.setAttribute('aria-live','polite');
   const rememberScroll=()=>{scrollPosition={left:viewport.scrollLeft,top:viewport.scrollTop};};
@@ -3011,8 +3082,14 @@ function createMap() {
   zoomOut.dataset.i18nLabel='zoomOut';zoomIn.dataset.i18nLabel='zoomIn';viewport.dataset.i18nLabel='mapHelp';
   const mapTitle=el('div',undefined,'map-title'), name=el('strong',t('graph')), direction=el('span',t('mapDirection'));
   name.dataset.i18n='graph';direction.dataset.i18n='mapDirection';mapTitle.append(name,direction);toolbar.prepend(mapTitle);translate();
+  function updateCounts(visible) {
+    const goals=layout.cards.filter(card=>card.kind==='goal').length;
+    Object.assign(visibleCount.dataset,{plan:layout.cards.length-goals,wholeResult:goals,visible});
+    visibleCount.textContent=t('visiblePlan',{total:layout.cards.length-goals,result:goals?t('visibleResult',{n:goals}):'',n:visible});
+  }
   function outside() {
-    if(!layout || !viewport.clientWidth)return;
+    if(!layout)return;
+    if(!viewport.clientWidth){updateCounts(0);return;}
     const w=viewport.clientWidth,h=viewport.clientHeight,ox=origin.x,oy=origin.y;
     const groups={offLeft:[],offRight:[],offTop:[],offBottom:[]}; let visible=0;
     for(const n of data.nodes) {
@@ -3028,7 +3105,7 @@ function createMap() {
     for(const c of layout.chips){const chip=chips.get(c.first);if(chip)chip.hidden=scale<1 || !!chip.dataset.tooWide || !!offscreenDirection({x:c.x*scale+ox-viewport.scrollLeft,y:c.y*scale+oy-viewport.scrollTop,width:c.width*scale,height:c.height*scale},w,h);}
     // The viewport clips routes naturally: an off-screen neighbour leaves a visible continuing stub.
     recordGraphRead();
-    visibleCount.textContent=t('visiblePlan',{total:data.nodes.filter(n=>!n.runLevel).length,n:visible});
+    updateCounts(visible);
     for(const [direction,b] of overflowButtons)b.hidden=!groups[direction].length;
     for(const [direction,items] of Object.entries(groups))if(items.length) {
       let b=overflowButtons.get(direction);
@@ -3082,6 +3159,8 @@ function createMap() {
     if(!$('panel').hidden && $('panel').onscroll)$('panel').onscroll();
     zoomText.textContent=t(level==='overview'?'overviewLevel':'detailLevel')+' '+Math.round(scale*100)+'%';zoomOut.disabled=level==='overview'&&scale<=MIN_FIT_SCALE;zoomOut.title=zoomOut.disabled?t('minZoom'):t('zoomOut');zoomIn.disabled=level==='detail'&&scale>=1.6;updateReadout();rememberScroll();outside();
   }
+  const maxCardWidth=()=>matchMedia('(max-width:760px)').matches ? Math.max(156,(viewport.clientWidth || innerWidth-72)-24) : Infinity;
+  let measuredWidth;
   const setRect=(element,rect)=>Object.assign(element.style,{left:rect.x+'px',top:rect.y+'px',width:rect.width+'px',height:rect.height+'px'});
   function update(next,id) {
     rawData=next;next=planFlow(next,language);
@@ -3089,25 +3168,29 @@ function createMap() {
     const planKey=JSON.stringify([next.nodes.map(n=>[n.id,n.title,n.kind,n.target]),next.edges.map(e=>[e.from,e.to,e.relation,e.label])]);
     if(planKey!==layoutKey){layoutKey=planKey;if(!placed){automatic=true;level='detail';}}
     const reveal=id&&id!==chosenNode;data=next;chosenNode=id;map.classList.toggle('has-expanded',!!id);
-    layouts=Object.fromEntries(['detail','overview'].map(level=>[level,layeredLayout(data.nodes,data.edges.map(e=>({...e,label:e.label?label(e.label):''})),data.decisions,true,{level,language,wrapLongChains:true,measure:(n,width)=>{
+    measuredWidth=maxCardWidth();
+    layouts=Object.fromEntries(['detail','overview'].map(level=>[level,layeredLayout(data.nodes,data.edges.map(e=>({...e,displayLabel:e.label?label(e.label):''})),data.decisions,true,{level,language,wrapLongChains:true,maxCardWidth:measuredWidth,measure:(n,width)=>{
       const sample=nodeCard(n,n.id===id,level);sample.classList.add('card-measure');sample.style.width=width+'px';sample.style.setProperty('--map-text','14px');stage.append(sample);
       if(nodes.get(n.id)?.querySelector('.answered-result')?.open && sample.querySelector('.answered-result'))sample.querySelector('.answered-result').open=true;
       const height=sample.offsetHeight;sample.remove();return height;
     }})]));
     layouts.overview=compactOverview(layouts.overview,viewport.clientWidth-24);
+    for(const name of ['detail','overview'])layouts[name]=createGraphScene(data.nodes,layouts[name],data.decisions,name);
     layout=layouts[level];
     size();
     if(!placed && viewport.clientWidth){const fitted=fitGraph(layouts,viewport.clientWidth-24,viewport.clientHeight-24);level=fitted.level;scale=fitted.scale;layout=layouts[level];}
     const focused=document.activeElement?.closest?.('[data-node]')?.dataset.node,focusedChip=document.activeElement?.dataset?.chip;
-    const activeIds=new Set(data.nodes.map(n=>n.id));
+    const activeIds=new Set(layout.cards.map(card=>card.id));
     for(const [key,element] of nodes)if(!activeIds.has(key)){element.remove();nodes.delete(key);}
-    for(const n of data.nodes) {
+    const byId = new Map(data.nodes.map(n => [n.id, n]));
+    for(const model of layout.cards) {
+      const n = byId.get(model.id);
       const expanded=n.id===chosenNode;
       const signature=JSON.stringify([level,n,data.decisions.filter(d=>d.node===n.id),planChanges?.find(c=>c.id===n.id)]);
       let element=nodes.get(n.id);
       if(!element){element=el('div',undefined,'node-position');nodes.set(n.id,element);stage.append(element);}
       if(element.dataset.signature!==signature) {
-        const card=nodeCard(n,expanded,level),before=seen.get(n.id),tone=cardTone(n);
+        const card=nodeCard({...n,kind:model.kind},expanded,model.level,model.state),before=seen.get(n.id),tone=cardTone(n);
         // One-shot motion only for a change observed while the page was open.
         if(before&&cometCount(n)>before.comets)card.classList.add('changed');
         else if(before&&before.tone!==tone&&['passed','current'].includes(tone))card.classList.add('changed');
@@ -3117,39 +3200,40 @@ function createMap() {
     }
     clear(key);
     name.textContent=planCounts(data.plan_counts||{work:data.nodes.filter(n=>n.kind==='work').length,review:data.nodes.filter(n=>n.kind==='review').length,decision:data.nodes.filter(n=>n.kind==='decision').length},language);mapTitle.classList.toggle('returned-title',$('flow').classList.contains('sent-plan'));
-    for(const [state,word] of [['open','lineSampleOpen'],['closed','lineSampleClosed'],['review','lineSampleReview']]){
-      if(!layout.routes.some(r=>(r.relation==='reviews'?'review':r.gateState==='open'?'open':'closed')===state))continue;
-      const sample=el('span',undefined,'line-sample '+state),caption=el('span',t(word));caption.dataset.i18n=word;sample.append(el('i'),caption);key.append(sample);
+    for(const relation of Object.keys(RELATION_MARKS)){
+      if(layout.edges.some(edge=>edge.style.relation===relation))key.append(lineSample('open',edgeRelationLabel({relation},language),relation));
+    }
+    for(const [gate,word] of Object.entries(GATE_LABELS)){
+      if(layout.edges.some(edge=>edge.style.gate===gate))key.append(lineSample(gate,t(word)));
     }
     const states=el('div',undefined,'state-legend');
-    for(const state of [...new Set(data.nodes.map(n=>displayState(n,data.decisions)))]) states.append(el('span',`${statusGlyph(state)} ${stateWords(state,language).name}`,'state-key state-'+state));
+    for(const state of [...new Set(layout.cards.map(card=>card.state))]) states.append(el('span',`${statusGlyph(state)} ${stateWords(state,language).name}`,'state-key state-'+state));
     if(data.nodes.some(n=>cometCount(n)>0)&&!data.nodes.some(n=>displayState(n,data.decisions)==='returned'))states.append(el('span','↩ '+t('returned'),'state-key'));
     if(data.nodes.some(n=>n.kind==='review')) { const mark=el('span',undefined,'state-key review-key'); mark.append(typeIcon('review'),el('span',t('review')));states.append(mark); }
     if(data.planned_questions?.length)states.append(el('span',t('questionsMark'),'state-key'));
     key.append(states);
     // Reorder existing controls without replacing them: tab order follows the drawing.
-    for(const id of layout.order){const e=nodes.get(id);setRect(e,layout.positions[id]);stage.append(e);}
+    for(const card of layout.cards){const e=nodes.get(card.id);setRect(e,card);stage.append(e);}
     if(drawing)drawing.remove();drawing=svg('svg',{width:layout.bounds.width,height:layout.bounds.height,class:'edge-layer','aria-hidden':'true'});
     const defs=svg('defs');
-    for(const state of ['open','closed','waiting_for_you']) {
-      const marker=svg('marker',{id:'arrow-'+state,viewBox:'0 0 10 10',refX:10,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'});marker.append(svg('path',{d:'M0 0 10 5 0 10Z',class:state}));defs.append(marker);
+    for(const relation of Object.keys(RELATION_MARKS)) {
+      const marker=svg('marker',{id:'arrow-'+relation,viewBox:'0 0 10 10',refX:10,refY:5,markerWidth:7,markerHeight:7,orient:'auto'});
+      marker.append(edgeMarker(relation));defs.append(marker);
     }
     drawing.append(defs);stage.prepend(drawing);
     for(const element of chips.values())element.remove();chips.clear();
-    for(const route of layout.routes) {
+    for(const route of layout.edges) {
       const {chip:c}=route;
       const d=roundedRoute(route.points);
-      const flowing=route.gateState==='open'&&['running','reviewing','retrying'].includes(displayState(data.nodes.find(n=>n.id===route.to)||{}, data.decisions));
-      const line=svg('path',{d,'data-from':route.from,'data-to':route.to,class:'edge-path '+route.gateState+(route.relation==='reviews'?' review':'')+(flowing?' flowing':''),'marker-end':`url(#arrow-${route.gateState})`});
+      const {gate,relation,flowing}=route.style;
+      const line=svg('path',{d,...edgeAttributes(route),class:'edge-path '+gate+(flowing?' flowing':''),'marker-end':`url(#arrow-${relation})`});
       drawing.append(svg('path',{d,class:'edge-underlay'}),flowing?inPhase(line,2000):line);
       if(!c||chips.has(c.first))continue;
-      const chip=el('div',undefined,'edge-chip '+route.gateState);
-      const source=data.nodes.find(n=>n.id===route.from),targets=layout.routes.filter(r=>r.chip===c).map(r=>title(data.nodes.find(n=>n.id===r.to))).join(', ');
-      chip.setAttribute('aria-label',`${edgeRelationLabel(route,language)}. ${title(source)} → ${targets}`);
+      const chip=el('div',undefined,'edge-chip '+gate);
+      const source=data.nodes.find(n=>n.id===route.from),targets=layout.edges.filter(r=>r.chip===c).map(r=>title(data.nodes.find(n=>n.id===r.to))).join(', ');
+      chip.setAttribute('aria-label',`${edgeRelationLabel({...route,label:route.text},language)}. ${title(source)} → ${targets}`);
       chip.append(el('span',route.text));chip.dataset.chip=c.key;setRect(chip,c);stage.append(chip);if(chip.firstElementChild.offsetWidth>c.width-20)chip.dataset.tooWide='true';chips.set(c.first,chip);
     }
-    // All focusable controls are ordered by column and then vertical position.
-    [...nodes.values(),...chips.values()].sort((a,b)=>parseFloat(a.style.left)-parseFloat(b.style.left)||parseFloat(a.style.top)-parseFloat(b.style.top)).forEach(e=>stage.append(e));
     const directionKey='mapDirection';
     direction.textContent=t(directionKey);direction.dataset.i18n=directionKey;
     mapTitle.classList.remove('map-complete');
@@ -3196,7 +3280,8 @@ function createMap() {
     const w=viewport.clientWidth,h=viewport.clientHeight;
     if(w===lastWidth&&h===lastHeight)return;
     lastWidth=w;lastHeight=h;
-    size();
+    if(w && measuredWidth!==maxCardWidth())update(rawData,chosenNode);
+    else size();
   }
   new ResizeObserver(()=>resize()).observe(viewport);
   function revealSelection() {

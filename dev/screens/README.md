@@ -9,9 +9,9 @@ node plugins/graph-flow/dev/screens/capture.mjs /Volumes/eyedisk/build/graph-flo
 ```
 
 The builder replaces only its marked `fixtures/` directory. The capture command
-writes the 101 numbered PNGs to `final/`, copies them and makes the requested ffmpeg
+writes the 108 numbered PNGs to `final/`, copies them and makes the requested ffmpeg
 variants in `verify/`, and records DOM observations, hashes, and process cleanup
-outside those directories. An optional third argument, e.g. `5,16`, recaptures only
+outside those directories. A capture can mutate its isolated fixtures, such as when it recovers a key. An optional third argument, e.g. `5,16`, recaptures only
 those numbers. Rebuild fixtures before a fresh full capture. No installs or real
 user state are used; every scenario has its own GF_HOME and scratch Git project.
 Only the processes started by this command are stopped. No `gf open` is used.
@@ -43,3 +43,9 @@ Round 20 adds the missing phone decisions and trajectory, lane-3 permission, dec
 Scenes 98–99 show both plan notices, recorded by real plan/red commands.
 
 Scenes 100–101 show separate complete check titles with passed, failed and not-run marks, then the remaining-check count.
+
+Scenes 102–108 verify independent record-to-graph relations, parallel review and
+handoff cues, a failed final result, retry history, duplicate titles, native Tab
+across a wrapped row, empty counts, long phone detail and minimum phone zoom.
+The capture checks the visible colors and geometry and records the number of routed
+segment crossings for each scene. Scene 102 also checks grayscale cue crops.

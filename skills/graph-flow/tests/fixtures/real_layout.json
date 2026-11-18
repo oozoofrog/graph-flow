@@ -57,8 +57,8 @@
       "label": "웹 화면 코드"
     },
     {
-      "from": "html-review",
-      "to": "html",
+      "from": "html",
+      "to": "html-review",
       "relation": "reviews",
       "label": ""
     },
@@ -81,8 +81,8 @@
       "label": "사용 설명서"
     },
     {
-      "from": "guide-review",
-      "to": "guide",
+      "from": "guide",
+      "to": "guide-review",
       "relation": "reviews",
       "label": ""
     }

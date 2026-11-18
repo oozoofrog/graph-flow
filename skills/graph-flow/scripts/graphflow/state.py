@@ -279,7 +279,7 @@ def derive(plan, events):
     prev_fps = None
     ever_seen = set()
     identity_revision_seq = 0
-    last_reset_seq = 0  # latest plan.set, node.reopen or gate.verdict
+    last_reset_seq = 0  # latest event invalidating the whole-result verdict
 
     def invalidate(nid, seq):
         # The assignment survives an invalidation: who does the work has not changed.
@@ -366,6 +366,7 @@ def derive(plan, events):
             a = node_acc(nid)
             if a is None:
                 continue
+            last_reset_seq = max(last_reset_seq, seq)
             for rid in reviewers.get(nid, ()):
                 invalidate(rid, seq)
             a["status"] = "running"
@@ -602,13 +603,13 @@ def derive(plan, events):
             ],
         }
 
+    current_final = final if final and final["seq"] > last_reset_seq else None
     complete = (
         bool(out_nodes)
         and all(n["status"] == "passed" and (not (n.get("submission") or {}).get("commit")
                 or n.get("merged_head")) for n in out_nodes.values())
-        and final is not None
-        and final.get("result") == "passed"
-        and final["seq"] > last_reset_seq
+        and current_final is not None
+        and current_final.get("result") == "passed"
     )
     if complete and run_dir is not None:
         for node in out_nodes.values():
@@ -635,6 +636,7 @@ def derive(plan, events):
             "status": "complete" if complete else "open",
             "host": host,
             "final": final,
+            "current_final": current_final,
         },
         "nodes": out_nodes,
         "decisions": decisions,

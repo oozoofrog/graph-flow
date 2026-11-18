@@ -294,13 +294,13 @@ class ShapeTests(EnvCase):
         self.assertEqual(s["decisions"], {})
         self.assertEqual(s["run"], {"id": RUN, "plan_revision": 0, "plan_identity": None, "status": "open", "approval_required": True, "run_nonce": None, "legacy": True, "repin_seq": 0,
                                  "human_key_sha256": None, "key_mismatch": False, "location": store.location(log.run_dir), "location_mismatch": False, "plan_error": False,
-                                    "host": ["t3_delegate"], "final": None})
+                                    "host": ["t3_delegate"], "final": None, "current_final": None})
 
     def test_empty_events(self):
         s = state.derive(None, [])
         self.assertEqual(s, {"run": {"id": None, "plan_revision": 0, "plan_identity": None, "status": "open", "approval_required": True, "run_nonce": None, "legacy": True, "repin_seq": 0,
                                  "human_key_sha256": None, "key_mismatch": False, "location": None, "location_mismatch": False, "plan_error": False,
-                                     "host": [], "final": None},
+                                     "host": [], "final": None, "current_final": None},
                              "nodes": {}, "decisions": {}})
 
     def test_defaults_for_all_three_kinds(self):

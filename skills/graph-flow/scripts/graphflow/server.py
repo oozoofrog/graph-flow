@@ -483,7 +483,8 @@ def _view(current, derived, events, project):
             "run": derived["run"]["id"], "project": pathlib.Path(project).name,
             "edges": [], "decisions": [], "answered": [], "lessons": [], "timeline": [],
             "counts": dict.fromkeys(("done", "doing", "waiting", "needs_you", "returned", "returns_total"), 0),
-            "complete": derived["run"]["status"] == "complete"}
+            "complete": derived["run"]["status"] == "complete",
+            "final_result": _mapping(derived["run"].get("current_final")).get("result")}
 
     def title(nid):
         return _text(nodes.get(nid, {}).get("title"), nid)
@@ -507,8 +508,8 @@ def _view(current, derived, events, project):
         st = derived["nodes"][nid]
         laps, reasons = _history(node, st, events)
         passed = st["status"] == "passed"
-        gates[nid] = ("open" if passed else "returned" if reasons else
-                      "waiting_for_you" if st["open_decisions"] else "closed")
+        gates[nid] = ("open" if passed else "waiting_for_you" if st["open_decisions"] else
+                      "returned" if st["status"] in ("rejected", "replan") else "closed")
         family = _mapping(st["assignment"]).get("family")
         submission = _mapping(st["submission"]).get("id")
         reviewed = any(isinstance(family, str) and isinstance(r.get("family"), str)
@@ -559,10 +560,11 @@ def _view(current, derived, events, project):
                   "waits_for_decision" if nodes[need["from"]]["kind"] == "decision" else "hands_over")
                  for need in _objects(node.get("needs"))]
         if node["kind"] == "review":
-            edges.append((nid, node["target"], "", "reviews"))
+            edges.append((node["target"], nid, "", "reviews"))
         for producer, receiver, label, relation in edges:
+            gate = gates[receiver if relation == "reviews" else producer]
             view["edges"].append({"from": producer, "to": receiver, "label": label, "relation": relation,
-                                  "delivered": gates[producer] == "open", "gate": gates[producer]})
+                                  "delivered": gate == "open", "gate": gate})
 
     presented = {n["id"]: n for n in view["nodes"]}
     for edge in view["edges"]:
