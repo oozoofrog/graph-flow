@@ -7,7 +7,7 @@
     "url": "https://github.com/oozoofrog"
   },
   "skills": "./skills/",
-  "repository": "https://github.com/oozoofrog/oozoofrog-plugin",
+  "repository": "https://github.com/oozoofrog/graph-flow",
   "interface": {
     "displayName": "Graph Flow",
     "shortDescription": "Plan, verify, and track multi-step work as a graph",

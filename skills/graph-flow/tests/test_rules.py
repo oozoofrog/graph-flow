@@ -188,7 +188,7 @@ assert.equal(offscreenDirection({x:-1,y:-1,width:10,height:10},100,100),'offLeft
 const diff=contractDiff({checks:[{run:'true',timeout_s:5}]},{checks:[{run:'false',timeout_s:9}]});
 assert.equal(diff.length,2);assert(diff.some(x=>x.before===5&&x.after===9));
 """ % json.dumps(url)
-        result=subprocess.run([executable,'--input-type=module','-e',source],capture_output=True,text=True)
+        result=subprocess.run([executable,'--input-type=module', '-'], input=source,capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr[-1500:])
 
     def test_own_file_execution_marker_does_not_confuse_reading_with_execution(self):

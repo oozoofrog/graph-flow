@@ -7,7 +7,7 @@ specify the contracts that evaluation tasks may later modify. Import from
 Run the visible tests from the repository root without creating bytecode:
 
 ```sh
-python3 -I -S -B -m unittest discover -s plugins/graph-flow/dev/eval/fixture/tests -t plugins/graph-flow/dev/eval/fixture
+python3 -I -S -B -m unittest discover -s dev/eval/fixture/tests -t dev/eval/fixture
 ```
 
 No installation, network access, or external data is required.

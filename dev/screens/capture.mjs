@@ -18,7 +18,7 @@ const manifest = JSON.parse(readFileSync(path.join(here, 'screens.json')));
 const ratchets = JSON.parse(readFileSync(path.join(skill,'tests/fixtures/routing_ratchets.json'))).screens;
 const fixtures = JSON.parse(readFileSync(path.join(output, 'fixtures/index.json')));
 const which = name => (process.env.PATH || '').split(path.delimiter).map(p => path.join(p, name)).find(p => existsSync(p));
-const chromePath = which('chromium') || which('google-chrome') || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const chromePath = process.env.CHROME_BIN || which('chromium') || which('google-chrome') || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 assert(existsSync(chromePath), 'headless Chrome is required; see test_review14_browser.py');
 const ffmpeg = which('ffmpeg');
 assert(ffmpeg, 'ffmpeg is required for verification images');

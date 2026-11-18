@@ -6,15 +6,14 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest import mock
-from test_questions20 import OUTPUT, fixtures
+from test_questions20 import fixtures
 import test_page
 import test_gate
 from graphflow import assign, plan, server, state, store, trace
 
 class History20Tests(unittest.TestCase):
     def setUp(self):
-        OUTPUT.mkdir(parents=True,exist_ok=True)
-        self.tmp=tempfile.TemporaryDirectory(dir=OUTPUT);self.addCleanup(self.tmp.cleanup)
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name);self.f=fixtures.Fixture(self.root,'observations')
         env=mock.patch.dict(os.environ,self.f.env,clear=True);env.start();self.addCleanup(env.stop)
 

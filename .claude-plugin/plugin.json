@@ -6,7 +6,7 @@
     "name": "oozoofrog",
     "url": "https://github.com/oozoofrog"
   },
-  "repository": "https://github.com/oozoofrog/oozoofrog-plugin",
+  "repository": "https://github.com/oozoofrog/graph-flow",
   "mcpServers": {
     "graph-flow": {
       "command": "python3",

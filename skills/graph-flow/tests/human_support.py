@@ -3,9 +3,14 @@ import contextlib
 import io
 import json
 import os
+import shutil
 from pathlib import Path
 from unittest import mock
 from graphflow import cli, state, store
+
+
+CHROME = (os.environ.get('CHROME_BIN') or shutil.which('chromium') or shutil.which('google-chrome')
+          or '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
 
 
 def approve_plan(run):

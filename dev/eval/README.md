@@ -10,15 +10,15 @@ two shared changes needing review, and one task with three independent parts.
 Run from the repository root. List task IDs and inspect command help:
 
 ```sh
-python3 -I -S -B plugins/graph-flow/dev/eval/run_task.py --help
-python3 -I -S -B plugins/graph-flow/dev/eval/run_task.py list
+python3 -I -S -B dev/eval/run_task.py --help
+python3 -I -S -B dev/eval/run_task.py list
 ```
 
 Prepare one fresh scratch candidate outside the fixture and task directories:
 
 ```sh
-eval_scratch=$(mktemp -d /tmp/graph-flow-eval.XXXXXX)
-python3 -I -S -B plugins/graph-flow/dev/eval/run_task.py setup 01-compatibility-slugs "$eval_scratch"
+eval_scratch=$(mktemp -d "${TMPDIR%/}/graph-flow-eval.XXXXXX")
+python3 -I -S -B dev/eval/run_task.py setup 01-compatibility-slugs "$eval_scratch"
 ```
 
 Read that task's `task.json` prompt and modify only the scratch candidate.
@@ -26,8 +26,8 @@ Keep `solution/`, `hidden_tests/`, and review `tempting/` states out of worker
 and planner context. Score the completed candidate against external hidden tests:
 
 ```sh
-python3 -I -S -B plugins/graph-flow/dev/eval/run_task.py score 01-compatibility-slugs "$eval_scratch"
-python3 -I -S -B plugins/graph-flow/dev/eval/run_task.py selfcheck --expect 10 --mix single=4,chain=3,review=2,parallel=1
+python3 -I -S -B dev/eval/run_task.py score 01-compatibility-slugs "$eval_scratch"
+python3 -I -S -B dev/eval/run_task.py selfcheck --expect 10 --mix single=4,chain=3,review=2,parallel=1
 ```
 
 `setup` copies the fixture plus the task's starting overlay; its destination must
@@ -92,7 +92,7 @@ For each task, arm and repetition, retain the candidate, plan, settings, `score`
 JSON/exit code, and graph-flow trace. With `GF_RUN` selecting that run, use:
 
 ```sh
-python3 -I -S -B plugins/graph-flow/skills/graph-flow/scripts/gf trace --conformance
+python3 -I -S -B skills/graph-flow/scripts/gf trace --conformance
 ```
 
 Record hidden-test pass from `score`, attempts and rejections, planned and

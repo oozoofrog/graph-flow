@@ -217,7 +217,7 @@ class Recovery15Tests(unittest.TestCase):
         script=Path(__file__).parents[1]/'scripts/graphflow/page.js'
         source=script.read_text();source=source[:source.index("if (typeof document !== 'undefined')")]
         code=source+'\nconsole.log(JSON.stringify(releasedNodes('+json.dumps(self.raw['nodes'])+',"q").map(n=>n.id).sort()));'
-        result=subprocess.run([NODE,'--input-type=module','-e',code],text=True,capture_output=True,check=True)
+        result=subprocess.run([NODE,'--input-type=module', '-'], input=code,text=True,capture_output=True,check=True)
         self.assertEqual(json.loads(result.stdout),expected);self.assertEqual(expected,['a','b'])
 
     def test_s6_recovery_documentation_names_working_commands(self):
@@ -271,5 +271,5 @@ const c=createDecisionController(),q={id:'d1',kind:'authorization',purpose:'auth
 c.refresh({decisions:[q],nodes:[]},{project:'p',run:'r'});c.open('d1');assert(c.canSubmit('rejected',''));assert(!c.canSubmit('revision_requested',''));
 console.log('counts, compact fit, refusal passed');
 '''
-        result=subprocess.run([NODE,'--input-type=module','-e',code],text=True,capture_output=True)
+        result=subprocess.run([NODE,'--input-type=module', '-'], input=code,text=True,capture_output=True)
         self.assertEqual(result.returncode,0,result.stderr[-2000:])

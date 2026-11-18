@@ -9,9 +9,9 @@ import unittest
 
 import test_plan_approval as fixture
 from graphflow import server
+from human_support import CHROME
 
 NODE = shutil.which('node')
-CHROME = shutil.which('chromium') or shutil.which('google-chrome') or '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 
 @unittest.skipUnless(NODE and Path(CHROME).is_file(), 'headless Chrome and Node are required')
