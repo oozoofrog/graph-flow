@@ -573,7 +573,7 @@ export function createSpaceView({area,viewport,toolbar,svg,t,duration,stamp,read
         focusTargets.set(item.key,element);targets.append(element);
       }
       element.setAttribute('aria-label',item.text);
-      element.setAttribute('aria-description',(item.node?nodeTitle(item.node):nodeTitle(item.from)+' → '+nodeTitle(item.to))+
+      element.setAttribute('aria-description',(item.node?nodeTitle(item.node):transferDirection(item))+
         ' · '+stamp(item.time));
       element.setAttribute('d',item.drawn.getAttribute('d'));
       const transform=item.drawn.getAttribute('transform');
@@ -615,6 +615,10 @@ export function createSpaceView({area,viewport,toolbar,svg,t,duration,stamp,read
     if(hovered){hovered=null;budgetLabels();}
   });
 
+  function transferDirection(line) {
+    return line.from===line.to?nodeTitle(line.from):nodeTitle(line.from)+' → '+nodeTitle(line.to);
+  }
+
   function drawerRows(){
     const data=read();
     if(!scene||!data)return [];
@@ -622,7 +626,7 @@ export function createSpaceView({area,viewport,toolbar,svg,t,duration,stamp,read
     const pillar=scene.pillars.find(p=>p.id===node);
     const rows=pillar?[...pillar.segments,...pillar.marks].map(item=>({...item,text:recordWords(item,t,duration)})):[];
     for(const line of scene.lines)if(line.key===relation||node&&(line.from===node||line.to===node)){
-      const direction=nodeTitle(line.from)+' → '+nodeTitle(line.to);
+      const direction=transferDirection(line);
       const text=(line.reverse?t('timeReturned'):t('spaceHandoff'))+' · '+direction+
         (line.duration>0?' · '+waitWords(line,t,duration):'');
       rows.push({...line,text});

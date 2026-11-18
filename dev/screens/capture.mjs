@@ -1465,6 +1465,10 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
   const test="document.querySelector('#map').graphTest";
   const current = () => evaluate(test+'.space()');
   const click = selector => evaluate('document.querySelector('+JSON.stringify(selector)+').click()');
+  const closePanel = async () => {
+    await click('#panel .panel-close');
+    await evaluate('document.activeElement.blur()');
+  };
   const press = mode => click('.space-views [data-view='+mode+']');
   const ledger = readFileSync(ledgerPath(fixture,'events.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
   const floor = Date.parse(ledger[0].ts);
@@ -1650,7 +1654,7 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
       const selected=await assertReading();
       if(includeMarks&&pillar.id==='api')assert(selected.shownKinds.includes('mark'),'T9 selected path shows boundary words');
     }
-    await click('#panel .panel-close');
+    await closePanel();
     assert.deepEqual([...result].sort(),ids,'L2 drawn and drawer-reachable record ID sets match');
   }
   const kind=screen.space_scene;
@@ -1739,7 +1743,7 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
     const initial=await assertReading(!observe.animating);
     await click('#map [data-node="api"] .node-header');
     await assertReading(!observe.animating);
-    await click('#panel .panel-close');
+    await closePanel();
     observe={...observe,labels:initial.shown,withheld:initial.withheld};
   } else {
     const long=['compressed','long-side','true-scale'].includes(kind);
@@ -1777,7 +1781,7 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
       await click('.space-label-convergence');
       assert(await evaluate("document.querySelector('#panel').dataset.trunk==='true' && document.querySelectorAll('#panel .edge-choices button').length>1"),
         'Selecting a convergence expands its related transfers');
-      await click('#panel .panel-close');
+      await closePanel();
     }
     if(['decision','side','compressed','short','short-side','long-side'].includes(kind)){
       assert(defaultReading.withheld>0,'L2 crowded fixture exercises withholding');
@@ -1894,9 +1898,12 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
     if(!['node','side-node','relation'].includes(kind)){
       await click('#map [data-node="api"] .node-header');
       await assertReading();
-      await click('#panel .panel-close');
+      await closePanel();
     }
     if(snap)assert(await evaluate("document.querySelector('#time-bar').dataset.mode==='past' || !document.querySelector('#time-readout').hidden"));
+    if(!['node','side-node','relation'].includes(kind))
+      assert.equal(await evaluate("document.querySelectorAll('#map .node-position.graph-path').length"),0,
+        'Default capture has no lingering node focus');
     observe={space,defaultReading:report(defaultReading),capturedReading:report(await assertReading())};
   }
   await paint();

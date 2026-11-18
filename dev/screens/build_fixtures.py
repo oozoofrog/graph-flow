@@ -291,15 +291,22 @@ def spacetime_fixture(f, long_gap, short, english):
         f.raw.update(title='Search API and release notes', goal='Prepare the search API and release notes.')
         titles = ('Gather requirements', 'Search API', 'Search interface', 'API review',
                   'Release scope', 'Release notes', 'Integration')
+        artifacts = {'결과': 'Result', '허가': 'Approval'}
         for node, title in zip(f.raw['nodes'], titles):
             node.update(title=title, goal=title + ' for the test release.')
+            if 'outputs' in node:
+                node['outputs'] = [artifacts[name] for name in node['outputs']]
+            for need in node.get('needs', []):
+                need['artifact'] = artifacts[need['artifact']]
             for check in node.get('checks', []):
                 check['title'] = 'The result file has content'
+        r['lens'] = 'Accuracy, accessibility and missing cases'
         q['question'] = 'Publish the guide to the test environment?'
         q['context'] = {'why': 'Check the reviewed guide in the test environment.',
                         'undo': 'The guide can be taken down.'}
     own = f.raw['nodes'][1]
-    own['checks'][0]['run'] = 'grep -q "빈 결과 처리" api.txt'
+    fix = 'Handle empty results' if english else '빈 결과 처리'
+    own['checks'][0]['run'] = 'grep -q "' + fix + '" api.txt'
     f.post(True)
     f.submit('a', True)
     f.submit('screen', True)
@@ -309,7 +316,8 @@ def spacetime_fixture(f, long_gap, short, english):
     findings = f.root / 'findings.json'
     for attempt in (1, 2):
         f.call('start', 'api')
-        own_path.write_text('검색 결과와 빈 결과 처리\n' if attempt == 2 else '검색 결과\n', encoding='utf-8')
+        content = 'Search results' if english else '검색 결과'
+        own_path.write_text(content + ('\n' + fix if attempt == 2 else '') + '\n', encoding='utf-8')
         f.call('check', 'run', 'api', 'text', code=1 if attempt == 1 else 0)
         f.call('submit', 'api')
         f.call('start', 'r')

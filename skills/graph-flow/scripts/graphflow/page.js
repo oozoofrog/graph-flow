@@ -5220,7 +5220,7 @@ function createMap() {
       apply:applySpace,load:()=>timeBar.history(),clock:motionClock,deterministic:()=>graphTestClock?.time!=null,
       canAnimate:()=>!reduced.matches&&!motionPaused,canOrbit:()=>!!gpu&&!forcedColors.matches,
       isPhone:()=>phone.matches,select:selectEdge,choose:chooseEdge,selectNode,
-      notes:spaceNotes,nodeTitle:id=>layout.positions[id]?.title||id});
+      notes:spaceNotes,nodeTitle:id=>data.nodes.find(node=>node.id===id)?.title||id});
     space.refresh();
   }
   return {update,observeReplay,enableSpace,timeCut:()=>space?.refresh(),resetSpace:()=>space?.reset(),resetMotion:()=>fx.observe(null,motionClock(),false,true),
