@@ -43,14 +43,21 @@ try {
   await evaluate(`[...document.querySelectorAll('.map-toolbar button')].find(b=>b.dataset.action==='fit').click(); ${paint}`);
   assert(await evaluate(`(()=>{const v=document.querySelector('.map-viewport').getBoundingClientRect();return (Number(document.querySelector('#map').dataset.scale)>=6/7 && [...document.querySelectorAll('.map-overflow button')].some(b=>!b.hidden&&/→|↓|←|↑/.test(b.textContent))) || [...document.querySelectorAll('#map .node-card')].every(e=>{const r=e.getBoundingClientRect();return r.left>=v.left-.5&&r.right<=v.right+.5&&r.top>=v.top-.5&&r.bottom<=v.bottom+.5;});})()`),'fit with side panel contains every complete card or provides directions at the readable floor');
   // E1–E6: actual rectangles, not just stylesheet declarations.
+  const selectedCardIsVisible = `(()=>{
+    const r=document.querySelector('#map [data-node="n0"]').getBoundingClientRect();
+    const v=document.querySelector('.map-viewport').getBoundingClientRect();
+    return r.left>=v.left&&r.right<=v.right&&r.top>=v.top&&r.bottom<=v.bottom;
+  })()`;
   for(const width of [1440,1000,800]) {
     await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
     await until(evaluate, `innerWidth===${width}`);
     await evaluate(paint);
     for(const label of ['상세 보기','간략 보기','화면에 맞추기']) {
       await evaluate(`[...document.querySelectorAll('.map-toolbar button')].find(b=>b.textContent===${JSON.stringify(label)}||(${JSON.stringify(label)}==='화면에 맞추기'&&b.dataset.action==='fit')).click(); ${paint}`);
+      // The legacy toolbar can resize before the renderer reveals the selection again.
+      await until(evaluate, selectedCardIsVisible);
       assert(await evaluate(`(()=>{const e=document.querySelector('.map-visible'),r=e.getBoundingClientRect(),t=document.querySelector('.map-toolbar').getBoundingClientRect();return e.scrollWidth<=e.clientWidth+1&&r.left>=t.left&&r.right<=t.right})()`),'E1 whole count phrases fit the toolbar');
-      assert(await evaluate(`(()=>{const e=document.querySelector('#map [data-node="n0"]'),r=e.getBoundingClientRect(),v=document.querySelector('.map-viewport').getBoundingClientRect();return r.left>=v.left&&r.right<=v.right&&r.top>=v.top&&r.bottom<=v.bottom})()`),'E3 selected card survives fit and level changes '+JSON.stringify({width,label,rects:await evaluate("[document.querySelector('#map [data-node=n0]'),document.querySelector('.map-viewport')].map(e=>e.getBoundingClientRect().toJSON())")}));
+      assert(await evaluate(selectedCardIsVisible),'E3 selected card survives fit and level changes '+JSON.stringify({width,label,rects:await evaluate("[document.querySelector('#map [data-node=n0]'),document.querySelector('.map-viewport')].map(e=>e.getBoundingClientRect().toJSON())")}));
       assert(await evaluate(`(()=>{const v=document.querySelector('.map-viewport');return getComputedStyle(v).scrollbarGutter==='stable both-edges'&&v.offsetWidth>v.clientWidth})()`),'E5 reserve scrollbar gutter');
       assert(await evaluate(`[...document.querySelectorAll('#map .node-card')].every(e=>e.scrollHeight<=e.clientHeight+1 && e.getBoundingClientRect().height<=e.parentElement.getBoundingClientRect().height+1)`),'E6 measured content fits every card');
     }
