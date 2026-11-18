@@ -5129,6 +5129,7 @@ function createMap() {
   }
   function enableSpace(createSpaceView) {
     if(space)return;
+    viewport.setAttribute("aria-keyshortcuts", "1 2 3 Shift+ArrowUp Shift+ArrowDown Shift+ArrowLeft Shift+ArrowRight");
     space=createSpaceView({area,viewport,toolbar,svg,t,duration:historyDuration,stamp:historyStamp,
       read:()=>layout&&timeCut&&viewport.clientWidth?{layout,cut:timeCut,box:flatBox(),sideScroll,
         focus:{active:!!focusId,cards:focus?.cards||new Set(),

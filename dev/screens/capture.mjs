@@ -1600,9 +1600,24 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
         const a=coordinates.get(space.lanes[i-1].id),b=coordinates.get(space.lanes[i].id);
         assert(a.x+a.width/2<b.x-b.width/2,'T5 card lanes do not overlap');
       }
-      for(const pillar of space.scene.pillars)for(const segment of pillar.segments)
+      const mesh=await evaluate(`(()=>{
+        const yValues=e=>[...e.getAttribute('d').matchAll(/[ML]([0-9.e+-]+) ([0-9.e+-]+)/g)].map(m=>+m[2]);
+        const low=yValues(document.querySelector('.space-frame'))[0];
+        const high=yValues(document.querySelector('.space-plane'))[0];
+        return {low,high,cut:+document.querySelector('#time-slider').value,segments:[
+          ...document.querySelectorAll('.space-segment:not(.space-face),.space-tick')].map(e=>{
+            const y=yValues(e);return {id:e.dataset.node,kind:e.dataset.kind,start:+e.dataset.start,end:+e.dataset.end,
+              low:Math.max(...y),high:Math.min(...y)};
+          })};
+      })()`);
+      const heightAt=slot=>mesh.low+(mesh.high-mesh.low)*slot/mesh.cut;
+      for(const pillar of space.scene.pillars)for(const segment of pillar.segments){
+        const actual=mesh.segments.find(s=>s.id===pillar.id&&s.kind===segment.kind&&s.start===segment.start&&s.end===segment.end);
+        assert(actual&&Math.abs(actual.low-heightAt(segment.low))<.5&&Math.abs(actual.high-heightAt(segment.high))<.5,
+          'T3 actual interval geometry uses exact mapped time');
         assert(currentView.labels.some(label=>label.id===pillar.id&&label.kind===segment.kind&&
           label.start===segment.start&&label.end===segment.end&&label.text.length>3),'T9 word label for each side interval');
+      }
     }
     for(const pillar of space.scene.pillars){
       assert(pillar.segments.every(seg=>seg.start<=seg.end&&seg.end<=time),'T2 every visible interval ends at/before the cut');
@@ -1648,7 +1663,12 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
     if(kind==='past'){
       assert(await evaluate("!document.querySelector('#time-past').hidden && !document.querySelector('#attention button')"),
         'T7 history is explicit and has no answer action');
+      const previous=clock.version[0];
+      cli(fixture,['decide','ask','--kind','information','--question','누가 이 안내를 읽나요?']);
+      await refreshRecords();await until(test+'.history().version[0]>'+previous);
+      assert.equal((await evaluate(test+'.history()')).at,time,'T7 new live records leave a paused cut fixed');
       await click('#time-live');
+      assert((await evaluate(test+'.history()')).at>=time,'T7 Live catches up to the latest observation');
       assert(await evaluate("document.querySelector('#time-past').hidden && !!document.querySelector('#attention button')"),
         'T7 returning live restores the actual pending action');
       await seek(at);
@@ -1660,6 +1680,13 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
   const {data}=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
   const bytes=Buffer.from(data,'base64');
   writeFileSync(path.join(final,filename),bytes);copyFileSync(path.join(final,filename),path.join(verify,filename));
+  if(kind==='side-motion'&&!fallback){
+    await press('space');await step(2500);
+    await evaluate("document.querySelector('.graph-webgl canvas').getContext('webgl2').getExtension('WEBGL_lose_context').loseContext()");
+    await until("document.querySelector('#map').dataset.renderer==='svg' && "+test+".space().pose[1]===1");
+    assert(await evaluate("!document.querySelector('#time-slider').disabled && !!document.querySelector('.space-plane')"),
+      'Context loss retains the time bar and static side rendering');
+  }
   return {video,observe,sha256:createHash('sha256').update(bytes).digest('hex')};
 }
 
