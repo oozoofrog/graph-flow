@@ -4,8 +4,9 @@ Run from the repository root (Python standard library, Node with built-in WebSoc
 Google Chrome, and ffmpeg must already be available):
 
 ```bash
-python3.12 -I -S -B dev/screens/build_fixtures.py /Volumes/eyedisk/build/graph-flow-screens/gf-split
-SCREENS_PYTHON="$(command -v python3.12)" node dev/screens/capture.mjs /Volumes/eyedisk/build/graph-flow-screens/gf-split
+OUT=./captures/graph-flow-webgl
+python3.12 -I -S -B dev/screens/build_fixtures.py "$OUT"
+SCREENS_PYTHON="$(command -v python3.12)" node dev/screens/capture.mjs "$OUT"
 ```
 
 Set `CHROME_BIN` if Chrome is installed elsewhere. CI runs both full captures
@@ -59,8 +60,9 @@ on eligible diagrams if the probe succeeds. For a second pass, build fresh
 fixtures and force SVG:
 
 ```bash
-python3.12 -I -S -B dev/screens/build_fixtures.py /Volumes/eyedisk/build/graph-flow-screens/gf-split-fallback
-SCREENS_RENDERER=svg SCREENS_PYTHON="$(command -v python3.12)" node dev/screens/capture.mjs /Volumes/eyedisk/build/graph-flow-screens/gf-split-fallback
+OUT=./captures/graph-flow-svg
+python3.12 -I -S -B dev/screens/build_fixtures.py "$OUT"
+SCREENS_RENDERER=svg SCREENS_PYTHON="$(command -v python3.12)" node dev/screens/capture.mjs "$OUT"
 ```
 
 The capture records first-frame timing, observed pan frame intervals and

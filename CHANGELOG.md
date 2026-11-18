@@ -2,6 +2,8 @@
 
 ## Unreleased — 0.4.0-dev
 
+- Concurrent dashboard opens share one detached server and wait for an authenticated response. The server binds directly to its numeric loopback address.
+
 - Graph Flow uses a dark-only dashboard and retires the light presentation. Graph cards identify work, state, risk and recent recorded activity in words and patterns. Relations name their live flow state on their own branches. The graph adds record-triggered motion with one pause and a static SVG path, an overlay detail drawer, a phone bottom sheet, and locally bundled OFL fonts.
 
 - Graph Flow relation details show the relevant records, and work details link the full-width 3D scene to phase records and aligned category totals.
