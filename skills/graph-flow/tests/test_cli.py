@@ -478,14 +478,16 @@ class CLITests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = pathlib.Path(temporary).resolve()
             scripts = {}
-            for version in ("0.1.1", "0.2.0", "0.10.0", "tmp-abc123"):
+            for version in ("0.1.1", "0.2.0", "0.10.0-dev", "0.10.0", "tmp-abc123"):
                 scripts[version] = root / "cache" / "graph-flow" / version / "skills" / "graph-flow" / "scripts" / "gf"
                 scripts[version].parent.mkdir(parents=True)
                 scripts[version].write_text("print(%r)\n" % version)
-            launcher.install(root / "bin", scripts["0.1.1"])
+            launcher.install(root / "bin", scripts["0.10.0-dev"])
             run = lambda: subprocess.run([sys.executable, str(root / "bin" / "graph-flow")], capture_output=True, text=True)
             self.assertEqual(run().stdout.strip(), "0.10.0")
             shutil.rmtree(str(scripts["0.10.0"].parents[3]))
+            self.assertEqual(run().stdout.strip(), "0.10.0-dev")
+            shutil.rmtree(str(scripts["0.10.0-dev"].parents[3]))
             shutil.rmtree(str(scripts["0.1.1"].parents[3]))
             self.assertEqual(run().stdout.strip(), "0.2.0")
             shutil.rmtree(str(root / "cache"))

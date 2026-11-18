@@ -11,7 +11,7 @@ permissions:
 jobs:
   verify:
     runs-on: macos-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     env:
       CHROME_BIN: /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
     steps:
@@ -37,5 +37,14 @@ jobs:
         run: python -I -S -B -m unittest discover -s scripts/tests -v
       - name: Eval runner checks
         run: python -I -S -B -m unittest discover -s dev/eval/tests -t dev/eval -v
+      - name: Capture dashboard scenes in WebGL and forced SVG
+        run: |
+          export SCREENS_PYTHON="$(command -v python)"
+          webgl="$RUNNER_TEMP/graph-flow-webgl"
+          svg="$RUNNER_TEMP/graph-flow-svg"
+          python -I -S -B dev/screens/build_fixtures.py "$webgl"
+          node dev/screens/capture.mjs "$webgl"
+          python -I -S -B dev/screens/build_fixtures.py "$svg"
+          SCREENS_RENDERER=svg node dev/screens/capture.mjs "$svg"
       - name: Whitespace checks
         run: git diff --check

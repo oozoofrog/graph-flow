@@ -13,14 +13,15 @@ class ScreenManifestTests(unittest.TestCase):
         tree = ast.parse((SCREENS / 'build_fixtures.py').read_text())
         scenarios = next(ast.literal_eval(node.value) for node in tree.body
                          if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'SCENARIOS' for t in node.targets))
-        self.assertEqual(list(range(1, 102)), [row['number'] for row in rows])
+        self.assertEqual([*range(1, 109), *range(110, 137)], [row['number'] for row in rows])
         self.assertEqual(len(rows), len({row['name'] for row in rows}))
         self.assertEqual(set(scenarios), {row['scenario'] for row in rows})
         for row in rows:
-            self.assertIn(row['group'], {'EVERYDAY', 'OCCASIONAL', 'RARE', 'FIRST-SENTENCE', 'LONG-TEXT', 'DECISIONS'})
+            self.assertIn(row['group'], {'EVERYDAY', 'OCCASIONAL', 'RARE', 'FIRST-SENTENCE', 'LONG-TEXT', 'DECISIONS', 'GRAPH-VERIFICATION'})
             viewport = row['viewport']
             self.assertEqual((viewport['width'], viewport['height']),
-                             {'desktop': (1440, 900), 'compact-desktop': (1280, 900), 'phone': (390, 844)}[viewport['name']])
+                             {'desktop': (1440, 900), 'compact-desktop': (1280, 900), 'phone': (390, 844),
+                              'activity-desktop': (1440, 1020), 'instrument-desktop': (1440, 1020), 'tall-desktop': (1440, 1080)}[viewport['name']])
             self.assertRegex(row['name'], r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
             self.assertTrue(row['url'].startswith('/?t={token}#project={project}&run={run}'))
             for action in row['interactions']:

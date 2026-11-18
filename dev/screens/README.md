@@ -4,18 +4,19 @@ Run from the repository root (Python standard library, Node with built-in WebSoc
 Google Chrome, and ffmpeg must already be available):
 
 ```bash
-python3 -I -S -B dev/screens/build_fixtures.py /Volumes/eyedisk/build/graph-flow-screens/r20
-node dev/screens/capture.mjs /Volumes/eyedisk/build/graph-flow-screens/r20
+python3.12 -I -S -B dev/screens/build_fixtures.py /Volumes/eyedisk/build/graph-flow-screens/gf-split
+SCREENS_PYTHON="$(command -v python3.12)" node dev/screens/capture.mjs /Volumes/eyedisk/build/graph-flow-screens/gf-split
 ```
 
-Set `CHROME_BIN` if Chrome is installed elsewhere. The CI unittest suite runs a
-headless browser subset. Run the full capture locally to collect visual evidence.
+Set `CHROME_BIN` if Chrome is installed elsewhere. CI runs both full captures
+serially. Run the commands locally to retain images and verification records.
 
 The builder replaces only its marked `fixtures/` directory. The capture command
-writes the numbered PNGs to `final/`, copies them and makes the requested ffmpeg
+writes 135 numbered PNGs to `final/`, copies them and makes the requested ffmpeg
 variants in `verify/`, and records DOM observations, hashes, and process cleanup
-outside those directories. A capture can mutate its isolated fixtures, such as when it recovers a key. An optional third argument, e.g. `5,16`, recaptures only
-those numbers. Rebuild fixtures before a fresh full capture. No installs or real
+outside those directories. Some scenes alter their isolated fixtures, for
+example when recovering a key. An optional third argument such as `5,16`
+recaptures only those scenes. Rebuild fixtures before a fresh full capture. No installs or real
 user state are used; every scenario has its own GF_HOME and scratch Git project.
 Only the processes started by this command are stopped. No `gf open` is used.
 
@@ -53,9 +54,15 @@ across a wrapped row, empty counts, long phone detail and minimum phone zoom.
 The capture checks the visible colors and geometry and records the number of routed
 segment crossings for each scene. Scene 102 also checks grayscale cue crops.
 
-Scenes 110–112 capture the 60-node chain and the dense three-layer fixture with and without a selected card. Scenes 113–114 capture the three written risk levels and their chamfer size at mid and near zoom. The routing ratchet uses the fixture limits under `skills/graph-flow/tests/fixtures/routing_ratchets.json`. The default run probes headless Chrome with SwiftShader and requires
-WebGL2 on eligible diagrams if the probe succeeds. Rebuild the fixtures in a
-second output directory and set `SCREENS_RENDERER=svg` for the forced fallback run.
+Scenes 110–112 capture the 60-node chain and the dense three-layer fixture with and without a selected card. Scenes 113–114 capture the three written risk levels and their chamfer size at mid and near zoom. The routing ratchet uses the fixture limits under `skills/graph-flow/tests/fixtures/routing_ratchets.json`. The default run probes headless Chrome with SwiftShader and requires WebGL2
+on eligible diagrams if the probe succeeds. For a second pass, build fresh
+fixtures and force SVG:
+
+```bash
+python3.12 -I -S -B dev/screens/build_fixtures.py /Volumes/eyedisk/build/graph-flow-screens/gf-split-fallback
+SCREENS_RENDERER=svg SCREENS_PYTHON="$(command -v python3.12)" node dev/screens/capture.mjs /Volumes/eyedisk/build/graph-flow-screens/gf-split-fallback
+```
+
 The capture records first-frame timing, observed pan frame intervals and
 same-origin vendor transfer bytes for scenes 110–111 as diagnostics.
 

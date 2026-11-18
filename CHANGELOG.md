@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased
+## Unreleased — 0.4.0-dev
+
+- Graph Flow uses a dark-only dashboard and retires the light presentation. Graph cards identify work, state, risk and recent recorded activity in words and patterns. Relations name their live flow state on their own branches. The graph adds record-triggered motion with one pause and a static SVG path, an overlay detail drawer, a phone bottom sheet, and locally bundled OFL fonts.
+
+- Graph Flow relation details show the relevant records, and work details link the full-width 3D scene to phase records and aligned category totals.
+
+- Graph Flow records local activity metadata through Claude Code hooks and trusted, asynchronous Codex tool hooks. Sessions without tool observations retain their recorded attempt boundaries.
+
+- Graph Flow adds a bundled three.js graph renderer with SVG fallback, dependency focus above dimmed edges, shared orthogonal routes, three zoom levels and a navigable minimap below the graph. Screen captures verify renderer parity, pixel ink, routing regressions, interaction geometry, fallback and motion.
+- Graph Flow dashboard cards now distinguish kind and state without color across both map levels and the phone list. Review arrows follow target-to-reviewer order, line patterns distinguish gate states, and whole-result failures reflect the current recorded verdict.
+- Graph Flow now verifies the shared renderer scene, stored relations, dependency order, grayscale cues, contrast, and phone action sizes in its tests and screen capture suite.
 
 - Publish Graph Flow as its own Claude Code and Codex marketplace.
 

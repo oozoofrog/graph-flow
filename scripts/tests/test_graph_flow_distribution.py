@@ -1,5 +1,6 @@
 """Graph Flow package contracts; no live marketplace installation claims."""
 
+import hashlib
 import json
 import re
 import subprocess
@@ -32,9 +33,12 @@ class GraphFlowDistributionTests(unittest.TestCase):
         description = (SKILL / "SKILL.md").read_text().split("description: ", 1)[1].splitlines()[0]
         self.assertIn("name: graph-flow\n", (SKILL / "SKILL.md").read_text())
         self.assertEqual("graph-flow", codex["name"])
-        self.assertRegex(codex["version"], r"^\d+\.\d+\.\d+$")
+        self.assertRegex(codex["version"], r"^\d+\.\d+\.\d+(?:-dev)?$")
         for key in ("name", "version", "description"):
             self.assertEqual(claude[key], codex[key], key)
+        with mock.patch.object(sys, "path", [str(SKILL / "scripts"), *sys.path]):
+            from graphflow import __version__
+        self.assertEqual(__version__, codex["version"])
         self.assertEqual(description, codex["description"])
         self.assertEqual(description, codex["interface"]["longDescription"])
         self.assertEqual("./skills/", codex["skills"])
@@ -133,22 +137,56 @@ class GraphFlowDistributionTests(unittest.TestCase):
         self.assertTrue((SKILL / "workflow.js").is_file())
         self.assertTrue((SKILL / "routing.json").is_file())
 
-    def test_dashboard_assets_and_runtime_have_no_vendor_references(self):
+    def test_activity_hook_uses_claude_default_and_codex_override(self):
+        claude = json.loads((ROOT / ".claude-plugin/plugin.json").read_text())
+        codex = json.loads((ROOT / ".codex-plugin/plugin.json").read_text())
+        self.assertNotIn("hooks", claude)
+        codex_hooks = json.loads((ROOT / codex["hooks"]).read_text())["hooks"]
+        self.assertEqual({"PreToolUse", "PostToolUse"}, set(codex_hooks))
+        for (entry,) in codex_hooks.values():
+            (handler,) = entry["hooks"]
+            self.assertEqual("command", handler["type"])
+            self.assertIs(handler["async"], True)
+            self.assertEqual('python3 -I -S -B "${PLUGIN_ROOT}/skills/graph-flow/scripts/gf" '
+                             '_observe-activity codex >/dev/null 2>&1 || :', handler["command"])
+        registered = json.loads((ROOT / "hooks/hooks.json").read_text())["hooks"]
+        self.assertEqual({"PreToolUse", "PostToolUse", "PostToolUseFailure", "SubagentStart", "SubagentStop"},
+                         set(registered))
+        for (entry,) in registered.values():
+            (handler,) = entry["hooks"]
+            self.assertEqual("command", handler["type"])
+            self.assertIs(handler["async"], True)
+            self.assertEqual('python3 -I -S -B "${CLAUDE_PLUGIN_ROOT}/skills/graph-flow/scripts/gf" '
+                             '_observe-activity >/dev/null 2>&1 || :', handler["command"])
+
+    def test_dashboard_assets_and_vendor_inventory_match_loopback_allowlist(self):
         with mock.patch.object(sys, "path", [str(SKILL / "scripts"), *sys.path]):
             from graphflow import server
         assets = [server.PAGE_PATH, *(server.STATIC_ROOT / name for name in server.STATIC_TYPES)]
         for path in assets:
             self.assertTrue(path.is_file(), path)
             self.assertGreater(path.stat().st_size, 0, path)
-        for source in (server.PAGE_PATH, server.STATIC_ROOT / "page.js"):
+        for source in (server.PAGE_PATH, server.STATIC_ROOT / "page.js", server.STATIC_ROOT / "graph-webgl.js",
+                       server.STATIC_ROOT / "activity-webgl.js"):
             for target in re.findall(r'/static/([^\s\"\'`<>]+)', source.read_text()):
                 self.assertIn(target, server.STATIC_TYPES, (source, target))
-        for path in SKILL.rglob("*"):
-            relative = path.relative_to(SKILL)
-            self.assertNotIn("vendor", relative.parts, relative)
-            # Preserve negative fixtures that prove old vendor URLs return 404.
-            if "tests" not in relative.parts and path.suffix in {".md", ".json", ".yaml", ".py", ".js", ".html"}:
-                self.assertNotIn("vendor/", path.read_text(encoding="utf-8"), relative)
+        packaged = {
+            path.relative_to(ROOT).as_posix() for path in (server.STATIC_ROOT / "vendor").rglob("*")
+            if path.is_file()
+        }
+        declared = set()
+        for name in ("three", "fonts"):
+            vendor = server.STATIC_ROOT / "vendor" / name
+            manifest = json.loads((vendor / "manifest.json").read_text())
+            for asset, digest in manifest["sha256"].items():
+                self.assertEqual(hashlib.sha256((vendor / asset).read_bytes()).hexdigest(), digest, asset)
+            declared.update((vendor / asset).relative_to(ROOT).as_posix()
+                            for asset in (*manifest["sha256"], "manifest.json"))
+        self.assertEqual(packaged, declared)
+        self.assertEqual(packaged, {
+            (server.STATIC_ROOT / name).relative_to(ROOT).as_posix()
+            for name in server.STATIC_TYPES if name.startswith("vendor/")
+        })
 
 
 if __name__ == "__main__":
