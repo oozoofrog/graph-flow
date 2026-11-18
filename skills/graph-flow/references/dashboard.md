@@ -94,8 +94,8 @@ observations at that time follow execution records. Plan revisions use the
 verified plan file for the viewed prefix. A revision marker identifies the
 instant when the graph changes structure.
 
-The browser requests the light time index using \`history=index\` on
-\`/api/run\`. The index supplies the start and end, the ledger version,
+The browser requests the light time index using `history=index` on
+`/api/run`. The index supplies the start and end, the ledger version,
 allowlisted timings, and intervals with recorded activity. It uses the full
 history on demand for scrubbing, replay and transfer lines. The page applies
 the patches locally. The browser works from the live view until a person
@@ -363,15 +363,15 @@ These checks implement Graph Flow principles P1, P3 and P6 by testing the data m
 | G4 | Calls appear at their recorded times. | Current-attempt call IDs, future calls, boundary-only and unreadable activity. | `assertInstrument`, `test_f1_activity_strip_preserves_order_timing_and_bounds` |
 | G5 | The four roles and text contrast are invariant in the dark theme. | Computed colors, effective plate backgrounds, glyphs, strokes and flat text, including selected, stalled, returned and awaiting states. | `assertAppearance` |
 | G6 | Only fresh events start motion. | Injected timestamps for the motion inventory, lifetime, pause, reduced motion, baseline and flash cadence. | `test_g6_deterministic_event_clock_and_loop_inventory`, `recordCalls`, `verifyHandoffPulse`, `recordAnswer` |
-| T1 | The same state derivation serves ledger prefixes and Live. | Every execution and activity boundary across rework, decisions, a revised plan and unobserved work. | \`test_t1_history_at_every_ledger_boundary\` |
-| T2 | The cut clips graph facts and time geometry. | Future attempts, decisions, and transfers, including a receiver that has yet to start. | \`test_t2_t3_real_intervals_and_shared_gap_scale\`, \`captureSpacetime\` |
-| T3 | Time comes from recorded boundaries and one invertible scale. | Exact segment and transfer endpoints, drop lines, and accurately labelled compression under both scales. | \`test_t2_t3_real_intervals_and_shared_gap_scale\`, \`captureSpacetime\` |
-| T4 | The graph is drawn on the time cut. | Card rectangles and rendered route points against the projection within 0.5 CSS px, and native transfer selection. | \`test_t4_t5_t6_one_orthographic_scene\`, \`captureSpacetime\` |
-| T5 | Side lanes preserve order and share a vertical time axis. | Equal y at equal time, nonoverlapping lanes, and layer-then-row order. | \`test_t4_t5_t6_one_orthographic_scene\`, \`captureSpacetime\` |
-| T6 | Continuous pose changes preserve card identity and upright text. | Frame displacement, intermediate and exact terminal poses, native DOM identity and reduced-motion snap. | \`test_t4_t5_t6_one_orthographic_scene\`, \`captureSpacetime\` |
-| T7 | History is visible and read-only. | Past label, suppressed answer action, and restored live action. | \`captureSpacetime\` |
-| T8 | Only a replayed boundary or a new live record starts record motion. | Manual seek, opening, single handoff per relation, the four-token limit, expiration and SVG. | \`captureSpacetime\`, \`test_g6_deterministic_event_clock_and_loop_inventory\` |
-| T9 | Labels belong to their own marks and selections. | Segment words, “관계 목록”, and no legend. | \`captureSpacetime\` |
+| T1 | The same state derivation serves ledger prefixes and Live. | Every execution and activity boundary across rework, decisions, a revised plan and unobserved work. | `test_t1_history_at_every_ledger_boundary` |
+| T2 | The cut clips graph facts and time geometry. | Future attempts, decisions, and transfers, including a receiver that has yet to start. | `test_t2_t3_real_intervals_and_shared_gap_scale`, `captureSpacetime` |
+| T3 | Time comes from recorded boundaries and one invertible scale. | Exact segment and transfer endpoints, drop lines, and accurately labelled compression under both scales. | `test_t2_t3_real_intervals_and_shared_gap_scale`, `captureSpacetime` |
+| T4 | The graph is drawn on the time cut. | Card rectangles and rendered route points against the projection within 0.5 CSS px, and native transfer selection. | `test_t4_t5_t6_one_orthographic_scene`, `captureSpacetime` |
+| T5 | Side lanes preserve order and share a vertical time axis. | Equal y at equal time, nonoverlapping lanes, and layer-then-row order. | `test_t4_t5_t6_one_orthographic_scene`, `captureSpacetime` |
+| T6 | Continuous pose changes preserve card identity and upright text. | Frame displacement, intermediate and exact terminal poses, native DOM identity and reduced-motion snap. | `test_t4_t5_t6_one_orthographic_scene`, `captureSpacetime` |
+| T7 | History is visible and read-only. | Past label, suppressed answer action, and restored live action. | `captureSpacetime` |
+| T8 | Only a replayed boundary or a new live record starts record motion. | Manual seek, opening, single handoff per relation, the four-token limit, expiration and SVG. | `captureSpacetime`, `test_g6_deterministic_event_clock_and_loop_inventory` |
+| T9 | Labels belong to their own marks and selections. | Segment words, “관계 목록”, and no legend. | `captureSpacetime` |
 | G7 | Labels have separate positions on individual branches. | Scene and DOM rectangles for cards and relation tags, including dense routes and shared trunks. | `assertInstrument` |
 
 

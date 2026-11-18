@@ -863,7 +863,7 @@ async function recordPlayback(filename, start, step, interval=250) {
   await start();
   const started=Date.now();
   for(let index=0;index<16;index++){
-    await delay(Math.max(0,started+index*interval-Date.now()));
+    if(!step)await delay(Math.max(0,started+index*interval-Date.now()));
     await step?.(index);
     const frame=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
     writeFileSync(path.join(dir,String(index).padStart(2,'0')+'.png'),Buffer.from(frame.data,'base64'));
@@ -1516,6 +1516,15 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
       assert.equal(new Set(deliveries.map(e=>e.id+e.record)).size,deliveries.length);
       assert.equal((await step(450)).filter(e=>e.kind==='handoff').length,deliveries.length,'T8 crossing does not spawn duplicates');
       assert.equal((await step(1800)).filter(e=>e.kind==='handoff').length,0,'T8 delivery is finite');
+      const rejection=Date.parse(recordAt('gate.verdict','api','reject').ts);
+      await seek(rejection-1000);await step(0);
+      await click('#time-play');await until(test+'.history().playing');
+      assert((await step(350)).some(e=>e.kind==='reverse'),'T8 replaying a return crosses a reverse motion');
+      const tool=readFileSync(ledgerPath(fixture,'activity.jsonl'),'utf8').trim().split('\n').map(line=>JSON.parse(line))
+        .find(row=>row.phase==='start'&&row.node==='a'&&row.tool==='Read');
+      await seek(Date.parse(tool.ts)-1000);await step(0);
+      await click('#time-play');await until(test+'.history().playing');
+      assert((await step(350)).some(e=>e.kind==='dot'&&e.record===tool.call),'T8 replay fires the recorded call dot');
       await seek(boundary-1000);
       await step(0);
       video=await recordPlayback(filename.replace('.png','-handoff.png'),
@@ -1570,6 +1579,7 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
     const snap=kind==='early'||kind==='return'||kind==='decision'||kind==='side'||kind==='compressed';
     assert(space.scene.pillars.some(pillar=>pillar.segments.length),'T2 scene is backed by recorded intervals');
     assert(!currentView.legend,'T9 no legend');
+    assert(await evaluate("document.querySelector('#edge-list').previousElementSibling.textContent==='관계 목록'"),'T9 relation terminology');
     assert(currentView.cards.every(card=>card.upright),'T6 labels are screen-aligned');
     const coordinates=new Map(currentView.cards.map(card=>[card.id,card]));
     assert(space.lanes.every(lane=>near(lane.point,coordinates.get(lane.id))),'T4 graph cards sit on the projected cut');

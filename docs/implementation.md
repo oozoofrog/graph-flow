@@ -223,29 +223,29 @@ The layout and capture checks use one routing ratchet for fixture-specific cross
 
 ### Prefix history and the space-time scene
 
-\`server._prefix_view\` receives truncated execution and activity lists, a
-clock, and captured read inputs. It runs \`state.derive\` and the regular
-\`server._view\` projection with the applicable frozen plan. A fresh sample
+`server._prefix_view` receives truncated execution and activity lists, a
+clock, and captured read inputs. It runs `state.derive` and the regular
+`server._view` projection with the applicable frozen plan. A fresh sample
 captures plan revisions, the key and location, evidence hashes, ancestry
 and allowlisted paths. These present-day filesystem checks supply integrity
 context. The ledgers define the historical execution sequence. History
 cannot reconstruct prior unrecorded bytes or the filesystem state before
 a movement or a key change.
 
-\`/api/history\` stores a base view and forward patches for the dual ledger.
-An object patch subscripts keys, with \`:\` specifying array length. A
+`/api/history` stores a base view and forward patches for the dual ledger.
+An object patch subscripts keys, with `:` specifying array length. A
 singleton array supplies a replacement and an empty array removes a key.
 The server omits its changing observation clock from patches and adds a
 step if a recorded attempt reaches the stall threshold between boundaries.
-On the client, \`historyStep\` binary-searches the boundary times and
-\`historyView\` applies patches to a previous view or the base. These functions
+On the client, `historyStep` binary-searches the boundary times and
+`historyView` applies patches to a previous view or the base. These functions
 carry state without copying execution logic to JavaScript. A run with many
 records costs a prefix replay per execution event and a dashboard projection
 per event or activity boundary at initial load. Polling the live graph
 reads the lightweight time index. Moving the playhead is local. Last-prefix
 equality uses the same observation clock, including clock-derived stalls.
 
-\`spacetime.js\` places the current graph on a shared plane at the viewed
+`spacetime.js` places the current graph on a shared plane at the viewed
 time. World coordinates are the existing flat scene's x and y plus the
 mapped time. An affine orthographic projection maps the relation plane into
 the existing WebGL renderer or SVG. The same projection places the card

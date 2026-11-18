@@ -285,17 +285,18 @@ def spacetime_fixture(f, long_gap):
         work('a', '요구 정리'), work('api', '검색 API', ['a']), work('screen', '화면 구성', ['a']),
         r, q, work('guide', '안내 문서', ['screen']), integration,
     ])
+    own = f.raw['nodes'][1]
+    own['checks'][0]['run'] = 'grep -q "빈 결과 처리" api.txt'
     f.post(True)
     f.submit('a', True)
     f.submit('screen', True)
-    own = f.raw['nodes'][1]
     own_path = f.project / own['owns'][0]
     f.assign('api')
     f.assign('r', True)
     findings = f.root / 'findings.json'
     for attempt in (1, 2):
         f.call('start', 'api')
-        own_path.write_text('검색 결과와 빈 결과 처리\n' if attempt == 2 else '', encoding='utf-8')
+        own_path.write_text('검색 결과와 빈 결과 처리\n' if attempt == 2 else '검색 결과\n', encoding='utf-8')
         f.call('check', 'run', 'api', 'text', code=1 if attempt == 1 else 0)
         f.call('submit', 'api')
         f.call('start', 'r')
