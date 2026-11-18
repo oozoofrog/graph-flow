@@ -115,37 +115,40 @@ class PageTests(unittest.TestCase):
     def test_local_assets_safe_dom_and_nonce(self):
         html = (S / 'scripts/graphflow/page.html').read_text(encoding='utf-8')
         js = (S / 'scripts/graphflow/page.js').read_text(encoding='utf-8')
-        for source in (html, js):
+        webgl = (S / 'scripts/graphflow/graph-webgl.js').read_text(encoding='utf-8')
+        for source in (html, js, webgl):
             for forbidden in ('http://', 'https://', 'innerHTML', 'insertAdjacentHTML', 'document.write', 'eval(', 'new Function'):
                 self.assertNotIn(forbidden, source)
             self.assertNotRegex(source, r'\bstyle\s*=\s*[\"\']')
         self.assertIn('<style nonce="__NONCE__">', html)
         self.assertIn('<script type="module" nonce="__NONCE__" src="/static/page.js">', html)
-        self.assertEqual(html.count('<script'), 1)
+        self.assertIn('<script type="importmap" nonce="__NONCE__">', html)
+        self.assertEqual(html.count('<script'), 2)
         self.assertNotIn('unsafe-inline', html)
         self.assertNotIn('unsafe-eval', html)
-        for removed in ('three.module', 'CSS2DRenderer', 'WebGL', 'canvas'):
-            self.assertNotIn(removed, html + js)
+        self.assertNotIn('CSS2DRenderer', html + js + webgl)
+        self.assertIn("import('./graph-webgl.js')", js)
         self.assertIn('createElementNS', js)
-        self.assertFalse((S / 'scripts/graphflow/vendor').exists())
+        self.assertTrue((S / 'scripts/graphflow/vendor/three/manifest.json').is_file())
 
     def test_motion_is_declared_in_css_and_stops_for_reduced_motion(self):
         html = (S / 'scripts/graphflow/page.html').read_text(encoding='utf-8')
         js = (S / 'scripts/graphflow/page.js').read_text(encoding='utf-8')
         style = html[html.index('<style'):html.index('</style>')]
         declared = set(re.findall(r'@keyframes ([a-z]+)', style))
-        self.assertEqual(declared, {'step', 'flow', 'arrive'})
+        self.assertEqual(declared, {'arrive'})
         used = {name for rule in re.findall(r'animation:([^;}]+)', style)
                 for name in re.findall(r'(?:^|,)([a-z]+) ', rule)}
         self.assertEqual(used, declared)
         reduced = '@media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important'
-        self.assertGreater(style.index(reduced), max(style.rindex('@keyframes'), style.rindex('animation:flow')))
+        self.assertGreater(style.index(reduced), max(style.rindex('@keyframes'), style.rindex('animation:arrive')))
+        self.assertNotIn('infinite', style)
         # The native play mark remains visible when animation is disabled.
         self.assertIn("el('span','▶','walker')", js)
-        for used_class in ('working', 'changed', 'flowing', 'walker'):
+        for used_class in ('working', 'changed', 'walker'):
             self.assertIn("'" + used_class, js.replace("' " + used_class, "'" + used_class))
         self.assertNotIn('frog-walk', js)
-        self.assertNotIn('requestAnimationFrame', js)
+        self.assertEqual(js.count('requestAnimationFrame('), 1)  # Only the invalidated WebGL frame.
 
     def test_translation_keys_match(self):
         js = (S / 'scripts/graphflow/page.js').read_text(encoding='utf-8')

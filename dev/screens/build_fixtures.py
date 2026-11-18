@@ -22,6 +22,8 @@ from graphflow import cli
 SCENARIOS = {
     'graph-verification': 'Graph kinds, parallel relations, current failure and retry history',
     'graph-wrap': 'A chain whose authored order differs from dependency order',
+    'graph-chain-60': 'Sixty stages in a dependency chain',
+    'graph-dense': 'Three layers with all nine relations in each adjacent pair',
     'graph-empty': 'An initialized run with no posted plan',
     'check-lines': '검사 네 개의 제목과 통과·실패·아직 안 함 표시',
     'notices': '뒤 작업의 파일을 쓰는 전체 검사와 작업 전 통과 알림',
@@ -177,6 +179,16 @@ def branching(count):
 def build(root, scenario):
     f = Fixture(root, scenario)
     if scenario == 'graph-empty':
+        return f.metadata()
+    if scenario in ('graph-chain-60', 'graph-dense'):
+        if scenario == 'graph-chain-60':
+            nodes = [work(f'n{i}', f'안내 단계 {i+1}', [f'n{i-1}'] if i else []) for i in range(60)]
+        else:
+            layers = [('a', 'b', 'c'), ('d', 'e', 'f'), ('g', 'h', 'i')]
+            nodes = [work(node, f'안내 {node.upper()}', list(layers[i-1]) if i else [])
+                     for i, layer in enumerate(layers) for node in layer]
+        f.raw['nodes'] = nodes
+        f.post(True)
         return f.metadata()
     if scenario == 'graph-wrap':
         steps = [work(f's{i}', f'단계 {i}', [f's{i-1}'] if i else []) for i in range(9)]

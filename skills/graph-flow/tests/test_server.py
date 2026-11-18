@@ -165,7 +165,12 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.httpd.server_address[0], "127.0.0.1")
 
     def test_static_allowlist_and_host_without_token(self):
-        self.assertEqual(set(server.STATIC_TYPES), {"page.js", *("assets/frog-%s.png" % p for p in ("wave", "walk-a", "walk-b", "report"))})
+        vendor = server.STATIC_ROOT / "vendor/three"
+        self.assertEqual(set(server.STATIC_TYPES), {
+            "page.js", "graph-webgl.js",
+            *("assets/frog-%s.png" % p for p in ("wave", "walk-a", "walk-b", "report")),
+            *(str(p.relative_to(server.STATIC_ROOT)) for p in vendor.rglob("*") if p.is_file()),
+        })
         for name, content_type in server.STATIC_TYPES.items():
             status, headers, body = self.request("GET", "/static/" + name, token=False)
             self.assertEqual(status, 200, name)
@@ -195,6 +200,30 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(connection.getresponse().status, 403)
         finally:
             connection.close()
+
+    def test_three_manifest_and_nonce_import_map(self):
+        vendor = server.STATIC_ROOT / "vendor/three"
+        manifest = json.loads((vendor / "manifest.json").read_text())
+        self.assertEqual(manifest["version"], "0.187.0")
+        self.assertEqual(manifest["license"], "MIT")
+        self.assertEqual(manifest["source"], "https://registry.npmjs.org/three/-/three-0.187.0.tgz")
+        self.assertEqual(set(manifest["sha256"]), {
+            str(p.relative_to(vendor)) for p in vendor.rglob("*") if p.is_file() and p.name != "manifest.json"
+        })
+        for name, digest in manifest["sha256"].items():
+            self.assertIn("vendor/three/" + name, server.STATIC_TYPES)
+            self.assertEqual(hashlib.sha256((vendor / name).read_bytes()).hexdigest(), digest, name)
+        status, headers, body = self.request("GET", "/")
+        self.assertEqual(status, 200)
+        csp = headers["Content-Security-Policy"]
+        nonce = csp.split("'nonce-")[1].split("'")[0]
+        opening = f'<script type="importmap" nonce="{nonce}">'.encode()
+        imports = json.loads(body.split(opening)[1].split(b"</script>")[0])["imports"]
+        self.assertEqual(imports, {
+            "three": "/static/vendor/three/build/three.module.js",
+        })
+        self.assertLess(body.index(opening), body.index(b'<script type="module"'))
+        self.assertNotIn("unsafe-", csp)
 
     def test_authentication_regressions(self):
         status, headers, body = self.request("HEAD", "/static/page.js", token=False)

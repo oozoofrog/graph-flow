@@ -257,7 +257,7 @@ const STRINGS = {
     "confirmBlind": "파일과 검사 결과 없이 받아들일게요",
     "blindHint": "자료 없이 받아들이려면 확인 상자를 선택해 주세요.",
     "acceptBlind": "자료 없이 받아들이기",
-    "minZoom": "글자를 읽을 수 있는 최소 크기예요",
+    "minZoom": "최소 배율이에요",
     "readGateHint": "파일이나 근거를 먼저 열어 주세요",
     "approveEffect": "받아들이기로 한 답이 진행 담당자에게 전달돼요",
     "revisionEffect": "고칠 곳이 진행 담당자에게 전달돼요",
@@ -367,6 +367,11 @@ const STRINGS = {
     "planOpen": "계획 읽기",
     "futureDelivery": "{who}에서 받아요",
     "visiblePlan": "계획 카드 {total}개{result} · {n}개 제목이 보여요",
+    "visibleFarCards": "계획 카드 {total}개{result} · 카드 {n}개가 보여요",
+    "minimap": "그래프 미니맵",
+    "riskLane": "위험 단계 {n}",
+    "riskLegend": "위험 단계",
+    "tiltGraph": "그래프 기울이기",
     "visibleResult": " + 전체 결과 확인 {n}개",
     "listAll": "목록으로 모두 읽기",
     "questionsForNode": "내게 물을 내용",
@@ -940,7 +945,7 @@ const STRINGS = {
     "confirmBlind": "I choose to accept without a file or check result",
     "blindHint": "Tick the confirmation box to accept without evidence.",
     "acceptBlind": "Accept without evidence",
-    "minZoom": "Minimum zoom for readable text",
+    "minZoom": "Minimum zoom",
     "readGateHint": "Open a file or the evidence first",
     "approveEffect": "Your acceptance is sent to the leader session",
     "revisionEffect": "Your requested changes are sent to the leader session",
@@ -1050,6 +1055,11 @@ const STRINGS = {
     "planOpen": "Read plan",
     "futureDelivery": "To be received by {who}",
     "visiblePlan": "{total} plan cards{result} · {n} titles visible",
+    "visibleFarCards": "{total} plan cards{result} · {n} cards visible",
+    "minimap": "Graph minimap",
+    "riskLane": "Risk level {n}",
+    "riskLegend": "Risk level",
+    "tiltGraph": "Tilt graph",
     "visibleResult": " + {n} whole-result card",
     "listAll": "Read the complete list",
     "questionsForNode": "For your response",
@@ -1542,6 +1552,8 @@ export function viewLanguage(view, browser = 'en') {
 export function cometCount(node) { return (node.laps || []).filter(lap => lap === 'returned').length; }
 // Both levels use at least 14px text; 6/7 keeps it at least 12px on screen.
 export const MIN_FIT_SCALE = 6 / 7;
+const MIN_MAP_SCALE = .7;
+const graphDetail = (level,scale) => level==='detail'?'near':scale<MIN_FIT_SCALE?'far':'mid';
 export function edgeRelationLabel(edge, language = 'en') {
   const words = STRINGS[language];
   if (edge.relation === 'toward_goal') return words.towardGoal;
@@ -1550,9 +1562,9 @@ export function edgeRelationLabel(edge, language = 'en') {
 }
 const GATE_LABELS = {open:'lineSampleOpen', closed:'lineSampleClosed', waiting_for_you:'lineSampleWaiting', returned:'lineSampleReturned'};
 const RELATION_MARKS = {
-  hands_over:{d:'M0 0 10 5 0 10Z', fill:true},
-  waits_for_decision:{d:'M1 1 9 5 1 9', fill:false},
-  reviews:{d:'M1 1 5 5 1 9 M5 1 9 5 5 9', fill:false},
+  hands_over:{paths:[[[0,0],[10,5],[0,10]]], fill:true},
+  waits_for_decision:{paths:[[[1,1],[9,5],[1,9]]], fill:false},
+  reviews:{paths:[[[1,1],[5,5],[1,9]],[[5,1],[9,5],[5,9]]], fill:false},
 };
 // A handoff chip names the delivered item.
 export function edgeChipText(edge) {
@@ -1660,7 +1672,8 @@ export function zoomLevel(level, scale, amount) {
   const next = scale + amount;
   if (level === 'overview' && next > 1) return {level:'detail', scale:1};
   if (level === 'detail' && next < MIN_FIT_SCALE) return {level:'overview', scale:1};
-  return {level, scale:Math.max(MIN_FIT_SCALE, Math.min(level === 'overview' ? 1 : 1.6, next))};
+  const minimum = level === 'overview' ? MIN_MAP_SCALE : MIN_FIT_SCALE;
+  return {level, scale:Math.max(minimum, Math.min(level === 'overview' ? 1 : 1.6, next))};
 }
 // Preserve the nearest card's local point when its layout changes size.
 export function mapAnchor(before, after, point) {
@@ -1892,17 +1905,39 @@ export function createGraphScene(nodes, layout, decisions, level) {
   const cards = layout.order.map((id, order) => {
     const node = byId.get(id);
     const {x, y, width, height, layer} = layout.positions[id];
-    return {id, kind:node.kind || 'work', state:displayState(node, decisions), level, x, y, width, height, layer, order};
+    return {id, kind:node.kind || 'work', state:displayState(node, decisions), level, x, y, width, height, layer, order,
+      lane:node.effective_lane??node.lane??null, attempts:node.attempts||0};
   });
   const positions = Object.fromEntries(cards.map(card => [card.id, card]));
   const edges = layout.routes.map(route => ({
     id:String(route.index), from:route.from, to:route.to, direction:'source-to-target',
     relation:route.relation, gate:route.gate, label:route.label || '', points:route.points,
-    style:{gate:route.gateState, relation:route.relation || 'hands_over',
-      flowing:route.gateState === 'open' && ['running','reviewing','retrying'].includes(positions[route.to].state)},
+    style:{gate:route.gateState, relation:route.relation || 'hands_over'},
     chip:route.chip, text:route.text
   }));
   return {level, bounds:layout.bounds, cards, edges, positions, order:cards.map(card => card.id), chips:layout.chips};
+}
+
+export function dependencyFocus(scene, id) {
+  const cards = new Set(), edges = new Set();
+  if (!id || !Object.hasOwn(scene.positions,id)) return {cards,edges};
+  cards.add(id);
+  for (const [start,end] of [['from','to'],['to','from']]) {
+    const pending = [id], visited = new Set(pending);
+    while (pending.length) {
+      const current = pending.pop();
+      for (const edge of scene.edges) {
+        if (edge.to === '_run_checks' || edge[start] !== current) continue;
+        edges.add(edge.id);
+        const next = edge[end];
+        if (visited.has(next)) continue;
+        visited.add(next);
+        cards.add(next);
+        pending.push(next);
+      }
+    }
+  }
+  return {cards,edges};
 }
 
 export function roundedRoute(points, radius = 5) {
@@ -2177,6 +2212,7 @@ function recordGraphRead() {
   const identity=JSON.stringify(view.plan_approval?.identity);
   if(identity!==graphReadIdentity){graphRead.clear();graphReadSpans.clear();graphReadIdentity=identity;}
   const phone=matchMedia('(max-width:760px)').matches&&!$('flow').classList.contains('phone-diagram');
+  if(!phone&&$('map').dataset.lod==='far')return;
   const viewport=phone?{left:0,top:0,right:innerWidth,bottom:innerHeight-(document.querySelector('.plan-actions')?.offsetHeight||0)}:mapViewportRect();
   if(!viewport)return;
   const top=Math.max(viewport.top,document.querySelector('#attention.plan-banner')?.getBoundingClientRect().bottom||0);
@@ -2918,7 +2954,8 @@ function svg(tag, attributes = {}) {
   Object.entries(attributes).forEach(([key,value])=>element.setAttribute(key,String(value)));return element;
 }
 function edgeMarker(relation) {
-  const {d,fill}=RELATION_MARKS[relation];
+  const {paths,fill}=RELATION_MARKS[relation];
+  const d=paths.map(path=>'M'+path.flat().join(' ')).join(' ')+(fill?'Z':'');
   return svg('path',{d,class:fill?'relation-fill':'relation-stroke'});
 }
 function lineSample(kind, text, relation) {
@@ -2934,18 +2971,23 @@ function lineSample(kind, text, relation) {
   return sample;
 }
 function typeIcon(kind) {
-  const icon=svg('svg',{viewBox:'0 0 24 24','aria-hidden':'true',class:'type-icon','data-kind':kind});
+  const bounds={work:'4 3 16 18',review:'2 2 20 20',decision:'1 2 22 20',goal:'4 2 17 20'};
+  const icon=svg('svg',{viewBox:bounds[kind]||bounds.work,'aria-hidden':'true',class:'type-icon','data-kind':kind});
   const paths={work:'M5 4H19V20H5Z M8 8H16 M8 12H16 M8 16H12',review:'M10 3A7 7 0 1 0 10 17A7 7 0 1 0 10 3 M15 15L21 21 M7 10L9 12L13 8',decision:'M12 3L22 12L12 21L2 12Z M12 7V13 M12 16V17',goal:'M5 21V3 M5 4H20L16 9L20 14H5'};
   icon.append(svg('path',{d:paths[kind]||paths.work,fill:'none',stroke:'currentColor','stroke-width':1.6,'stroke-linejoin':'round','stroke-linecap':'round'}));
   return icon;
+}
+function laneCue(lane) {
+  const cue=el('span',undefined,'lane-cue');
+  cue.dataset.lane=String(lane);cue.title=t('riskLane',{n:lane});cue.setAttribute('aria-hidden','true');
+  for(let tick=0;tick<lane;tick++)cue.append(el('i'));
+  return cue;
 }
 function cardTone(n, state = displayState(n,view.decisions)) {if(['returned','failedFinal'].includes(state))return 'returned-card';return needs(n)||['held','awaiting_approval'].includes(n.status)?'waiting_for_you':n.status==='passed'||n.answered?'passed':['running','submitted','unverified'].includes(n.status)?'current':'unused';}
 // A stable play mark is legible in a still frame and without colour.
 function walker() {
   const mark=el('span','▶','walker');mark.setAttribute('aria-hidden','true');return mark;
 }
-// A rebuilt element joins a looping animation at the phase it would have reached.
-function inPhase(element, period) {element.style.animationDelay=-(performance.now()%period)+'ms';return element;}
 function nodeDescription(n,state) {const name=stateWords(state,language).name;return n.runLevel?`${t('runChecksTitle')}. ${name}. ${t('runChecksAfter')}`:`${t(n.kind||'work')}. ${title(n)}. ${name}. ${attempts(n)}. ${t('returnTimes',{n:cometCount(n)})}`;}
 function nodeCard(n, expanded = false, level = 'detail', state = displayState(n, view.decisions)) {
   const root=el('article',undefined,'node-card '+cardTone(n,state)+(['running','reviewing','retrying'].includes(state)?' working':'')+(expanded?' expanded':''));root.dataset.node=n.id;root.dataset.state=state;if(planBlocked())root.classList.add('read-status');
@@ -2954,7 +2996,8 @@ function nodeCard(n, expanded = false, level = 'detail', state = displayState(n,
   const header=button('',()=>{
     selectNode(n.id);
   },'node-header');
-  header.setAttribute('aria-label',nodeDescription(n,state));header.setAttribute('aria-expanded',String(expanded));
+  const lane=n.effective_lane??n.lane;
+  header.setAttribute('aria-label',nodeDescription(n,state)+(lane?` · ${t('riskLane',{n:lane})}`:''));header.setAttribute('aria-expanded',String(expanded));
   if (level === 'overview') {
     root.classList.add('overview-card');
     const marks = [];
@@ -2962,8 +3005,7 @@ function nodeCard(n, expanded = false, level = 'detail', state = displayState(n,
     if ((view.planned_questions || []).some(q=>q.node===n.id)) marks.push(t('questionsMark'));
     header.title = title(n)+' · '+stateWords(state,language).name+(marks.length?' · '+marks.join(' · '):'')+(state==='returned'&&returnActor(n)?' · '+returnActor(n):'');
     header.append(el('span',statusGlyph(state),'status-glyph'),typeIcon(n.kind || 'work'),el('strong',title(n),'node-title'));
-
-
+    if(lane)header.append(laneCue(lane));
     root.append(header); return root;
   }
   const statusLine = el('span', stateWords(state,language).name, 'node-status');
@@ -2971,18 +3013,23 @@ function nodeCard(n, expanded = false, level = 'detail', state = displayState(n,
   header.append(statusLine);
   const titleLine=el('span',undefined,'node-title-line');
   titleLine.append(typeIcon(n.kind || 'work'));
-  titleLine.append(el('strong',title(n),'node-title'));header.append(titleLine);
+  titleLine.append(el('strong',title(n),'node-title'));
+  if(lane)titleLine.append(laneCue(lane));
+  header.append(titleLine);
   const reference=el('div',undefined,'ref-line node-reference');
   if(n.planned_checks?.some(c=>c.runs_own_files)){const mark=el('span',t('ownCheckMark'),'own-check-mark');mark.title=t('ownCheckEffect');reference.append(mark);}
   if(n.status==='passed'&&cometCount(n))reference.append(el('span',t('returnTrace',{n:cometCount(n)})));
 
-  if(n.attempts)reference.append(el('span',attempts(n),'attempt-caption'));
   const decision=view.decisions.find(d=>d.node===n.id);
   const footer=el('div',undefined,'node-footer');
   if(!decision && state==='returned') {
     const reason=returnedLine(n);
     const line=el('span',reason);line.title=line.textContent;footer.append(line);
     clear(reference);const actor=returnActor(n);if(actor)reference.append(el('span',actor));
+  }
+  if(n.attempts){
+    const caption=el('span',attempts(n)||t('finishedAttempts',{n:n.attempts}),'attempt-caption');
+    caption.dataset.attempts=String(n.attempts);reference.append(caption);
   }
   const essentials=el('div',undefined,'node-essentials');
   essentials.append(el('p',nodeSentence(n,view.nodes,language),'node-sentence'));
@@ -3032,34 +3079,202 @@ function wholeMapLines(card,viewport,scale) {
     text.style.clipPath=whole.length?`inset(${Math.max(0,(whole[0].top-box.top)/scale)}px 0 ${Math.max(0,(box.bottom-whole.at(-1).bottom)/scale)}px 0)`:'inset(100%)';
   }
 }
+
+function svgRoutePoints(line) {
+  const segments=[...line.getAttribute('d').matchAll(/([MLQ])([^MLQ]+)/g)];
+  // A quadratic's control point is the original corner of the routed polyline.
+  return segments.flatMap(([,command,coordinates],i)=>{
+    if(command==='L'&&segments[i+1]?.[1]==='Q')return [];
+    const [x,y]=coordinates.trim().split(/\s+/).map(Number);
+    return [{x,y}];
+  });
+}
+
+const MINIMAP_WIDTH=142, MINIMAP_HEIGHT=88, MINIMAP_PAD=7;
+const MINI_KINDS={
+  work:{color:'#335cad',points:[[-1,-1],[1,-1],[1,1],[-1,1]]},
+  review:{color:'#23654e',points:Array.from({length:12},(_,i)=>[Math.cos(i*Math.PI/6),Math.sin(i*Math.PI/6)])},
+  decision:{color:'#9e4d04',points:[[-1,0],[-.5,-1],[.5,-1],[1,0],[.5,1],[-.5,1]]},
+  goal:{color:'#6f4f91',points:[[-1,1],[0,-1],[1,1]]},
+};
+function createMinimap(area,viewport) {
+  const mini=button('',()=>{},'map-mini');
+  mini.dataset.i18nLabel='minimap';mini.hidden=true;
+  const plot=svg('svg',{viewBox:`0 0 ${MINIMAP_WIDTH} ${MINIMAP_HEIGHT}`,'aria-hidden':'true'});
+  const marks=svg('g'), indicator=svg('rect',{class:'mini-window'});
+  const canvas=el('canvas');canvas.hidden=true;canvas.setAttribute('aria-hidden','true');
+  plot.append(marks,indicator);mini.append(plot,canvas);area.append(mini);
+  let scene, projection, miniFrame, drag;
+  function update(layout,box) {
+    const {bounds,cards}=layout;
+    mini.hidden=!box.width||!cards.length||(bounds.width*box.scale<=box.width&&bounds.height*box.scale<=box.height);
+    if(mini.hidden){miniFrame=null;return;}
+    if(scene!==layout){
+      scene=layout;
+      const ratio=Math.min((MINIMAP_WIDTH-2*MINIMAP_PAD)/bounds.width,(MINIMAP_HEIGHT-2*MINIMAP_PAD)/bounds.height);
+      const left=(MINIMAP_WIDTH-bounds.width*ratio)/2, top=(MINIMAP_HEIGHT-bounds.height*ratio)/2;
+      const points=cards.map(card=>{
+        const {color,points}=MINI_KINDS[card.kind];
+        const x=left+(card.x+card.width/2)*ratio,y=top+(card.y+card.height/2)*ratio;
+        return {id:card.id,kind:card.kind,color,points:points.map(([dx,dy])=>[x+dx*3.2,y+dy*3.2])};
+      });
+      projection={ratio,left,top,points};
+      marks.replaceChildren(...points.map(mark=>svg('polygon',{'data-node':mark.id,'data-kind':mark.kind,
+        fill:mark.color,points:mark.points.map(point=>point.join(',')).join(' ')})));
+    }
+    const {ratio,left,top}=projection;
+    const x=Math.max(0,-box.x/box.scale), y=Math.max(0,-box.y/box.scale);
+    const right=Math.min(bounds.width,(box.width-box.x)/box.scale), bottom=Math.min(bounds.height,(box.height-box.y)/box.scale);
+    const window={x:left+x*ratio,y:top+y*ratio,width:Math.max(0,right-x)*ratio,height:Math.max(0,bottom-y)*ratio};
+    for(const [key,value] of Object.entries(window))indicator.setAttribute(key,value);
+    miniFrame={width:MINIMAP_WIDTH,height:MINIMAP_HEIGHT,marks:projection.points,window,dpr:box.dpr};
+  }
+  function navigate(event) {
+    const rect=plot.getBoundingClientRect(), {ratio,left,top}=projection;
+    const scale=Number(area.closest('#map').dataset.scale);
+    const x=((event.clientX-rect.left)*MINIMAP_WIDTH/rect.width-left)/ratio;
+    const y=((event.clientY-rect.top)*MINIMAP_HEIGHT/rect.height-top)/ratio;
+    const stage=viewport.querySelector('.map-stage');
+    viewport.scrollTo(x*scale+stage.offsetLeft-viewport.clientWidth/2,y*scale+stage.offsetTop-viewport.clientHeight/2);
+  }
+  mini.addEventListener('pointerdown',e=>{
+    if(e.button!==0||!projection)return;
+    drag=e.pointerId;mini.setPointerCapture(drag);navigate(e);
+  });
+  mini.addEventListener('pointermove',e=>{if(e.pointerId===drag)navigate(e);});
+  mini.addEventListener('lostpointercapture',()=>{drag=null;});
+  mini.addEventListener('keydown',e=>{
+    const offsets={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+    if(!Object.hasOwn(offsets,e.key))return;
+    e.preventDefault();
+    const [x,y]=offsets[e.key];
+    viewport.scrollBy(x*viewport.clientWidth/3,y*viewport.clientHeight/3);
+  });
+  mini.addEventListener('click',e=>{
+    if(e.detail!==0||!projection)return;
+    const r=plot.getBoundingClientRect();
+    navigate({clientX:r.left+r.width/2,clientY:r.top+r.height/2});
+  });
+  return {update,canvas,frame:()=>miniFrame,setGPU:active=>{
+    canvas.hidden=!active;
+    mini.dataset.renderer=active?'webgl':'svg';
+  }};
+}
+
 function createMap() {
   const map=$('map');map.tabIndex=0;
   const toolbar=el('div',undefined,'map-toolbar'),viewport=el('div',undefined,'map-viewport'),spacer=el('div',undefined,'map-spacer'),stage=el('div',undefined,'map-stage');
   viewport.tabIndex=0;viewport.setAttribute('aria-label',t('mapHelp'));spacer.append(stage);viewport.append(spacer);map.append(toolbar);
   const key=el('div',undefined,'line-key'), overflow=el('div',undefined,'map-overflow'); overflow.setAttribute('aria-label',t('graphEdges'));overflow.dataset.i18nLabel='graphEdges';
-  const legend=el('details',undefined,'map-key');legend.append(el('summary',t('legend')),key);toolbar.append(legend);map.append(viewport);
+  const area=el('div',undefined,'map-area');
+  const legend=el('details',undefined,'map-key');legend.append(el('summary',t('legend')),key);toolbar.append(legend);area.append(viewport);map.append(area);
   legend.addEventListener('toggle',()=>{toolbar.style.marginBottom=legend.open?key.offsetHeight+'px':'0px';size();if(automatic)fit();else{panIntent=true;snapTitles();}});
   const visibleCount=el('span',undefined,'map-visible'),overflowButtons=new Map();overflow.append(visibleCount);
   let data={nodes:[],edges:[],decisions:[]},chosenNode=null,layout=null,scale=1,automatic=true,level='detail',layouts=null,rawData=null;
   Object.defineProperty(map, 'graphScene', {get:() => layout && structuredClone(layout)});
   const nodes=new Map(),chips=new Map(),seen=new Map();let drawing=null,placed=false,initialFitPending=false,layoutKey='',origin={x:0,y:0};
+  const surface=el('div',undefined,'graph-webgl'),canvas=el('canvas');surface.hidden=true;
+  surface.setAttribute('aria-hidden','true');surface.append(canvas);area.prepend(surface);
+  const mini=createMinimap(area,viewport);
+  map.dataset.renderer='svg';
+  const capture=startup.searchParams.get('graphTest')==='1';
+  let gpu=null, gpuRequested=startup.searchParams.get('renderer')==='svg'||typeof WebGL2RenderingContext==='undefined';
+  let lastDraw, drawPending=false, svgRoutes=[], keyboardNode=null, focusId=null, focus, tilted=false;
+  const tiltButton=button('◫',()=>{
+    tilted=!tilted;tiltButton.setAttribute('aria-pressed',String(tilted));requestDrawing();
+  },'map-tilt');
+  tiltButton.hidden=true;tiltButton.dataset.i18nLabel='tiltGraph';tiltButton.title=t('tiltGraph');
+  tiltButton.setAttribute('aria-pressed','false');
+  const viewBox=()=>({width:viewport.clientWidth,height:viewport.clientHeight,scale,
+    x:origin.x-viewport.scrollLeft,y:origin.y-viewport.scrollTop,dpr:globalThis.devicePixelRatio||1,
+    insetX:viewport.clientLeft,insetY:viewport.clientTop,focusId,tilt:tilted,
+    background:$('flow').classList.contains('sent-plan')?'#e8ecf0':'#f5f7f9'});
+  function updateFocus() {
+    if(!layout)return;
+    focusId=keyboardNode||chosenNode||null;
+    focus=dependencyFocus(layout,focusId);
+    if(!focus.cards.size)focusId=null;
+    for(const [id,element] of nodes) {
+      element.classList.toggle('graph-path',focus.cards.has(id));
+      element.classList.toggle('graph-context',!!focusId&&!focus.cards.has(id));
+    }
+    for(const {edge,line} of svgRoutes) {
+      const weight=focus.edges.has(edge.id)?'path':focusId?'context':'normal';
+      line.dataset.weight=weight;
+      line.setAttribute('marker-end',`url(#arrow-${edge.style.relation}${weight==='context'?'-context':''})`);
+    }
+    requestDrawing();
+  }
+  stage.addEventListener('focusin',e=>{
+    keyboardNode=e.target.matches(':focus-visible')?e.target.closest('.node-card')?.dataset.node:null;
+    updateFocus();
+  });
+  stage.addEventListener('focusout',e=>{
+    if(!e.relatedTarget?.closest('.node-card')){keyboardNode=null;updateFocus();}
+  });
+  function useSVG() {
+    gpu=null;surface.hidden=true;mini.setGPU(false);map.dataset.renderer='svg';
+    if(document.activeElement===tiltButton)viewport.focus({preventScroll:true});
+    tilted=false;tiltButton.hidden=true;tiltButton.setAttribute('aria-pressed','false');
+  }
+  function requestDrawing() {
+    if(!layout||!viewport.clientWidth||!viewport.clientHeight)return;
+    if(!gpuRequested&&layout.edges.length) {
+      gpuRequested=true;
+      import('./graph-webgl.js').then(({createWebGLGraph})=>{
+        gpu=createWebGLGraph(canvas,useSVG,capture,mini.canvas);
+        if(gpu)requestDrawing();
+      }).catch(useSVG);
+    }
+    if(!gpu||drawPending)return;
+    const box=viewBox();
+    if(lastDraw?.layout===layout&&Object.keys(box).every(key=>lastDraw.box[key]===box[key]))return;
+    drawPending=true;
+    requestAnimationFrame(()=>{
+      drawPending=false;
+      if(!gpu||!viewport.clientWidth||!viewport.clientHeight)return;
+      const next=viewBox();
+      try {
+        gpu.draw(layout,next,RELATION_MARKS,focus);
+        mini.setGPU(gpu.drawMinimap(mini.frame()));
+        lastDraw={layout,box:next};
+        surface.style.left=next.insetX+'px';surface.style.top=next.insetY+'px';
+        surface.hidden=false;map.dataset.renderer='webgl';
+        tiltButton.hidden=!layout.cards.length;
+      } catch { useSVG(); }
+    });
+  }
+  Object.defineProperty(map,'graphDrawing',{get:()=>{
+    if(!layout)return null;
+    const box=viewBox(), rect=contentRect(viewport);
+    if(gpu&&lastDraw)return {renderer:'webgl',box:{...lastDraw.box},edges:gpu.describe(),plates:gpu.describePlates(),
+      minimapMarks:gpu.describeMinimap(),...gpu.diagnostics()};
+    return {renderer:'svg',box,edges:svgRoutes.map(({line})=>{
+      const matrix=line.getScreenCTM();
+      const points=svgRoutePoints(line).map(({x,y})=>({
+        x:matrix.a*x+matrix.c*y+matrix.e-rect.left,
+        y:matrix.b*x+matrix.d*y+matrix.f-rect.top,
+      }));
+      return {id:line.dataset.edgeId,relation:line.dataset.relation,gate:line.dataset.gate,points,visible:getComputedStyle(line).visibility==='visible'};
+    })};
+  }});
   const zoomText=el('output');zoomText.setAttribute('aria-live','polite');
   const rememberScroll=()=>{scrollPosition={left:viewport.scrollLeft,top:viewport.scrollTop};};
   let scrollPosition={left:0,top:0};
   const zoom=(amount,point=null)=>{
     if(!layout)return;
     automatic=false;
-    const rect=viewport.getBoundingClientRect(),screenPoint=point?{x:rect.x+point.x,y:rect.y+point.y}:null;
+    const rect=contentRect(viewport),screenPoint=point?{x:rect.left+point.x,y:rect.top+point.y}:null;
     point ||= {x:viewport.clientWidth/2,y:viewport.clientHeight/2};
     const before=layout, anchor={x:(viewport.scrollLeft+point.x-origin.x)/scale,y:(viewport.scrollTop+point.y-origin.y)/scale};
     const next=zoomLevel(level,scale,amount), changed=level!==next.level;
     level=next.level;scale=next.scale;
     if(changed)update(rawData,chosenNode);else size();
     const mapped=changed?mapAnchor(before,layout,anchor):anchor;
-    const after=viewport.getBoundingClientRect();
-    point=screenPoint?{x:screenPoint.x-after.x,y:screenPoint.y-after.y}:{x:viewport.clientWidth/2,y:viewport.clientHeight/2};
+    const after=contentRect(viewport);
+    point=screenPoint?{x:screenPoint.x-after.left,y:screenPoint.y-after.top}:{x:viewport.clientWidth/2,y:viewport.clientHeight/2};
     viewport.scrollLeft=mapped.x*scale+origin.x-point.x;viewport.scrollTop=mapped.y*scale+origin.y-point.y;
-    rememberScroll();outside();panIntent=true;clearTimeout(snapTimer);snapTimer=setTimeout(()=>{snapTitles();revealSelection();},160);
+    rememberScroll();panIntent=false;clearTimeout(snapTimer);outside();
   };
   const start=()=>{
     const plan=!!data.plan_approval && !(data.plan_approval.verified && data.plan_approval.outcome==='approved');
@@ -3078,24 +3293,28 @@ function createMap() {
   const overviewNote=el('span',undefined,'overview-note'),overviewLabel=button(t('overviewLevel'),()=>{automatic=true;level='overview';scale=fitScale(layouts.overview.bounds,viewport.clientWidth-24,viewport.clientHeight-24);update(rawData,chosenNode);start();}),detailButton=button(t('detailLevel'),()=>{automatic=false;level='detail';scale=1;update(rawData,chosenNode);start();});
   overviewLabel.dataset.i18n='overviewLevel';detailButton.dataset.i18n='detailLevel';
   overviewNote.append(overviewLabel,detailButton);overflow.append(button(t('listAll'),()=>{$('accessible').open=true;$('accessible').scrollIntoView({block:'start'});},'small'));
-  toolbar.append(zoomOut,zoomIn,fitButton,zoomText,overviewNote,overflow);
+  toolbar.append(zoomOut,zoomIn,fitButton,zoomText,overviewNote,tiltButton,overflow);
   zoomOut.dataset.i18nLabel='zoomOut';zoomIn.dataset.i18nLabel='zoomIn';viewport.dataset.i18nLabel='mapHelp';
   const mapTitle=el('div',undefined,'map-title'), name=el('strong',t('graph')), direction=el('span',t('mapDirection'));
   name.dataset.i18n='graph';direction.dataset.i18n='mapDirection';mapTitle.append(name,direction);toolbar.prepend(mapTitle);translate();
   function updateCounts(visible) {
     const goals=layout.cards.filter(card=>card.kind==='goal').length;
     Object.assign(visibleCount.dataset,{plan:layout.cards.length-goals,wholeResult:goals,visible});
-    visibleCount.textContent=t('visiblePlan',{total:layout.cards.length-goals,result:goals?t('visibleResult',{n:goals}):'',n:visible});
+    visibleCount.textContent=t(graphDetail(level,scale)==='far'?'visibleFarCards':'visiblePlan',
+      {total:layout.cards.length-goals,result:goals?t('visibleResult',{n:goals}):'',n:visible});
   }
   function outside() {
     if(!layout)return;
+    mini.update(layout,viewBox());
     if(!viewport.clientWidth){updateCounts(0);return;}
-    const w=viewport.clientWidth,h=viewport.clientHeight,ox=origin.x,oy=origin.y;
+    requestDrawing();
+    const w=viewport.clientWidth,h=viewport.clientHeight,ox=origin.x,oy=origin.y,far=graphDetail(level,scale)==='far',vr=contentRect(viewport);
     const groups={offLeft:[],offRight:[],offTop:[],offBottom:[]}; let visible=0;
     for(const n of data.nodes) {
       const p=layout.positions[n.id],x=p.x*scale+ox-viewport.scrollLeft,y=p.y*scale+oy-viewport.scrollTop;
-      const element=nodes.get(n.id),title=element?.querySelector('.node-title'),vr=contentRect(viewport),tr=titleTextRect(title);
-      const rect=tr?{x:tr.left-vr.left,y:tr.top-vr.top,width:tr.width,height:tr.height}:{x,y,width:p.width*scale,height:p.height*scale};
+      const element=nodes.get(n.id),title=element?.querySelector('.node-title'),tr=far?null:titleTextRect(title);
+      const cardRect={x,y,width:p.width*scale,height:p.height*scale};
+      const rect=tr?{x:tr.left-vr.left,y:tr.top-vr.top,width:tr.width,height:tr.height}:cardRect;
       const horizontal=x>=-.5&&x+p.width*scale<=w+.5;
       const direction=offscreenDirection(horizontal?rect:{x,y,width:p.width*scale,height:p.height*scale},w,h);
       if(direction)groups[direction].push(n);
@@ -3138,13 +3357,15 @@ function createMap() {
     const fits=layout && layout.bounds.width*scale<=viewport.clientWidth && layout.bounds.height*scale<=viewport.clientHeight;
     fitButton.textContent=t(fits?'fit':'scrollView');fitButton.title=t(fits?'fit':'scrollViewHelp');
     fitButton.removeAttribute('aria-pressed');
-    overviewNote.title=t('overviewHelp');overviewNote.hidden=false;overviewLabel.setAttribute('aria-pressed',String(level==='overview'));detailButton.setAttribute('aria-pressed',String(level==='detail'));map.dataset.level=level;map.dataset.fitted=String(automatic&&fits);map.dataset.scale=String(scale);
+    overviewNote.title=t('overviewHelp');overviewNote.hidden=false;overviewLabel.setAttribute('aria-pressed',String(level==='overview'));detailButton.setAttribute('aria-pressed',String(level==='detail'));map.dataset.level=level;map.dataset.lod=graphDetail(level,scale);map.dataset.fitted=String(automatic&&fits);map.dataset.scale=String(scale);
   }
   function size() {
     if(!layout)return;
     if(map.getBoundingClientRect){
       const selectedHeight=(layout.positions[chosenNode]?.height||0)*scale;
-      const available=Math.max(300,selectedHeight+(toolbar.offsetHeight||60)+50,innerHeight-map.getBoundingClientRect().top-38);
+      const toolbarHeight=toolbar.offsetHeight||60;
+      const minimum=matchMedia('(max-width:760px)').matches?toolbarHeight+200:300;
+      const available=Math.max(minimum,selectedHeight+toolbarHeight+50,innerHeight-map.getBoundingClientRect().top-38);
       map.style.height=available+'px';
       const panel=$('panel');
       const headingHeight=panel.querySelector('.panel-bar')?.offsetHeight||0;
@@ -3155,9 +3376,12 @@ function createMap() {
     if(!placed)origin={x:Math.max(0,(w-layout.bounds.width*scale)/2),y:Math.max(0,(h-layout.bounds.height*scale)/2)};
     Object.assign(stage.style,{left:origin.x+'px',top:origin.y+'px',width:layout.bounds.width+'px',height:layout.bounds.height+'px',transform:`scale(${scale})`});
     stage.style.setProperty('--map-text',Math.max(14,12/scale)+'px');
+    stage.style.setProperty('--kind-size',Math.max(20,20/scale)+'px');
+    stage.style.setProperty('--status-size',Math.max(20,16/scale)+'px');
     Object.assign(spacer.style,{width:layout.bounds.width*scale>w?layout.bounds.width*scale+'px':'100%',height:layout.bounds.height*scale>h?layout.bounds.height*scale+'px':'100%'});
     if(!$('panel').hidden && $('panel').onscroll)$('panel').onscroll();
-    zoomText.textContent=t(level==='overview'?'overviewLevel':'detailLevel')+' '+Math.round(scale*100)+'%';zoomOut.disabled=level==='overview'&&scale<=MIN_FIT_SCALE;zoomOut.title=zoomOut.disabled?t('minZoom'):t('zoomOut');zoomIn.disabled=level==='detail'&&scale>=1.6;updateReadout();rememberScroll();outside();
+    zoomText.textContent=t(level==='overview'?'overviewLevel':'detailLevel')+' '+Math.round(scale*100)+'%';zoomOut.disabled=level==='overview'&&scale<=MIN_MAP_SCALE;zoomOut.title=zoomOut.disabled?t('minZoom'):t('zoomOut');zoomIn.disabled=level==='detail'&&scale>=1.6;updateReadout();rememberScroll();outside();
+    tiltButton.title=t('tiltGraph');
   }
   const maxCardWidth=()=>matchMedia('(max-width:760px)').matches ? Math.max(156,(viewport.clientWidth || innerWidth-72)-24) : Infinity;
   let measuredWidth;
@@ -3170,9 +3394,11 @@ function createMap() {
     const reveal=id&&id!==chosenNode;data=next;chosenNode=id;map.classList.toggle('has-expanded',!!id);
     measuredWidth=maxCardWidth();
     layouts=Object.fromEntries(['detail','overview'].map(level=>[level,layeredLayout(data.nodes,data.edges.map(e=>({...e,displayLabel:e.label?label(e.label):''})),data.decisions,true,{level,language,wrapLongChains:true,maxCardWidth:measuredWidth,measure:(n,width)=>{
-      const sample=nodeCard(n,n.id===id,level);sample.classList.add('card-measure');sample.style.width=width+'px';sample.style.setProperty('--map-text','14px');stage.append(sample);
+      const sample=nodeCard(n,n.id===id,level);sample.classList.add('card-measure');sample.style.width=width+'px';sample.style.setProperty('--map-text','14px');
+      sample.style.setProperty('--kind-size',20/MIN_FIT_SCALE+'px');stage.append(sample);
       if(nodes.get(n.id)?.querySelector('.answered-result')?.open && sample.querySelector('.answered-result'))sample.querySelector('.answered-result').open=true;
-      const height=sample.offsetHeight;sample.remove();return height;
+      const height=sample.offsetHeight?Math.ceil(sample.getBoundingClientRect().height/scale):0;
+      sample.remove();return height;
     }})]));
     layouts.overview=compactOverview(layouts.overview,viewport.clientWidth-24);
     for(const name of ['detail','overview'])layouts[name]=createGraphScene(data.nodes,layouts[name],data.decisions,name);
@@ -3211,23 +3437,34 @@ function createMap() {
     if(data.nodes.some(n=>cometCount(n)>0)&&!data.nodes.some(n=>displayState(n,data.decisions)==='returned'))states.append(el('span','↩ '+t('returned'),'state-key'));
     if(data.nodes.some(n=>n.kind==='review')) { const mark=el('span',undefined,'state-key review-key'); mark.append(typeIcon('review'),el('span',t('review')));states.append(mark); }
     if(data.planned_questions?.length)states.append(el('span',t('questionsMark'),'state-key'));
+    const lanes=[...new Set(layout.cards.map(card=>card.lane).filter(Boolean))].sort();
+    if(lanes.length){
+      const legend=el('span',t('riskLegend'),'state-key lane-key');
+      for(const lane of lanes)legend.append(laneCue(lane),el('span',String(lane)));
+      states.append(legend);
+    }
     key.append(states);
     // Reorder existing controls without replacing them: tab order follows the drawing.
     for(const card of layout.cards){const e=nodes.get(card.id);setRect(e,card);stage.append(e);}
     if(drawing)drawing.remove();drawing=svg('svg',{width:layout.bounds.width,height:layout.bounds.height,class:'edge-layer','aria-hidden':'true'});
+    svgRoutes=[];
     const defs=svg('defs');
     for(const relation of Object.keys(RELATION_MARKS)) {
-      const marker=svg('marker',{id:'arrow-'+relation,viewBox:'0 0 10 10',refX:10,refY:5,markerWidth:7,markerHeight:7,orient:'auto'});
-      marker.append(edgeMarker(relation));defs.append(marker);
+      for(const context of [false,true]) {
+        const marker=svg('marker',{id:'arrow-'+relation+(context?'-context':''),viewBox:'0 0 10 10',refX:10,refY:5,markerWidth:7,markerHeight:7,orient:'auto'});
+        if(context)marker.classList.add('graph-context');
+        marker.append(edgeMarker(relation));defs.append(marker);
+      }
     }
     drawing.append(defs);stage.prepend(drawing);
     for(const element of chips.values())element.remove();chips.clear();
     for(const route of layout.edges) {
       const {chip:c}=route;
       const d=roundedRoute(route.points);
-      const {gate,relation,flowing}=route.style;
-      const line=svg('path',{d,...edgeAttributes(route),class:'edge-path '+gate+(flowing?' flowing':''),'marker-end':`url(#arrow-${relation})`});
-      drawing.append(svg('path',{d,class:'edge-underlay'}),flowing?inPhase(line,2000):line);
+      const {gate,relation}=route.style;
+      const line=svg('path',{d,...edgeAttributes(route),'data-edge-id':route.id,class:'edge-path '+gate,'marker-end':`url(#arrow-${relation})`});
+      svgRoutes.push({edge:route,line});
+      drawing.append(svg('path',{d,class:'edge-underlay'}),line);
       if(!c||chips.has(c.first))continue;
       const chip=el('div',undefined,'edge-chip '+gate);
       const source=data.nodes.find(n=>n.id===route.from),targets=layout.edges.filter(r=>r.chip===c).map(r=>title(data.nodes.find(n=>n.id===r.to))).join(', ');
@@ -3253,7 +3490,7 @@ function createMap() {
       }
     }
 
-    outside();
+    updateFocus();outside();
     if(focused)nodes.get(focused)?.querySelector('button')?.focus({preventScroll:true});
     if(focusedChip)[...chips.values()].find(e=>e.dataset.chip===focusedChip&&e.tagName==='BUTTON')?.focus({preventScroll:true});
   }
@@ -3271,7 +3508,7 @@ function createMap() {
   const release=()=>{drag=null;viewport.classList.remove('panning');panIntent=true;snapTitles();};viewport.addEventListener('pointerup',release);viewport.addEventListener('pointercancel',release);
   viewport.addEventListener('wheel',e=>{
     panIntent=true;
-    if(e.ctrlKey || e.metaKey){e.preventDefault();const r=viewport.getBoundingClientRect();zoom(e.deltaY<0?.1:-.1,{x:e.clientX-r.x,y:e.clientY-r.y});}
+    if(e.ctrlKey || e.metaKey){e.preventDefault();const r=contentRect(viewport);zoom(e.deltaY<0?.1:-.1,{x:e.clientX-r.left,y:e.clientY-r.top});}
     else automatic=false;
   },{passive:false});
   let lastWidth=0,lastHeight=0;
@@ -3284,6 +3521,7 @@ function createMap() {
     else size();
   }
   new ResizeObserver(()=>resize()).observe(viewport);
+  addEventListener('resize',requestDrawing);
   function revealSelection() {
     const p=layout?.positions[chosenNode];if(!p || !viewport.clientWidth)return;
     const w=viewport.clientWidth,h=viewport.clientHeight,ox=origin.x,oy=origin.y;
@@ -3297,7 +3535,7 @@ function createMap() {
   return {update,select:id=>{
     chosenNode=id;
     for(const [key,element] of nodes){element.firstElementChild.classList.toggle('expanded',key===id);element.querySelector('.node-header').setAttribute('aria-expanded',String(key===id));}
-    resize(true);size();revealSelection();
+    updateFocus();resize(true);size();revealSelection();
   },wake:size,remeasure:()=>update(rawData,chosenNode)};
 }
 renderer = createMap(); if(view)renderer.update(view,selected);

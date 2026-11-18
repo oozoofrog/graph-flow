@@ -22,6 +22,7 @@ These module signatures and dashboard view shapes are for plugin maintainers.
 | `cli.py` | Argument parsing, role checks, output |
 | `mcp.py` | stdio MCP server |
 | `server.py` | Dashboard server; `page.html` is its single page |
+| `page.js`, `graph-webgl.js` | Shared graph scene, DOM and SVG rendering, and the lazy WebGL2 backend |
 | `launcher.py` | The `graph-flow` and `gf` commands on PATH written by `gf setup` |
 
 Public surface. Other modules may rely only on what is listed here. Functions raise `GFError`; "appends" means inside one transaction. `actor` is the dict from `core.actor_from_env`.
@@ -210,9 +211,11 @@ Integration check `requires_passed` is validated by `plan.validate` and kept in 
 
 ### Graph renderer input
 
-`createGraphScene(nodes, layout, decisions, level)` projects measured layout into a pure scene in stage CSS pixels. Each card has an ID, kind, presentation state, level, rectangle, layer and dependency order. Each edge has an ID, ordered endpoints, direction, relation, recorded gate and label, style tokens, optional label-chip geometry and routed polyline points. The scene includes graph bounds and an ID lookup for cards. The SVG renderer reads the points and style tokens. The card renderer uses the same rectangles and ordering. The `#map.graphScene` getter returns a detached copy of the active scene for checks.
+`createGraphScene(nodes, layout, decisions, level)` projects measured layout into a pure scene in stage CSS pixels. Each card has an ID, kind, presentation state, effective lane, recorded attempt count, level, rectangle, layer and dependency order. Each edge has an ID, ordered endpoints, direction, relation, recorded gate and label, style tokens, optional label-chip geometry and routed polyline points. The scene includes graph bounds and an ID lookup for cards. DOM cards and labels stay in the stage, and both edge backends read the same routes and relation marker paths. The `#map.graphScene` getter returns a detached copy of the active scene for checks.
 
-Another renderer can position cards in CSS pixels as before and project the ordered 2D points into its orthographic viewport. It can use layer and order for redundant depth or focus, with the relation marker and gate style driven by the same scene fields. DOM measurement stays with the existing layout caller.
+The SVG backend uses the DOM stage transform. The WebGL2 backend uses the same scale, origin and scroll offsets for an orthographic camera. It loads from the same origin on demand and draws on invalidation. SVG remains available for unsupported WebGL2, renderer failure, context loss and `renderer=svg`. The active backend exposes a detached `#map.graphDrawing` snapshot with the viewport transform and projected control polylines in viewport-relative CSS pixels. Its visibility flag describes each submitted edge, including paths clipped by the viewport. The capture harness alone uses `graphTest=1` to preserve the WebGL framebuffer for pixel readback.
+
+The optional tilt preserves the projection of the z=0 plane. Focus derives from recorded dependencies and review targets. Stroke weights and card outlines carry the focus in the plane, and attempt captions carry the count represented by depth plates. The separate DOM panel, reading order, selection and record actions use their existing paths. This presentation serves principles P1, P3 and P6 and preserves the P10 human-stop baseline.
 
 The dashboard HTTP contract and fixed public static allowlist are in [dashboard.md](../skills/graph-flow/references/dashboard.md#get-staticname). Only those GET static requests skip token authentication; every request still needs the loopback Host check, and all APIs still require the token.
 

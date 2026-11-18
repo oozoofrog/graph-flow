@@ -12,6 +12,7 @@ const skill = path.resolve(here, '../../skills/graph-flow');
 const output = path.resolve(process.argv[2] || '');
 assert(process.argv[2] && !/^\/(private\/)?tmp\//.test(output), 'supply a durable output directory');
 const only = process.argv[3] ? new Set(process.argv[3].split(',').map(Number)) : null;
+const forceSVG = process.env.SCREENS_RENDERER === 'svg';
 const manifest = JSON.parse(readFileSync(path.join(here, 'screens.json')));
 const fixtures = JSON.parse(readFileSync(path.join(output, 'fixtures/index.json')));
 const which = name => (process.env.PATH || '').split(path.delimiter).map(p => path.join(p, name)).find(p => existsSync(p));
@@ -31,7 +32,7 @@ const evidence = path.join(output, 'screen-status.json');
 let records = only && existsSync(evidence) ? JSON.parse(readFileSync(evidence)) : [];
 const owned = [], lifecycle = [];
 let chrome, ws, sequence = 0;
-const pending = new Map(), errors = [];
+const pending = new Map(), errors = [], requests = [];
 let activeServer;
 const persist = () => writeFileSync(evidence, JSON.stringify(records, null, 2) + '\n');
 function start(command, args, options={}) {
@@ -79,6 +80,7 @@ async function until(expression) {
   for (let i=0;i<100;i++) {if(await evaluate(expression)) return; await delay(100);}
   throw Error('UI did not reach: '+expression);
 }
+const paint = () => evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))');
 function cli(fixture, args, expected=0) {
   const result = spawnSync(python, ['-I','-S','-B',path.join(skill,'scripts/gf'),'--json','--run',path.join(fixture.project,'.graph-flow/runs',fixture.run),...args],
     {env:envFor(fixture), cwd:fixture.project, encoding:'utf8', timeout:20000});
@@ -150,7 +152,7 @@ function graphRecords(fixture) {
   for(const {id} of nodes)if(!sources.has(id))edges.push([id,'_run_checks','hands_over',state.nodes[id].status==='passed'?'open':'closed','']);
   const cards=nodes.map(({id,kind})=>[id,kind]);
   if(cards.length)cards.push(['_run_checks','goal']);
-  return {cards,edges,events};
+  return {cards,edges,events,nodes,state:state.nodes};
 }
 
 // These observations come from DOM elements, including their actual SVG shape and style.
@@ -162,10 +164,18 @@ function graphDOM() {
   const cards=selector=>Array.from(document.querySelectorAll(selector),e=>{
     const cue=e.querySelector('.type-icon'),glyph=e.querySelector('.status-glyph');
     const r=cue?.getBoundingClientRect();
+    const shape=cue?.firstElementChild, bounds=shape?.getBBox(), matrix=shape?.getScreenCTM();
+    const actualSize=bounds&&matrix?Math.min((bounds.width+1.6)*matrix.a,(bounds.height+1.6)*matrix.d):0;
+    const shown=selector=>!!e.querySelector(selector)?.getClientRects().length;
     return {id:e.dataset.node,kind:cue?.dataset.kind,shape:cue?.firstElementChild?.getAttribute('d'),
       state:e.dataset.state,glyph:glyph?.textContent,visible:getComputedStyle(e).visibility==='visible'&&e.getClientRects().length>0,
+      path:e.parentElement.classList.contains('graph-path'),context:e.parentElement.classList.contains('graph-context'),
       cueVisible:r?.width>0&&r?.height>0&&getComputedStyle(cue).visibility==='visible'&&Number(getComputedStyle(cue).opacity)>0,
-      footer:e.querySelector('.node-footer')?.textContent,reference:e.querySelector('.node-reference')?.textContent,
+      actualSize, title:shown('.node-title'), glyphShown:shown('.status-glyph'), full:shown('.node-essentials'),
+      lane:e.querySelector('.lane-cue')?.childElementCount??null,laneShown:shown('.lane-cue'),
+      attempts:Number(e.querySelector('.attempt-caption')?.dataset.attempts||0),
+      footer:e.querySelector('.node-footer')?.textContent,
+      reference:[...e.querySelectorAll('.node-reference > :not(.attempt-caption)')].map(item=>item.textContent).join(''),
       status:e.querySelector('.node-status')?.textContent};
   });
   const lines=Array.from(map.querySelectorAll('.edge-path[data-from]'),e=>{
@@ -176,7 +186,7 @@ function graphDOM() {
       ends:[[a.x,a.y],[b.x,b.y]]};
   });
   const count=map.querySelector('.map-visible');
-  return {scene:map.graphScene,diagram:cards('#map .node-card'),phone:cards('#phone-flow .node-card'),
+  return {scene:map.graphScene,lod:map.dataset.lod,diagram:cards('#map .node-card'),phone:cards('#phone-flow .node-card'),
     ids:Array.from(document.querySelectorAll('#node-list > [data-node]'),e=>e.dataset.node),lines,
     phoneRelations:relations('#phone-flow .phone-handoff'),accessible:relations('#edge-list [data-relation]'),
     incoming:relations('#panel [data-relations="from"] [data-relation]'),outgoing:relations('#panel [data-relations="to"] [data-relation]'),
@@ -194,9 +204,18 @@ function assertGraphRecords(name, language, expected, observed, visibleTitles) {
     for(const item of items){
       const kind=expected.cards.find(([id])=>id===item.id)[1];
       const context=name+' P1 '+surface+' '+item.id;
+      const lane=expected.state[item.id]?.effective_lane??expected.nodes.find(node=>node.id===item.id)?.lane??null;
+      assert.equal(item.lane,lane,name+' R9 '+surface+' '+item.id+' lane inventory');
       assert.equal(item.kind,kind,context+' plan kind');
       assert.match(item.shape||'',kindShapes[kind],context+' expected '+kind+' path, observed '+item.shape);
-      if(item.visible)assert(item.cueVisible,context+' expected visible kind cue');
+      if(item.visible){
+        assert(item.cueVisible&&item.actualSize>=15.99,context+' expected ≥ 16 CSS px painted kind cue, observed '+item.actualSize);
+        const level=surface==='phone'?'near':observed.lod;
+        assert(item.glyphShown&&item.title===(level!=='far')&&item.full===(level==='near'),
+          context+' R6 '+level+' cues '+JSON.stringify(item));
+        assert.equal(item.laneShown,level!=='far'&&lane!==null,name+' R9 '+surface+' '+item.id+' lane visibility');
+        if(level==='near')assert.equal(item.attempts,expected.state[item.id]?.attempts??0,name+' R4 planar attempt count '+item.id);
+      }
       assert.equal(item.glyph==='◆',item.state==='awaiting',context+' Psi4 glyph '+item.glyph+' for '+item.state);
     }
   }
@@ -234,8 +253,9 @@ function assertGraphRecords(name, language, expected, observed, visibleTitles) {
   assert.equal(Number(counts.plan),plan,name+' M3 toolbar plan count');
   assert.equal(Number(counts.wholeResult),goals,name+' M3 toolbar whole-result count');
   if(visibleTitles!==undefined){
-    const phrase=language==='ko'?`계획 카드 ${plan}개${goals?' + 전체 결과 확인 1개':''} · ${visibleTitles}개 제목이 보여요`:
-      `${plan} plan cards${goals?' + 1 whole-result card':''} · ${visibleTitles} titles visible`;
+    const far=observed.lod==='far';
+    const phrase=language==='ko'?`계획 카드 ${plan}개${goals?' + 전체 결과 확인 1개':''} · ${far?`카드 ${visibleTitles}개가 보여요`:`${visibleTitles}개 제목이 보여요`}`:
+      `${plan} plan cards${goals?' + 1 whole-result card':''} · ${visibleTitles} ${far?'cards':'titles'} visible`;
     assert.equal(counts.text,phrase,name+' M3 visible toolbar count');
   }
   assert.deepEqual(observed.diagram.map(c=>c.id),scene.cards.map(c=>c.id),name+' M1 card DOM order');
@@ -253,11 +273,310 @@ function assertGraphRecords(name, language, expected, observed, visibleTitles) {
   return crossings;
 }
 
+function assertRendererParity(name, scene, drawing) {
+  const {box, edges} = drawing;
+  assert.deepEqual(sorted(edges.map(e=>e.id)),sorted(scene.edges.map(e=>e.id)),name+' R1 drawn edge inventory');
+  for (const edge of scene.edges) {
+    const actual=edges.find(candidate=>candidate.id===edge.id);
+    assert.deepEqual([actual.relation,actual.gate,actual.visible],[edge.relation,edge.gate,true], name+' R1 edge '+edge.id);
+    assert.equal(actual.points.length,edge.points.length,name+' R1 point inventory '+edge.id);
+    for (const [i,point] of edge.points.entries()) {
+      const p=actual.points[i];
+      assert(Math.abs(p.x-point.x*box.scale-box.x)<=.5&&Math.abs(p.y-point.y*box.scale-box.y)<=.5,
+        name+' R1 projected point '+edge.id+'/'+i+' '+JSON.stringify({actual:p, point, box}));
+    }
+  }
+}
+
+function graphRegistration() {
+  const map=document.querySelector('#map'), viewport=map.querySelector('.map-viewport');
+  const r=viewport.getBoundingClientRect(), left=r.left+viewport.clientLeft, top=r.top+viewport.clientTop;
+  const drawing=map.graphDrawing;
+  return {drawing, cards:Object.fromEntries([...map.querySelectorAll('.node-card')].map(card=>{
+    const {x,y,width,height}=card.getBoundingClientRect();
+    return [card.dataset.node,{x:x-left,y:y-top,width,height}];
+  })), viewport:[viewport.clientWidth,viewport.clientHeight],
+  canvas:map.querySelector('canvas').getBoundingClientRect().toJSON(), left, top};
+}
+
+function assertRegistration(name, scene, measured) {
+  const {drawing, cards, viewport, canvas, left, top}=measured, {box}=drawing;
+  const close=(a,b,label)=>assert(Math.abs(a-b)<=.5,name+' R3 '+label+': '+a+' vs '+b);
+  close(box.width,viewport[0],'viewport width');
+  close(box.height,viewport[1],'viewport height');
+  if(drawing.renderer==='webgl') {
+    close(canvas.x,left,'canvas left');
+    close(canvas.y,top,'canvas top');
+    close(canvas.width,box.width,'canvas width');
+    close(canvas.height,box.height,'canvas height');
+  }
+  for(const card of scene.cards) {
+    const actual=cards[card.id];
+    for(const field of ['x','y','width','height']){
+      const offset=field==='x'||field==='y'?box[field]:0;
+      close(actual[field],card[field]*box.scale+offset,card.id+' '+field);
+    }
+  }
+  for(const edge of scene.edges) {
+    const points=drawing.edges.find(candidate=>candidate.id===edge.id).points;
+    for(const [p,card,side] of [[points[0],cards[edge.from],'right'],[points.at(-1),cards[edge.to],'left']]){
+      close(p.x,card.x+(side==='right'?card.width:0),edge.id+' '+side+' boundary');
+      assert(p.y>=card.y-.5&&p.y<=card.y+card.height+.5,name+' R3 '+edge.id+' endpoint height');
+    }
+  }
+}
+
+function assertDependencyFocus(name, records, graph, drawing) {
+  const id=drawing.box.focusId, related=new Set(id?[id]:[]);
+  const directions=[];
+  const dependencies=records.nodes.flatMap(node=>[
+    ...(node.needs||[]).map(need=>[need.from,node.id]),
+    ...(node.kind==='review'?[[node.target,node.id]]:[]),
+  ]);
+  if(id)for(const direction of [0,1]) {
+    const closure=new Set([id]);
+    for(let count=0;count!==closure.size;){
+      count=closure.size;
+      for(const pair of dependencies)if(closure.has(pair[direction]))closure.add(pair[1-direction]);
+    }
+    directions.push(closure);
+    for(const node of closure)related.add(node);
+  }
+  assert.deepEqual(sorted(graph.diagram.filter(c=>c.path).map(c=>c.id)),sorted([...related]),name+' R4 focused record closure');
+  assert.deepEqual(sorted(graph.diagram.filter(c=>c.context).map(c=>c.id)),
+    sorted(id?graph.diagram.filter(c=>!related.has(c.id)).map(c=>c.id):[]),name+' R4 context inventory');
+  if(drawing.renderer==='webgl')for(const edge of drawing.edges){
+    const {from,to}=graph.scene.edges.find(candidate=>candidate.id===edge.id);
+    const lifted=to!=='_run_checks'&&(directions[0]?.has(from)||directions[1]?.has(to));
+    assert.equal(Boolean(edge.z),Boolean(lifted),name+' R4 expected recorded path depth '+edge.id);
+    if(edge.z)assert(edge.width>2,name+' R4 lifted stroke has planar emphasis '+edge.id);
+    const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);
+    const luminance=hex=>rgb(hex).map(c=>c<=.04045?c/12.92:((c+.055)/1.055)**2.4)
+      .reduce((sum,c,i)=>sum+c*[.2126,.7152,.0722][i],0);
+    assert((luminance(drawing.box.background)+.05)/(luminance(edge.color)+.05)>=3,
+      name+' R5 WebGL stroke contrast '+edge.id);
+  }
+  if(drawing.renderer==='webgl'){
+    const expected=graph.lod==='near'?graph.diagram.filter(c=>records.state[c.id]?.attempts):[];
+    assert.deepEqual(sorted(drawing.plates.map(p=>p.id)),sorted(expected.map(c=>c.id)),name+' R4 attempt plate inventory');
+    for(const plate of drawing.plates) {
+      assert.equal(plate.z.length,records.state[plate.id].attempts,name+' R4 recorded attempt plates '+plate.id);
+      assert.equal(plate.z.length,expected.find(c=>c.id===plate.id).attempts,name+' R4 planar attempt caption '+plate.id);
+      assert(plate.z.every(z=>z<0)&&new Set(plate.z).size===plate.z.length,name+' R4 separate depth layers '+plate.id);
+      assert.equal(plate.visible,drawing.box.tilt,name+' R4 plate tilt visibility '+plate.id);
+    }
+  }
+}
+
+function minimapDOM() {
+  const map=document.querySelector('#map'), mini=map.querySelector('.map-mini');
+  const r=mini.getBoundingClientRect(), indicator=mini.querySelector('.mini-window');
+  return {hidden:mini.hidden,renderer:mini.dataset.renderer,target:[r.width,r.height],
+    focusable:mini.tabIndex===0&&!mini.disabled, label:mini.getAttribute('aria-label'),
+    window:['x','y','width','height'].map(key=>Number(indicator.getAttribute(key))),
+    marks:[...mini.querySelectorAll('polygon')].map(e=>[e.dataset.node,e.dataset.kind,e.points.numberOfItems,e.getAttribute('fill')])};
+}
+
+function assertMinimap(name, graph, drawing, mini) {
+  const {width,height}=graph.scene.bounds, box=drawing.box;
+  const overflow=width*box.scale>box.width||height*box.scale>box.height;
+  assert.equal(mini.hidden,!overflow,name+' R9 minimap visibility');
+  if(mini.hidden)return;
+  assert(mini.focusable&&mini.label&&Math.min(...mini.target)>=24,name+' R9 minimap target');
+  assert.equal(mini.renderer==='webgl',drawing.renderer==='webgl',name+' R9 minimap renderer');
+  const kinds={work:[4,'#335cad'],review:[12,'#23654e'],decision:[6,'#9e4d04'],goal:[3,'#6f4f91']};
+  assert.deepEqual(sorted(mini.marks),sorted(graph.scene.cards.map(c=>[c.id,c.kind,...kinds[c.kind]])),
+    name+' R9 minimap card marks');
+  if(drawing.renderer==='webgl')assert.deepEqual(sorted(drawing.minimapMarks),sorted(graph.scene.cards.map(c=>c.id)),
+    name+' R9 WebGL minimap mesh inventory');
+  const [x,y,w,h]=mini.window;
+  assert(x>=0&&y>=0&&w>0&&h>0&&x+w<=142&&y+h<=88,name+' R9 viewport indicator bounds');
+}
+
+function graphInk() {
+  const map=document.querySelector('#map'), {edges,box}=map.graphDrawing, scene=map.graphScene;
+  const canvas=map.querySelector('canvas'), gl=canvas.getContext('webgl2');
+  const {drawingBufferWidth:width,drawingBufferHeight:height}=gl;
+  const pixels=new Uint8Array(width*height*4);
+  gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+  const ink=(x,y)=>{
+    const p=(Math.floor(x)+(height-1-Math.floor(y))*width)*4;
+    return pixels[p+3]>100&&pixels[p]<170&&pixels[p+1]<180&&pixels[p+2]<200;
+  };
+  const dpr=box.dpr, samples=[];
+  for(const {id,points} of edges) {
+    let count=0, on=0;
+    for(let i=1;i<points.length;i++){
+      const a=points[i-1], b=points[i], length=Math.hypot(b.x-a.x,b.y-a.y);
+      for(let step=1;step<length;step++){
+        const x=(a.x+(b.x-a.x)*step/length)*dpr, y=(a.y+(b.y-a.y)*step/length)*dpr;
+        if(x<2||y<2||x>=width-2||y>=height-2)continue;
+        count++;
+        if(ink(x,y))on++;
+      }
+    }
+    samples.push({id,count,on});
+  }
+  const interiors=[];
+  for(const card of scene.cards) {
+    const x=(card.x*box.scale+box.x)*dpr, y=(card.y*box.scale+box.y)*dpr;
+    const left=Math.max(0,Math.ceil(x+3*dpr)), right=Math.min(width,Math.floor(x+(card.width*box.scale-3)*dpr));
+    const top=Math.max(0,Math.ceil(y+3*dpr)), bottom=Math.min(height,Math.floor(y+(card.height*box.scale-3)*dpr));
+    let found=false;
+    for(let row=top;row<bottom&&!found;row++)for(let col=left;col<right;col++)if(ink(col,row)){found=true;break;}
+    if(found)interiors.push(card.id);
+  }
+  return {samples,interiors,preserved:gl.getContextAttributes().preserveDrawingBuffer,error:gl.getError()};
+}
+
+function assertGraphInk(name, ink) {
+  assert(ink.preserved&&!ink.error,name+' R2 readable test framebuffer');
+  assert.deepEqual(ink.interiors,[],name+' R2 off-route ink inside card interiors');
+  for(const {id,count,on} of ink.samples)if(count>=15)assert(on>0,name+' R2 missing ink for edge '+id);
+}
+
+async function assertMotion(name) {
+  const duration = `[...document.querySelectorAll('#map,#map *')].flatMap(e=>{
+    const css=getComputedStyle(e), duration=css.animationDuration.split(',').map(parseFloat);
+    const counts=css.animationIterationCount.split(',').map(value=>value==='infinite'?Infinity:Number(value));
+    return [...duration.map((time,i)=>time>0?time*counts[i%counts.length]:0),
+      ...css.transitionDuration.split(',').map(parseFloat)];
+  }).every(time=>time<=LIMIT)`;
+  for(const [preference,limit] of [['reduce',0],['no-preference',5]]) {
+    await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:preference}]});
+    await delay(180);
+    await paint();
+    assert(await evaluate(duration.replace('LIMIT',limit)),name+' R8 '+preference+' motion duration');
+    const frames="document.querySelector('#map').graphDrawing.frames ?? 0";
+    const before=await evaluate(frames);
+    await delay(225);
+    assert.equal(await evaluate(frames),before,name+' R8 settled frame count');
+  }
+  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+}
+
+async function exerciseGraph(screen, graph) {
+  const name=screen.name;
+  const check=async step=>{
+    await paint();
+    const scene=await evaluate("document.querySelector('#map').graphScene");
+    const measured=await evaluate(`(${graphRegistration})()`);
+    assertRendererParity(name+' '+step,scene,measured.drawing);
+    assertRegistration(name+' '+step,scene,measured);
+    return measured.drawing;
+  };
+  if(screen.tilt&&graph.drawing.box.tilt) {
+    await evaluate("document.querySelector('.map-tilt').click()");
+    assert.equal((await check('tilt off')).box.tilt,false,name+' R3 tilt switch');
+  }
+  await send('Emulation.setDeviceMetricsOverride',{
+    width:screen.viewport.width-125,height:screen.viewport.height-55,deviceScaleFactor:2,mobile:false,
+  });
+  const resized=await check('resize');
+  assert.equal(resized.box.dpr,2,name+' R3 changed device pixel ratio');
+  if(resized.renderer==='webgl'){
+    assert(await evaluate(`(()=>{const c=document.querySelector('.graph-webgl canvas'), r=c.getBoundingClientRect();
+      return c.width===r.width*devicePixelRatio&&c.height===r.height*devicePixelRatio})()`),name+' R3 backing resolution');
+  }
+  await evaluate("document.querySelector('.map-viewport').scrollBy(180,90)");
+  const panned=await check('pan');
+  const point=await evaluate(`(()=>{const v=document.querySelector('.map-viewport'),r=v.getBoundingClientRect();
+    const left=r.x+v.clientLeft,top=r.y+v.clientTop;
+    return {left,top,x:Math.round(left+v.clientWidth/2),y:Math.round(top+v.clientHeight/2)}})()`);
+  await send('Input.dispatchMouseEvent',{type:'mouseWheel',x:point.x,y:point.y,deltaX:0,deltaY:-100,modifiers:2});
+  const zoomed=await check('cursor zoom');
+  assert(zoomed.box.scale>resized.box.scale,name+' R3 wheel zoom changed scale');
+  const unclamped=await evaluate(`(()=>{const v=document.querySelector('.map-viewport');
+    return [v.scrollLeft>0&&v.scrollLeft<v.scrollWidth-v.clientWidth,v.scrollTop>0&&v.scrollTop<v.scrollHeight-v.clientHeight]})()`);
+  assert(unclamped.some(Boolean),name+' R3 cursor zoom has an unclamped axis');
+  for(const [i,field] of ['x','y'].entries())if(unclamped[i]){
+    const local=point[field]-point[i?'top':'left'];
+    const anchor=(local-panned.box[field])/panned.box.scale;
+    assert(Math.abs(anchor*zoomed.box.scale+zoomed.box[field]-local)<=.5,name+' R3 cursor anchor '+field);
+  }
+  await evaluate("document.querySelector('.overview-note button').click()");
+  await check('level change');
+  await assertMotion(name);
+
+  if(zoomed.renderer==='webgl') {
+    const selection="document.querySelector('#panel').dataset.node";
+    const before=await evaluate(selection);
+    assert(before,name+' R7 explicit card selection');
+    assert(await evaluate(`(()=>{const gl=document.querySelector('.graph-webgl canvas').getContext('webgl2');
+      const extension=gl.getExtension('WEBGL_lose_context');if(!extension)return false;extension.loseContext();return true})()`),
+      name+' R7 context-loss extension');
+    await until("document.querySelector('#map').dataset.renderer==='svg'");
+    assert.equal((await check('lost context')).renderer,'svg',name+' R7 active SVG fallback');
+    assert.equal(await evaluate(selection),before,name+' R7 panel selection preserved');
+    assert.equal(await evaluate("document.querySelector('#map .node-card.expanded').dataset.node"),before,name+' R7 card selection preserved');
+  }
+}
+
+async function panDiagnostics() {
+  return evaluate(`(async()=>{
+    const map=document.querySelector('#map'),v=map.querySelector('.map-viewport'),start=map.graphDrawing;
+    const transfer=performance.getEntriesByType('resource').filter(row=>new URL(row.name).pathname.startsWith('/static/vendor/three/'));
+    const timings=[],submissions=[];
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    let before=performance.now();
+    for(let i=0;i<12;i++){
+      const fraction=(i+1)/13;
+      v.scrollTo((v.scrollWidth-v.clientWidth)*fraction,(v.scrollHeight-v.clientHeight)*fraction);
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      const now=performance.now(),drawing=map.graphDrawing;
+      timings.push((now-before)/2);before=now;
+      if(drawing.frameTime!==undefined)submissions.push(drawing.frameTime);
+    }
+    const median=values=>{
+      const sorted=[...values].sort((a,b)=>a-b);
+      return sorted.length?(sorted[Math.floor((sorted.length-1)/2)]+sorted[Math.floor(sorted.length/2)])/2:null;
+    };
+    return {renderer:start.renderer,firstFrameMs:start.firstFrame??null,panFrameMedianMs:median(timings),
+      panFrameMaxMs:Math.max(...timings),submissionMedianMs:median(submissions),
+      vendorModuleBytes:transfer.reduce((sum,row)=>sum+row.encodedBodySize,0),
+      vendorTransferBytes:transfer.reduce((sum,row)=>sum+row.transferSize,0)};
+  })()`);
+}
+
+async function verifyFullInk(screen) {
+  const tiles=await evaluate(`(()=>{
+    const v=document.querySelector('.map-viewport');
+    const offsets=(size,extent)=>Array.from({length:Math.max(1,Math.ceil(extent/(size*.8)))},(_,i)=>Math.min(i*size*.8,extent-size));
+    return offsets(v.clientWidth,v.scrollWidth).flatMap(x=>offsets(v.clientHeight,v.scrollHeight).map(y=>[x,y]));
+  })()`);
+  const covered=new Set();
+  for(const [x,y] of tiles){
+    await evaluate(`document.querySelector('.map-viewport').scrollTo(${x},${y})`);
+    await paint();
+    const ink=await evaluate(`(${graphInk})()`);
+    assertGraphInk(screen.name+' ink tile '+x+','+y,ink);
+    for(const sample of ink.samples)if(sample.count>=15&&sample.on>0)covered.add(sample.id);
+  }
+  const scene=await evaluate("document.querySelector('#map').graphScene");
+  assert.deepEqual(sorted([...covered]),sorted(scene.edges.map(edge=>edge.id)),screen.name+' R2 visible ink searched over every edge');
+}
+
+async function exerciseMinimap(name) {
+  const scroll="document.querySelector('.map-viewport').scrollLeft";
+  await evaluate("document.querySelector('.map-viewport').scrollTo(0,0); document.querySelector('.map-mini').focus({preventScroll:true})");
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowRight',code:'ArrowRight',windowsVirtualKeyCode:39});
+  await send('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowRight',code:'ArrowRight',windowsVirtualKeyCode:39});
+  assert(await evaluate(scroll)>0,name+' R9 keyboard minimap navigation');
+  const {x,y,width,height}=await evaluate("document.querySelector('.map-mini').getBoundingClientRect().toJSON()");
+  const right=Math.round(x+width-8), left=Math.round(x+8), middle=Math.round(y+height/2);
+  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:right,y:middle,button:'left',buttons:1,clickCount:1});
+  const clicked=await evaluate(scroll);
+  assert(clicked>0,name+' R9 minimap click');
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:left,y:middle,button:'left',buttons:1});
+  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:left,y:middle,button:'left',clickCount:1});
+  assert(await evaluate(scroll)<clicked,name+' R9 minimap drag');
+}
+
 function graphAppearance() {
   const visible=e=>e.getClientRects().length>0&&getComputedStyle(e).visibility==='visible';
   const graph='#map, #phone-flow, #panel, #accessible, #phone-view-toggle';
   const roots=[...document.querySelectorAll(graph)];
-  const probes={text:[],marks:[],targets:[]};
+  const probes={text:[],marks:[],targets:[],tilted:[]};
   const rgb=value=>value.match(/[\d.]+/g).map(Number);
   const blend=(front,back,opacity=1)=>{
     const a=(front[3]??1)*opacity;
@@ -281,6 +600,10 @@ function graphAppearance() {
   probes.scale=scale;
   for(const root of roots)for(const e of [root,...root.querySelectorAll('*')]){
     if(!(e instanceof HTMLElement)||!visible(e))continue;
+    if(e.matches('.map-stage,.node-position')||e.closest('.node-card,.edge-chip')) {
+      const matrix=new DOMMatrixReadOnly(getComputedStyle(e).transform);
+      if(!matrix.is2D||matrix.b!==0||matrix.c!==0||matrix.a<=0||matrix.d<=0)probes.tilted.push(context(e));
+    }
     if(![...e.childNodes].some(n=>n.nodeType===Node.TEXT_NODE&&n.textContent.trim()))continue;
     const css=getComputedStyle(e),glyph=e.classList.contains('status-glyph');
     const item=probe(e,css.color,background(e),glyph?3:4.5);
@@ -288,16 +611,19 @@ function graphAppearance() {
     item.text=e.textContent.trim().slice(0,70);
     (glyph?probes.marks:probes.text).push(item);
   }
-  for(const e of document.querySelectorAll('.type-icon path,.edge-path,.relation-fill,.relation-stroke,.node-card.expanded')){
+  for(const e of document.querySelectorAll('.type-icon path,.edge-path,.relation-fill,.relation-stroke,.node-card.expanded,.graph-path .node-card')){
     if(!visible(e)&&!(e.closest('defs')&&visible(e.closest('.edge-layer'))))continue;
     const css=getComputedStyle(e);
-    const property=e.classList.contains('expanded')?'outlineColor':e.classList.contains('relation-fill')?'fill':'stroke';
+    const property=e.matches('.node-card')?'outlineColor':e.classList.contains('relation-fill')?'fill':'stroke';
     if(property==='outlineColor'&&(css.outlineStyle==='none'||parseFloat(css.outlineWidth)===0)){
       throw Error(context(e)+' selected outline absent');
     }
     if(css[property]==='none')continue;
     const bg=background(property==='outlineColor'?e.parentElement:e);
     probes.marks.push(probe(e,css[property],bg,3));
+  }
+  for(const e of document.querySelectorAll('.lane-cue i'))if(visible(e)){
+    probes.marks.push(probe(e,getComputedStyle(e).backgroundColor,background(e.parentElement),3));
   }
   if(innerWidth===390)for(const e of document.querySelectorAll('#attention :is(button,summary,a[href]),#flow :is(button,summary,a[href]),#accessible :is(button,summary,a[href]),#decision :is(button,summary,a[href],label:has(input[type=checkbox]))')){
     if(!visible(e))continue;
@@ -324,6 +650,7 @@ function assertLegend(name, language, edges, items) {
 }
 
 function assertAppearance(name, appearance) {
+  assert.deepEqual(appearance.tilted,[],name+' R5 labels stay screen-aligned');
   for(const item of [...appearance.text,...appearance.marks]){
     assert(item.ratio>=item.threshold,name+' Psi2 '+item.id+' '+(item.text||'')+' expected contrast ≥ '+item.threshold+', observed '+item.ratio.toFixed(2)+' ('+item.color+' on '+item.background+')');
     if(item.apparentSize!==undefined)assert(item.apparentSize>=11.99,name+' Psi3 '+item.id+' '+item.text+' expected ≥ 12 CSS px, observed '+item.apparentSize);
@@ -354,7 +681,8 @@ function compareGrayGlyphs(name, png, boxes) {
 }
 const derivedNumbers = new Set([1,2,3,5,7,10,15,17,18,19,20,21,22,23,24,29,33,34,37,38,41,44,52,53,58,59,61,62,63,64,65,66,67,68,69,...manifest.filter(s=>s.number>=70).map(s=>s.number)]);
 try {
-  chrome = start(chromePath, ['--headless=new','--remote-debugging-port=0','--user-data-dir='+profile,'--no-first-run','--no-default-browser-check','--lang=ko','about:blank']);
+  chrome = start(chromePath, ['--headless=new','--use-angle=swiftshader','--enable-unsafe-swiftshader',
+    '--remote-debugging-port=0','--user-data-dir='+profile,'--no-first-run','--no-default-browser-check','--lang=ko','about:blank']);
   const endpoint = (await lineMatching(chrome, chrome.stderr, /DevTools listening on (ws:\/\/\S+)/))[1];
   chrome.stderr.on('data', chunk => { /* Drain Chrome logs without exposing unrelated browser state. */ });
   const targets = await (await fetch('http://127.0.0.1:'+new URL(endpoint).port+'/json')).json();
@@ -363,12 +691,15 @@ try {
   ws.onmessage = event => {
     const message = JSON.parse(event.data);
     if(message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails);
+    if(message.method === 'Network.requestWillBeSent') requests.push(message.params.request.url);
     if(pending.has(message.id)) {const [resolve,reject]=pending.get(message.id);pending.delete(message.id);message.error?reject(Error(JSON.stringify(message.error))):resolve(message.result);}
   };
-  await send('Page.enable'); await send('Runtime.enable');
+  await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
   await send('Emulation.setLocaleOverride', {locale:'ko-KR'});
   await send('Emulation.setTimezoneOverride', {timezoneId:'Asia/Seoul'});
   await send('Emulation.setEmulatedMedia', {features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  const webgl2=await evaluate("!!document.createElement('canvas').getContext('webgl2')");
+  console.log('Chrome WebGL2 context:',webgl2?'available':'unavailable');
   for (const screen of manifest.filter(row => !only || only.has(row.number))) {
     const fixture = fixtures[screen.scenario];
     const filename = String(screen.number).padStart(2,'0')+'-'+screen.name+'.png';
@@ -386,12 +717,23 @@ try {
       const relative = screen.url.replace(/\{(\w+)\}/g, (_, key) => encodeURIComponent(values[key]));
       record.deepLink = relative.replace(encodeURIComponent(values.token), '{token}');
       errors.length = 0;
+      requests.length = 0;
       await send('Emulation.setDeviceMetricsOverride', {width:screen.viewport.width,height:screen.viewport.height,deviceScaleFactor:1,mobile:false});
-      await send('Page.navigate', {url:base.origin+relative});
+      const dashboard=new URL(relative,base.origin);
+      dashboard.searchParams.set('graphTest','1');
+      if(forceSVG)dashboard.searchParams.set('renderer','svg');
+      await send('Page.navigate', {url:dashboard.href});
       const language=screen.language||'ko';
       await until(`!!document.querySelector('#map').graphScene && document.documentElement.lang===${JSON.stringify(language)}`);
       await delay(450);
       for(const action of screen.interactions) await interaction(action, fixture);
+      if(screen.tilt&&!forceSVG&&webgl2) {
+        await until("!document.querySelector('.map-tilt').hidden");
+        await evaluate("document.querySelector('.map-tilt').focus({preventScroll:true})");
+        await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32,text:' '});
+        await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+        await until("document.querySelector('#map').graphDrawing.box.tilt");
+      }
       await evaluate('document.fonts.ready');
       const dom = await evaluate(`({title:document.querySelector('#title').textContent,language:document.documentElement.lang,text:document.body.innerText,level:document.querySelector('#map').dataset.level,scale:document.querySelector('#map').dataset.scale,scrollY,buttons:[...document.querySelectorAll('button')].filter(b=>b.getBoundingClientRect().width).map(b=>({text:b.textContent,disabled:b.disabled}))})`);
       assert.equal(dom.language,language);
@@ -409,7 +751,7 @@ try {
         const cards=[...document.querySelectorAll('#map .node-card')];
         const selected=cards.find(c=>c.classList.contains('expanded'));const sentence=panel.querySelector('.node-sentence'),sr=sentence?.getBoundingClientRect();
         const leafRects=body?[...body.querySelectorAll('p,li,summary,h3,pre')].filter(e=>e.getClientRects().length&&!e.querySelector('p,li,summary,h3,pre')).map(e=>{const range=document.createRange();range.selectNodeContents(e);return {text:e.textContent,rect:range.getBoundingClientRect().toJSON()}}):[];
-        const visibleTitles=cards.filter(c=>{if(getComputedStyle(c).visibility==='hidden')return false;const t=c.querySelector('.node-title'),range=document.createRange();range.selectNodeContents(t);const r=range.getBoundingClientRect(),left=vr.left+v.clientLeft,top=vr.top+v.clientTop;return r.left>=left-.5&&r.right<=left+v.clientWidth+.5&&r.top>=top-.5&&r.bottom<=top+v.clientHeight+.5}).map(c=>c.querySelector('.node-title').textContent);
+        const visibleTitles=cards.filter(c=>{if(getComputedStyle(c).visibility==='hidden')return false;const t=c.querySelector('.node-title'),range=document.createRange();range.selectNodeContents(t);const r=map.dataset.lod==='far'?c.getBoundingClientRect():range.getBoundingClientRect(),left=vr.left+v.clientLeft,top=vr.top+v.clientTop;return r.left>=left-.5&&r.right<=left+v.clientWidth+.5&&r.top>=top-.5&&r.bottom<=top+v.clientHeight+.5}).map(c=>c.querySelector('.node-title').textContent);
         return {shown,firstSentence:panel.hidden||!!sentence&&sentence.parentElement.children[1]===sentence&&sr.top>=0&&sr.bottom<=innerHeight,scroll:{left:v.scrollLeft,top:v.scrollTop},visibleTitles,
           toolbar:!shown||count.scrollWidth<=count.clientWidth+1&&count.getBoundingClientRect().left>=toolbar.getBoundingClientRect().left,
           panel:panel.hidden||bar.getBoundingClientRect().bottom<=body.getBoundingClientRect().top+.5,
@@ -427,6 +769,17 @@ try {
       assert(audit.contentFits,'E6 content must fit the measured card');
       const expected=graphRecords(fixture), graph=await evaluate(`(${graphDOM})()`);
       const crossings=assertGraphRecords(screen.name,language,expected,graph,audit.shown?audit.visibleTitles.length:undefined);
+      if(audit.shown&&graph.scene.edges.length) {
+        if(!forceSVG&&webgl2)await until("document.querySelector('#map').dataset.renderer==='webgl'");
+        const drawing=await evaluate("document.querySelector('#map').graphDrawing");
+        graph.drawing=drawing;
+        assert.equal(drawing.renderer,forceSVG||!webgl2?'svg':'webgl',screen.name+' active renderer');
+        if(!drawing.box.tilt)assertRendererParity(screen.name,graph.scene,drawing);
+        assertRegistration(screen.name,graph.scene,await evaluate(`(${graphRegistration})()`));
+        assertDependencyFocus(screen.name,expected,graph,drawing);
+        assertMinimap(screen.name,graph,drawing,await evaluate(`(${minimapDOM})()`));
+        if(drawing.renderer==='webgl'&&!drawing.box.tilt)assertGraphInk(screen.name,await evaluate(`(${graphInk})()`));
+      }
       if(screen.show_card){
         const geometry=await evaluate(`(()=>{
           const e=document.querySelector('#map [data-node='+${JSON.stringify(screen.show_card)}+']'),v=document.querySelector('.map-viewport'),r=e.getBoundingClientRect();
@@ -465,11 +818,22 @@ try {
         await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
         await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
         assert.equal(await evaluate("document.activeElement.closest('[data-node]')?.dataset.node"),to,screen.name+' M1 Tab from '+from+' across the row break');
+        await paint();
+        const tabDrawing=await evaluate("document.querySelector('#map').graphDrawing");
+        assert.equal(tabDrawing.box.focusId,to,screen.name+' R4 native keyboard focus');
+        assertDependencyFocus(screen.name+' Tab',expected,await evaluate(`(${graphDOM})()`),tabDrawing);
         await evaluate('document.activeElement.blur()');
       }
       dom.graphVerification={cards:graph.scene.cards.length,edges:graph.scene.edges.length,crossings};
       const appearance=await evaluate(`(${graphAppearance})()`);
-      if(screen.minimum_zoom)assert(Math.abs(appearance.scale-6/7)<.0001,screen.name+' Psi3 expected minimum scale 6/7, observed '+appearance.scale);
+      if(screen.minimum_zoom){
+        assert(Math.abs(appearance.scale-.7)<.0001&&graph.lod==='far',screen.name+' Psi3/R6 expected 70% far scale, observed '+appearance.scale);
+        const phone=await evaluate(`(()=>{
+          const v=document.querySelector('.map-viewport'),r=v.getBoundingClientRect();
+          return {height:v.clientHeight,visible:Math.min(r.bottom,innerHeight)-Math.max(r.top,0)};
+        })()`);
+        assert(phone.height>=180&&phone.visible>=180,screen.name+' R6 diagram is visible in the phone capture '+JSON.stringify(phone));
+      }
       dom.graphVerification.appearance=assertAppearance(screen.name,appearance);
       const grayBoxes=screen.gray_cues&&await evaluate(`Object.fromEntries(Object.entries(${JSON.stringify(screen.gray_cues)}).map(([id,state])=>{
         const card=document.querySelector('#map [data-node="'+id+'"]');
@@ -513,6 +877,9 @@ try {
         assert.deepEqual(await evaluate(`({scrollY,level:document.querySelector('#map').dataset.level,focus:document.activeElement?.id,text:document.querySelector('#decision')?.textContent})`),before,'polling preserves the open question');
       }
       dom.audit=audit;
+      assert(requests.length, screen.name+' expected network observations');
+      assert(requests.every(url=>new URL(url).origin===base.origin),screen.name+' off-origin dashboard request');
+      if(forceSVG)assert(!requests.some(url=>new URL(url).pathname.startsWith('/static/vendor/')),screen.name+' R7 forced SVG loads no vendor modules');
       const shot = await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
       const bytes = Buffer.from(shot.data,'base64');
       writeFileSync(path.join(final,filename),bytes);
@@ -530,6 +897,13 @@ try {
         assertLegend(screen.name,language,expected.edges,appearance.legend);
       }
       if(grayBoxes)dom.graphVerification.grayDifferences=compareGrayGlyphs(screen.name,path.join(verify,filename.replace('.png','-gray.png')),grayBoxes);
+      if(screen.number===103||screen.tilt)await exerciseGraph(screen,graph);
+      if(screen.diagnostics){
+        dom.diagnostics=await panDiagnostics();
+        console.log('Diagnostics '+screen.name+' '+JSON.stringify(dom.diagnostics));
+        if(screen.scenario==='graph-dense')await exerciseMinimap(screen.name);
+        if(graph.drawing.renderer==='webgl')await verifyFullInk(screen);
+      }
       record.status='captured'; record.sha256=createHash('sha256').update(bytes).digest('hex');
       writeFileSync(path.join(runtime,filename.replace('.png','.json')),JSON.stringify(dom,null,2)+'\n');
       record.observation=path.join(runtime,filename.replace('.png','.json'));

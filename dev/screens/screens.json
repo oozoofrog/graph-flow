@@ -1828,9 +1828,58 @@
       {
         "action": "button",
         "text": "−"
+      },
+      {
+        "action": "button",
+        "text": "−"
+      },
+      {
+        "action": "into",
+        "selector": "#map"
       }
     ],
     "group": "GRAPH-VERIFICATION",
     "minimum_zoom": true
+  },
+  {
+    "number": 109,
+    "name": "graph-tilt-attempts",
+    "scenario": "graph-verification",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {"action": "button", "text": "상세 보기"},
+      {"action": "click", "selector": "#map [data-node=\"d\"] .node-header"}
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "tilt": true
+  },
+  {
+    "number": 110,
+    "name": "graph-chain-sixty",
+    "scenario": "graph-chain-60",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "desktop", "width": 1440, "height": 900},
+    "interactions": [{"action": "button", "text": "상세 보기"}],
+    "group": "GRAPH-VERIFICATION",
+    "diagnostics": true
+  },
+  {
+    "number": 111,
+    "name": "graph-dense-minimap",
+    "scenario": "graph-dense",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "desktop", "width": 1440, "height": 900},
+    "interactions": [
+      {"action": "button", "text": "상세 보기"},
+      {"action": "button", "text": "+"},
+      {"action": "button", "text": "+"}
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "diagnostics": true
   }
 ]

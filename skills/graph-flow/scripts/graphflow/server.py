@@ -24,8 +24,18 @@ from . import plan as planning
 
 PAGE_PATH = pathlib.Path(__file__).with_name("page.html")
 STATIC_TYPES = {"page.js": "text/javascript; charset=utf-8"}
+STATIC_TYPES["graph-webgl.js"] = STATIC_TYPES["page.js"]
 STATIC_TYPES.update({"assets/frog-%s.png" % pose: "image/png" for pose in
                      ("wave", "walk-a", "walk-b", "report")})
+STATIC_TYPES.update({"vendor/three/" + name: STATIC_TYPES["page.js"] for name in (
+    "build/three.module.js",
+    "build/three.core.js",
+    "examples/jsm/lines/LineMaterial.js",
+    "examples/jsm/lines/LineSegments2.js",
+    "examples/jsm/lines/LineSegmentsGeometry.js",
+)})
+STATIC_TYPES["vendor/three/LICENSE"] = "text/plain; charset=utf-8"
+STATIC_TYPES["vendor/three/manifest.json"] = "application/json; charset=utf-8"
 STATIC_ROOT = pathlib.Path(__file__).parent
 MAX_BODY = 64 * 1024
 MAX_EVIDENCE = 200 * 1024
