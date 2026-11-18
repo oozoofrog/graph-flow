@@ -49,16 +49,16 @@ To resume a run from 0.2.1, repost and approve its current plan. Unchanged
 submissions can continue with their recorded results. Set `GF_NO_OPEN=1` to
 suppress automatic browser opening. Plan approval is still required.
 
-## Local records and privacy
-
-Graph Flow writes run plans, session and assignment records, human answers,
-changed file names, and command check output under the project's `.graph-flow/`.
-Keep this directory out of version control if those records are private.
 Use the time bar under the graph to revisit a run or play back its records.
 Space-time shows how work and handoffs unfolded. Side view makes start,
 end and wait times easier to read. Choose **Live** to answer a current
 question after viewing history.
 
+## Local records and privacy
+
+Graph Flow writes run plans, session and assignment records, human answers,
+changed file names, and command check output under the project's `.graph-flow/`.
+Keep this directory out of version control if those records are private.
 The dashboard listens on loopback. The registry, dashboard token, and approval
 signing key live in `${GF_HOME:-$HOME/.graph-flow}`. See the
 [records reference](skills/graph-flow/references/records.md).

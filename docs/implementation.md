@@ -262,7 +262,8 @@ than 30 minutes shares one compression rate, the smaller of 1/60 and
 90 seconds divided by the longest compressed gap. Time geometry and the
 scrubber share the same forward and inverse mappings. Receipt and transfer
 times use recorded boundaries. An interval or transfer with no later
-boundary ends at the cut. Plan revisions change the structure at the record
+boundary ends at the cut. A reset in the replay-derived basis closes any
+active attempt at its recorded reset boundary. Plan revisions change the structure at the record
 boundary. All of this serves the recorded trajectory (P12) and keeps the
 existing human-stop baseline (P10).
 
