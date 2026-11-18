@@ -19,10 +19,12 @@ These module signatures and dashboard view shapes are for plugin maintainers.
 | `decisions.py` | Decisions and signatures |
 | `learn.py` | Constraints and fixed checks |
 | `trace.py` | Aggregation |
+| `activity.py` | Activity capture, role-filterable reads and deterministic per-attempt summaries |
 | `cli.py` | Argument parsing, role checks, output |
 | `mcp.py` | stdio MCP server |
 | `server.py` | Dashboard server; `page.html` is its single page |
 | `page.js`, `graph-webgl.js` | Shared graph scene, DOM and SVG rendering, and the lazy WebGL2 backend |
+| `activity-webgl.js` | Lazy three.js renderer for the selected attempt summaries |
 | `launcher.py` | The `graph-flow` and `gf` commands on PATH written by `gf setup` |
 
 Public surface. Other modules may rely only on what is listed here. Functions raise `GFError`; "appends" means inside one transaction. `actor` is the dict from `core.actor_from_env`.
@@ -218,6 +220,48 @@ The SVG backend uses the DOM stage transform. The WebGL2 backend uses the same s
 Focus derives from recorded dependencies and review targets. A shared shaft takes the emphasis of its most prominent branch. Both renderers draw context first, then the focus underlays, then focused ink and markers. Recorded attempt counts remain in the card captions and history. The minimap sits in a reserved strip below the scrolling viewport. The lane badge repeats the effective lane as one, two or three tall bars at mid and near zoom. This presentation serves principles P1, P3 and P6 and preserves the P10 human-stop baseline.
 
 The layout and capture checks use one routing ratchet for fixture-specific crossing and bend limits. They validate shaft membership, drawn segments, branch markers, renderer registration, framebuffer ink, focus order, and minimap clearance.
+
+### Activity presentation input
+
+`activity.summaries` groups the event and optional activity ledgers by node
+and attempt. The pure `activity.condense(records, events, now_ms, running,
+unreadable)` produces both card state and the compact work summary; the web
+client directly consumes that result. A phase carries its id, category,
+timestamp, call count, distinct tool-name count, duration in milliseconds,
+unknown-duration count, error count, inferred/repeating/stalled flags, step
+count and fixed label token. Only the CLI and MCP reads expose the original
+metadata rows. See the [activity record contract](../skills/graph-flow/references/records.md#local-activity-observations).
+
+Calls are ordered by their start observations with stable call-key ties.
+Adjacent calls of the same category coalesce across gaps shorter than
+1 second. A gap of at least 1 second between observed calls appears as
+inferred thinking when bounded by an end and a later start, with no calls
+still open in the gap. An unpaired start suppresses future gap inference
+for that attempt. Durations sum known call durations, including overlap,
+and inferred phases carry their bounded gaps. The 12-phase cap replaces the
+adjacent pair with the shortest total duration until the summary fits.
+Merged phases retain call totals, distinct tool counts, duration, flags and
+the number of original steps. Earlier adjacent pairs win duration ties.
+
+Five minutes without an activity observation or event marks a running node
+stalled, an engineering default that leaves space for several normal tool
+round trips. Three consecutive errors from the same tool or three
+consecutive failures of the same check mark repetition, an engineering
+default that allows a first retry while surfacing a persistent pattern.
+These are display heuristics. Unobserved or unreadable attempts use
+`node.start`, `check.red`, `check.result` and the submit events only.
+
+The panel lazily imports `activity-webgl.js` and reuses the already-vendored
+three.js core and renderer. No additional addon is needed. `describeActivity`
+maps each phase to one solid and freezes the projected input exposed through
+`.work-summary.activityScene.solids`. The scene uses a depth extent of 18
+units. Per-solid minimum length is 0.52 units, reduced when many attempts
+share that extent. Unclamped lengths use one common duration scale capped
+at one unit per second. Playback lasts 3.6 seconds and draws on demand
+thereafter. The panel preserves its renderer across polling and fixes the
+playback path when playback starts. CSS and accessibility semantics remain
+in the shared DOM. `graphTest=1` enables readback and raster silhouette
+diagnostics.
 
 The dashboard HTTP contract and fixed public static allowlist are in [dashboard.md](../skills/graph-flow/references/dashboard.md#get-staticname). Only those GET static requests skip token authentication; every request still needs the loopback Host check, and all APIs still require the token.
 

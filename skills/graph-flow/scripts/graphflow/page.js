@@ -1,6 +1,41 @@
 // UI_STRINGS_START
 const STRINGS = {
   "ko": {
+    "activityNameTool": "도구",
+    "activityNameSkill": "스킬",
+    "activityNameMcp": "MCP",
+    "activityNameSession": "세션 간 소통",
+    "activityNameGf": "Graph Flow",
+    "activityNameOther": "기타 작업",
+    "activityNameStalled": "최근 활동 없음",
+    "activityNameRepeating": "실패 반복",
+    "activityBoundedGap": "직전 공백(생각한 시간으로 추정)",
+    "workActivity": "작업 요약",
+    "activityAttempt": "{n}번째 시도",
+    "activityEmpty": "아직 기록된 작업이 없어요.",
+    "activityUnobserved": "이 세션에서 세부 활동이 관측되지 않았어요.",
+    "activityUnreadable": "활동 기록을 읽을 수 없어요.",
+    "activityCount": "{n}회",
+    "activityKnown": "도구 {d}종",
+    "activityDurationUnknown": "걸린 시간 미확인",
+    "activitySomeUnknown": "일부 시간 미확인",
+    "activityErrors": "오류 {n}회",
+    "activityReplay": "다시 재생",
+    "activityPause": "일시 정지",
+    "activityResume": "이어서 재생",
+    "activityRead": "읽기 및 검색 {n}회",
+    "activityTool": "도구 사용 {n}회",
+    "activitySkill": "스킬 실행 {n}회",
+    "activityMcp": "MCP 호출 {n}회",
+    "activitySession": "다른 세션과 소통 {n}회",
+    "activityGf": "Graph Flow 명령 {n}회",
+    "activityOther": "기타 작업 {n}회",
+    "activityThinking": "생각한 시간(추정)",
+    "activityIncludesInferred": "추정 구간 포함",
+    "activityStart": "시도 시작",
+    "activityCheck": "검사 {n}회",
+    "activitySubmit": "결과 제출",
+    "activityMore": "그 외 {n}단계",
     "flow": "전체 흐름",
     "chooseRun": "흐름 고르기",
     "skip": "내용으로 건너뛰기",
@@ -688,6 +723,41 @@ const STRINGS = {
     "qBeforeWorkCount": "작업 전에 이미 통과한 검사 {n}개가 있어요."
   },
   "en": {
+    "activityNameTool": "Tools",
+    "activityNameSkill": "Skills",
+    "activityNameMcp": "MCP",
+    "activityNameSession": "Session communication",
+    "activityNameGf": "Graph Flow",
+    "activityNameOther": "Other work",
+    "activityNameStalled": "No recent activity",
+    "activityNameRepeating": "Repeated failures",
+    "activityBoundedGap": "Previous gap (thinking inferred)",
+    "workActivity": "Work summary",
+    "activityAttempt": "Attempt {n}",
+    "activityEmpty": "No recorded work yet.",
+    "activityUnobserved": "No fine-grained activity observed for this session.",
+    "activityUnreadable": "Activity log unreadable.",
+    "activityCount": "Calls: {n}",
+    "activityKnown": "Distinct tools: {d}",
+    "activityDurationUnknown": "Duration unknown",
+    "activitySomeUnknown": "Some durations unknown",
+    "activityErrors": "Errors: {n}",
+    "activityReplay": "Replay",
+    "activityPause": "Pause",
+    "activityResume": "Resume",
+    "activityRead": "Reads and searches: {n}",
+    "activityTool": "Tool calls: {n}",
+    "activitySkill": "Skill calls: {n}",
+    "activityMcp": "MCP calls: {n}",
+    "activitySession": "Session exchanges: {n}",
+    "activityGf": "Graph Flow commands: {n}",
+    "activityOther": "Other calls: {n}",
+    "activityThinking": "Thinking (inferred)",
+    "activityIncludesInferred": "Includes inferred time",
+    "activityStart": "Attempt started",
+    "activityCheck": "Checks run: {n}",
+    "activitySubmit": "Work submitted",
+    "activityMore": "{n} more steps",
     "flow": "Whole flow",
     "chooseRun": "Choose a flow",
     "skip": "Skip to content",
@@ -2127,6 +2197,12 @@ export function roundedRoute(points, radius = 5) {
   const end=pts.at(-1);return path+` L${end.x} ${end.y}`;
 }
 
+export function activityCues(node) {
+  const attempt = node.activity?.at(-1);
+  if (node.status !== 'running' || !attempt?.latest) return [];
+  return [attempt.cue || attempt.latest, ...(attempt.stalled ? ['stalled'] : []), ...(attempt.repeating ? ['repeating'] : [])];
+}
+
 if (typeof document !== 'undefined') {
 let language = viewLanguage(null, navigator.language);
 const t = (key, values = {}) => Object.entries({...values,...(values.new?{newParticle:particle(values.new,'으로/로')}:{}),...(values.who?{whoSubject:particle(values.who)}:{})}).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), STRINGS[language][key]);
@@ -2549,15 +2625,162 @@ function attention() {
   }
   box.append(heading, items);
 }
+const ACTIVITY_LABELS = {
+  read:'activityRead', tool:'activityTool', skill:'activitySkill', mcp:'activityMcp', session:'activitySession',
+  gf:'activityGf', other:'activityOther', thinking:'activityThinking', start:'activityStart',
+  check:'activityCheck', submit:'activitySubmit', more:'activityMore',
+};
+let workSummary;
+function createWorkSummary() {
+  const section = el('section',undefined,'work-summary');
+  const heading = el('h3',t('workActivity'));
+  heading.id = 'work-summary-heading';
+  section.setAttribute('aria-labelledby',heading.id);
+  const canvas = el('canvas',undefined,'work-canvas');
+  canvas.setAttribute('aria-hidden','true');
+  const replay = button(t('activityReplay'),()=> scene?.play(),'small');
+  const pause = button(t('activityPause'),()=> {
+    if(scene.describe().playing) scene.pause();
+    else scene.play(false);
+  },'small');
+  replay.id = 'activity-replay';
+  pause.id = 'activity-pause';
+  const controls = el('div',undefined,'work-controls');
+  controls.append(replay,pause);
+  const header = el('div',undefined,'work-heading');
+  header.append(heading,controls);
+  const list = el('div',undefined,'work-attempts');
+  section.append(header,canvas,list);
+  controls.hidden = canvas.hidden = true;
+  const phone = matchMedia('(max-width:760px)');
+  const forceSVG = startup.searchParams.get('renderer') === 'svg';
+  const capture = startup.searchParams.get('graphTest') === '1';
+  let scene, loading, disposed, unavailable, signature, activities = [], first = true, visible = true;
+  Object.defineProperty(section,'activityScene',{get:()=>scene?.describe() || null});
+  if(capture)Object.defineProperty(section,'activitySilhouettes',{get:()=>scene?.silhouettes()});
+
+  function motion() {
+    scene?.mode(reduced.matches);
+    controls.hidden = !scene || reduced.matches;
+  }
+  function sync(autoplay = false) {
+    const hasPhases = activities.some(attempt=>attempt.phases.length);
+    if(phone.matches || !hasPhases) {
+      scene?.pause();
+      controls.hidden = canvas.hidden = true;
+      return;
+    }
+    if(scene){
+      canvas.hidden = false;
+      controls.hidden = reduced.matches;
+      return;
+    }
+    if(loading || unavailable || forceSVG || !visible || typeof WebGL2RenderingContext === 'undefined')return;
+    loading = import('./activity-webgl.js').then(({createActivityScene})=>{
+      if(disposed || phone.matches || !activities.some(attempt=>attempt.phases.length) || !visible)return;
+      const scroller = section.closest('.panel-body');
+      const scroll = scroller?.scrollTop;
+      canvas.hidden = false;
+      scene = createActivityScene(canvas,{attempts:activities,reduced:reduced.matches,autoplay,capture,
+        onState:(playing,canPause)=>{
+          pause.textContent = t(playing || !canPause ? 'activityPause' : 'activityResume');
+          pause.disabled = !canPause;
+        },
+        onLoss:()=>{scene = null; unavailable = true; controls.hidden = canvas.hidden = true;},
+      });
+      if(!scene){unavailable = true;canvas.hidden = true;return;}
+      pause.disabled = !scene.describe().playing;
+      controls.hidden = reduced.matches;
+      if(scroller)scroller.scrollTop = scroll;
+    }).catch(()=>{
+      scene?.dispose();
+      scene = null; unavailable = true; controls.hidden = canvas.hidden = true;
+    }).finally(()=>{loading = null;});
+  }
+
+  function render(data) {
+    const next = JSON.stringify([language,data]);
+    if(signature === next)return;
+    signature = next;
+    activities = data;
+    heading.textContent = t('workActivity');
+    replay.textContent = t('activityReplay');
+    const duration = new Intl.NumberFormat(language,{style:'unit',unit:'second',unitDisplay:'short',maximumFractionDigits:2});
+    const milliseconds = new Intl.NumberFormat(language,{style:'unit',unit:'millisecond',unitDisplay:'short'});
+    clear(list);
+    if(!data.length)list.append(el('p',t('activityEmpty'),'muted'));
+    for(const attempt of data){
+      const group = el('section',undefined,'work-attempt');
+      group.dataset.attempt = attempt.attempt;
+      if(data.length>1)group.append(el('h4',t('activityAttempt',{n:attempt.attempt})));
+      if(attempt.status!=='observed'){
+        const status = el('p',t(attempt.status==='unreadable'?'activityUnreadable':'activityUnobserved'),'muted');
+        status.dataset.activityStatus = attempt.status;
+        group.append(status);
+      }
+      const rows = el('ol',undefined,'work-phases');
+      for(const phase of attempt.phases){
+        const row = el('li',undefined,'work-phase');
+        const id = attempt.attempt + ':' + phase.id;
+        Object.assign(row.dataset,{phase:id,category:phase.category,count:phase.count,duration:phase.duration_ms,
+          distinct:phase.distinct,errors:phase.errors,inferred:phase.inferred});
+        const glyph = el('span',ACTIVITY_MARKS[phase.category][0],'work-glyph');
+        glyph.setAttribute('aria-hidden','true');
+        const title = t(ACTIVITY_LABELS[phase.label],{n:phase.label==='more'?phase.steps:phase.count});
+        const text = el('span',title,'work-label');
+        const facts = [];
+        if(phase.label==='more'&&phase.count)facts.push(t('activityCount',{n:phase.count}));
+        if(phase.distinct)facts.push(t('activityKnown',{d:phase.distinct}));
+        if(!['start','submit'].includes(phase.label)&&(phase.unknown!==phase.count||!phase.count)){
+          facts.push(phase.duration_ms < 1000 ? milliseconds.format(phase.duration_ms) : duration.format(phase.duration_ms/1000));
+        }
+        if(phase.unknown)facts.push(t(phase.unknown===phase.count?'activityDurationUnknown':'activitySomeUnknown'));
+        if(phase.errors)facts.push(t('activityErrors',{n:phase.errors}));
+        if(phase.stalled)facts.push(activityName('stalled'));
+        if(phase.repeating)facts.push(activityName('repeating'));
+        if(phase.includes_inferred&&!phase.inferred)facts.push(t('activityIncludesInferred'));
+        const accessibleName = [activityName(phase.category),title,...facts].join(' · ');
+        row.setAttribute('aria-label',accessibleName);
+        row.append(glyph,text,el('small',facts.join(' · '),'work-facts'));
+        rows.append(row);
+      }
+      group.append(rows);
+      list.append(group);
+    }
+    scene?.update(data);
+    sync(first);
+    first = false;
+  }
+  const onPhone = () => sync();
+  reduced.addEventListener('change',motion);
+  phone.addEventListener('change',onPhone);
+  return {section,render,visible(value){visible=value;if(!visible)scene?.pause();else sync();},dispose(){
+    disposed = true; scene?.dispose();
+    reduced.removeEventListener?.('change',motion);
+    phone.removeEventListener?.('change',onPhone);
+  }};
+}
+
 let panelFingerprint='',panelNode=null;
 function panel() {
   const shell = $('panel');
-  const signature=JSON.stringify([selected,flowNode(selected),view.decisions.filter(d=>d.node===selected),view.timeline.filter(r=>r.node===selected)]);
-  if(signature===panelFingerprint)return;
-  panelFingerprint=signature;
-  const scroll=selected===panelNode?(shell.querySelector('.panel-body')?.scrollTop||0):0;panelNode=selected;clear(shell);
-  const p=el('div',undefined,'panel-body');
   const node = flowNode(selected);
+  const {activity, ...details} = node || {};
+  const showSummary = !planBlocked() && ['work','review'].includes(node?.kind);
+  if(workSummary && (!showSummary || panelNode!==selected)){
+    workSummary.dispose();
+    workSummary = null;
+  }
+  const signature=JSON.stringify([selected,details,view.decisions.filter(d=>d.node===selected),view.timeline.filter(r=>r.node===selected)]);
+  if(signature===panelFingerprint){
+    workSummary?.render(activity || []);
+    return;
+  }
+  panelFingerprint=signature;
+  const scroll=selected===panelNode?(shell.querySelector('.panel-body')?.scrollTop||0):0;
+  panelNode=selected;
+  clear(shell);
+  const p=el('div',undefined,'panel-body');
   shell.hidden = !node; $('flow').classList.toggle('has-selection', !!node);
   if (!node) return;
   shell.dataset.node=node.id;
@@ -2573,6 +2796,11 @@ function panel() {
   for (const d of view.decisions.filter(d => d.node === node.id)) {
     const ask = card(t('yourTurn'), question(d) || purposeWording(d.purpose, language), true);
     ask.append(refChip(d.id, `${d.id} · ${title(node)}`, true, d.free),button(t('read'),()=>openDecision(d.id),'primary')); p.append(ask);
+  }
+  if(showSummary){
+    workSummary ||= createWorkSummary();
+    p.append(workSummary.section);
+    workSummary.render(activity || []);
   }
   p.append(el('p', status(node), 'panel-status '+cardTone(node)));
 
@@ -2772,9 +3000,12 @@ function accessible() {
   view.decisions.forEach(d => { const item = el('li'); decisionHeading(item, d, 'h3'); failedBlock(item, d); if (d.context.why) item.append(el('p', d.context.why)); $('decision-list').append(item); });
   if (!view.decisions.length) $('decision-list').append(el('li', t('nothingTitle')));
   const listHeading=$('accessible').querySelector('h2');if(listHeading)listHeading.textContent=planCounts(view.plan_counts,language);
-  const phone=$('phone-flow');clear(phone);
+  const phone=$('phone-flow');
+  const previousCues=new Map([...phone.querySelectorAll('.node-card')].map(card =>
+    [card.dataset.node, card.querySelector('.activity-mark')?.dataset.activity]));
+  clear(phone);
   for(const id of order){
-    const n=flow.nodes.find(n=>n.id===id),item=el('li');item.append(nodeCard(n,n.id===selected));
+    const n=flow.nodes.find(n=>n.id===id),item=el('li');item.append(nodeCard(n,n.id===selected,'detail',displayState(n,view.decisions),previousCues.get(id)));
     const edges=flow.edges.filter(e=>e.from===id);
     for(const e of edges){const handoff=markRelation(el('p',`${title(n)} → ${title(flow.nodes.find(n=>n.id===e.to))} · ${relationText(e)} · ${gateText(e)}`,'phone-handoff'),e);item.append(handoff);}
     phone.append(item);
@@ -2784,6 +3015,7 @@ function accessible() {
 function showMode(next) {
   if (next !== 'decision' && (mode === 'decision' || next === 'home') && !discardDecision()) return false;
   mode = next; if(view&&planBlocked())planAttention($('attention')); $('attention').hidden = !planBlocked() && (next!=='flow' || !view?.decisions.length); $('home').hidden = next !== 'home'; $('flow').hidden = next !== 'flow'; $('decision').hidden = next !== 'decision'; $('accessible').hidden = next !== 'flow' || !!view?.plan_error;
+  workSummary?.visible(next === 'flow');
   $('home-tab').setAttribute('aria-pressed', String(next === 'home')); $('flow-tab').setAttribute('aria-pressed', String(next === 'flow'));
   // The map can only measure its cards while it is on screen.
   if (renderer && next === 'flow' && view) renderer.update(view, selected); wholePhoneCards(); return true;
@@ -3112,7 +3344,7 @@ async function refresh(force = false) {
   } catch (error) { if (currentGeneration === generation) notice(error.status === 401 ? 'unauthorized' : error.status === 400 || error.status === 404 || error.status === 500 ? 'unreadable' : 'lost', true); }
   finally { loading = false; if (queuedRefresh) { queuedRefresh = false; refresh(true); } else schedule(); }
 }
-function resetView() { planSeen=null;planChanges=null;planRead.clear(); $('panel').onscroll=null; $('panel').hidden=true; $('flow').classList.remove('has-selection'); panelFingerprint=''; panelNode=null; language = viewLanguage(null, navigator.language); translate(); closeInvalidDecision(chosen, []); view = null; selected = null; fingerprint = ''; ['node-list','edge-list','decision-list','panel','home','attention'].forEach(id => clear($(id))); if (renderer) renderer.update({nodes:[],edges:[],decisions:[],complete:false}, null); $('flow').hidden = true; $('home').hidden = true; $('accessible').hidden = true; $('decision').hidden = true; $('subtitle').textContent = ''; $('where').textContent = ''; }
+function resetView() { workSummary?.dispose();workSummary=null;planSeen=null;planChanges=null;planRead.clear(); $('panel').onscroll=null; $('panel').hidden=true; $('flow').classList.remove('has-selection'); panelFingerprint=''; panelNode=null; language = viewLanguage(null, navigator.language); translate(); closeInvalidDecision(chosen, []); view = null; selected = null; fingerprint = ''; ['node-list','edge-list','decision-list','panel','home','attention'].forEach(id => clear($(id))); if (renderer) renderer.update({nodes:[],edges:[],decisions:[],complete:false}, null); $('flow').hidden = true; $('home').hidden = true; $('accessible').hidden = true; $('decision').hidden = true; $('subtitle').textContent = ''; $('where').textContent = ''; }
 function schedule() { clearTimeout(timer); if (!document.hidden) timer = setTimeout(refresh, 2000); }
 $('phone-view-toggle').addEventListener('click',()=>{const diagram=$('flow').classList.toggle('phone-diagram');$('phone-view-toggle').dataset.i18n=diagram?'showFlowList':'showDiagram';$('phone-view-toggle').textContent=t(diagram?'showFlowList':'showDiagram');$('phone-view-toggle').setAttribute('aria-pressed',String(diagram));if(renderer&&view)renderer.update(view,selected);});
 $('home-tab').addEventListener('click', () => { if (view) goHome(); });
@@ -3163,8 +3395,29 @@ function cardTone(n, state = displayState(n,view.decisions)) {if(['returned','fa
 function walker() {
   const mark=el('span','▶','walker');mark.setAttribute('aria-hidden','true');return mark;
 }
+const ACTIVITY_MARKS = Object.freeze({
+  tool:['▤','activityNameTool'], skill:['✦','activityNameSkill'], mcp:['⬡','activityNameMcp'],
+  session:['⇄','activityNameSession'], gf:['⊡','activityNameGf'], other:['✚','activityNameOther'],
+  thinking:['◌','activityThinking'], stalled:['⊣','activityNameStalled'], repeating:['≋','activityNameRepeating'],
+});
+const activityName = key => t(ACTIVITY_MARKS[key][1]);
+const activityCueName = key => key === 'thinking' ? t('activityBoundedGap') : activityName(key);
+
+function activityCue(keys, before) {
+  const group = el('span', undefined, 'activity-cue');
+  group.setAttribute('aria-hidden', 'true');
+  group.title = keys.map(activityCueName).join(' · ');
+  for (const key of keys) {
+    const mark = el('span', ACTIVITY_MARKS[key][0], 'activity-mark');
+    mark.dataset.activity = key;
+    if (key === keys[0] && before && before !== key) mark.classList.add('activity-changed');
+    group.append(mark);
+  }
+  return group;
+}
+
 function nodeDescription(n,state) {const name=stateWords(state,language).name;return n.runLevel?`${t('runChecksTitle')}. ${name}. ${t('runChecksAfter')}`:`${t(n.kind||'work')}. ${title(n)}. ${name}. ${attempts(n)}. ${t('returnTimes',{n:cometCount(n)})}`;}
-function nodeCard(n, expanded = false, level = 'detail', state = displayState(n, view.decisions)) {
+function nodeCard(n, expanded = false, level = 'detail', state = displayState(n, view.decisions), beforeActivity) {
   const root=el('article',undefined,'node-card '+cardTone(n,state)+(['running','reviewing','retrying'].includes(state)?' working':'')+(expanded?' expanded':''));root.dataset.node=n.id;root.dataset.state=state;if(planBlocked())root.classList.add('read-status');
   if(planBlocked())root.append(el('p',t('cardUnread'),'unread-mark'));
   const change=planChanges?.find(c=>c.id===n.id);if(change)root.append(el('p',t(change.kind),'change-mark'));
@@ -3172,7 +3425,9 @@ function nodeCard(n, expanded = false, level = 'detail', state = displayState(n,
     selectNode(n.id);
   },'node-header');
   const lane=n.effective_lane??n.lane;
-  header.setAttribute('aria-label',nodeDescription(n,state)+(lane?` · ${t('riskLane',{n:lane})}`:''));header.setAttribute('aria-expanded',String(expanded));
+  const cues = activityCues(n);
+  const cueNames = cues.length ? ' · ' + cues.map(activityCueName).join(' · ') : '';
+  header.setAttribute('aria-label',nodeDescription(n,state)+cueNames+(lane?` · ${t('riskLane',{n:lane})}`:''));header.setAttribute('aria-expanded',String(expanded));
   if (level === 'overview') {
     root.classList.add('overview-card');
     const marks = [];
@@ -3181,10 +3436,12 @@ function nodeCard(n, expanded = false, level = 'detail', state = displayState(n,
     header.title = title(n)+' · '+stateWords(state,language).name+(marks.length?' · '+marks.join(' · '):'')+(state==='returned'&&returnActor(n)?' · '+returnActor(n):'');
     header.append(el('span',statusGlyph(state),'status-glyph'),typeIcon(n.kind || 'work'),el('strong',title(n),'node-title'));
     if(lane)header.append(laneCue(lane));
+    if(cues.length)header.append(activityCue(cues, beforeActivity));
     root.append(header); return root;
   }
   const statusLine = el('span', stateWords(state,language).name, 'node-status');
   statusLine.prepend(el('span', statusGlyph(state), 'status-glyph'));
+  if(cues.length)statusLine.append(activityCue(cues, beforeActivity));
   header.append(statusLine);
   const titleLine=el('span',undefined,'node-title-line');
   titleLine.append(typeIcon(n.kind || 'work'));
@@ -3614,17 +3871,20 @@ function createMap() {
     for(const model of layout.cards) {
       const n = byId.get(model.id);
       const expanded=n.id===chosenNode;
-      const signature=JSON.stringify([level,n,data.decisions.filter(d=>d.node===n.id),planChanges?.find(c=>c.id===n.id)]);
+      const {activity, ...cardContent}=n;
+      const cues=activityCues(n);
+      const signature=JSON.stringify([level,cardContent,cues,data.decisions.filter(d=>d.node===n.id),planChanges?.find(c=>c.id===n.id)]);
       let element=nodes.get(n.id);
       if(!element){element=el('div',undefined,'node-position');nodes.set(n.id,element);stage.append(element);}
       if(element.dataset.signature!==signature) {
-        const card=nodeCard({...n,kind:model.kind},expanded,model.level,model.state),before=seen.get(n.id),tone=cardTone(n);
+        const before=seen.get(n.id),tone=cardTone(n);
+        const card=nodeCard({...n,kind:model.kind},expanded,model.level,model.state,before?.activity);
         // One-shot motion only for a change observed while the page was open.
         if(before&&cometCount(n)>before.comets)card.classList.add('changed');
         else if(before&&before.tone!==tone&&['passed','current'].includes(tone))card.classList.add('changed');
         element.replaceChildren(card);element.dataset.signature=signature;
       }
-      seen.set(n.id,{tone:cardTone(n),comets:cometCount(n)});
+      seen.set(n.id,{tone:cardTone(n),comets:cometCount(n),activity:cues[0]});
     }
     clear(key);
     name.textContent=planCounts(data.plan_counts||{work:data.nodes.filter(n=>n.kind==='work').length,review:data.nodes.filter(n=>n.kind==='review').length,decision:data.nodes.filter(n=>n.kind==='decision').length},language);mapTitle.classList.toggle('returned-title',$('flow').classList.contains('sent-plan'));
@@ -3646,6 +3906,13 @@ function createMap() {
       states.append(legend);
     }
     key.append(states);
+    if(data.nodes.some(n=>activityCues(n).length)){
+      const marks=el('div',undefined,'state-legend activity-legend');
+      for(const [id,[glyph]] of Object.entries(ACTIVITY_MARKS)){
+        marks.append(el('span',glyph+' '+activityName(id),'state-key'));
+      }
+      key.append(marks);
+    }
     // Reorder existing controls without replacing them: tab order follows the drawing.
     for(const card of layout.cards){const e=nodes.get(card.id);setRect(e,card);stage.append(e);}
     if(drawing)drawing.remove();drawing=svg('svg',{width:layout.bounds.width,height:layout.bounds.height,class:'edge-layer','aria-hidden':'true'});

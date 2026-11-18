@@ -56,7 +56,7 @@ An unauthenticated GET `/` returns HTTP 401 with `text/html; charset=utf-8`, `no
 
 ## GET /static/<name>
 
-The exact, case-sensitive `STATIC_TYPES` allowlist includes `page.js`, `graph-webgl.js`, the four existing `assets/frog-*.png` files, and the individual vendored files listed under [vendor/three](../scripts/graphflow/vendor/three/manifest.json). JavaScript uses `text/javascript; charset=utf-8`, the manifest uses JSON, the licence uses plain text, and the artwork uses `image/png`. GET requires the same Host check and permits unauthenticated static imports. Unknown names, dot segments, percent-encoded names/separators, and traversal under `/static/` return 404 without decoding or normalizing the requested path. Static responses include `no-store` and the usual security headers. POST and other methods retain authentication.
+The exact, case-sensitive `STATIC_TYPES` allowlist includes `page.js`, `graph-webgl.js`, `activity-webgl.js`, the four existing `assets/frog-*.png` files, and the individual vendored files listed under [vendor/three](../scripts/graphflow/vendor/three/manifest.json). JavaScript uses `text/javascript; charset=utf-8`, the manifest uses JSON, the licence uses plain text, and the artwork uses `image/png`. GET requires the same Host check and permits unauthenticated static imports. Unknown names, dot segments, percent-encoded names/separators, and traversal under `/static/` return 404 without decoding or normalizing the requested path. Static responses include `no-store` and the usual security headers. POST and other methods retain authentication.
 
 ## GET /api/projects
 
@@ -80,7 +80,7 @@ Returns every open, non-stale decision from every readable run of every register
 
 ## GET /api/run?project=<root>&run=<id>
 
-Returns `{"plan": <stored normalized plan or null>, "state": <derived state>, "ready": [<node IDs>], "trace": <trace result>, "view": <presentation view>}` for one run. The `view` shape is defined in [maintainer view schema](../../../docs/implementation.md#12-dashboard-presentation-view). It includes readable decision `verified`/`unverified` lists and `worker_note`, and node `inputs`/`outputs` derived from edges. The page draws from `view`. Check logs are fetched from `/api/evidence` only when the person presses a log button or opens a decision's details disclosure. The state, readiness, trace and view are read under that run's lock. Readiness uses `graph.available` (empty while plan approval waits); trace uses `trace.trace`.
+Returns `{"plan": <stored normalized plan or null>, "state": <derived state>, "ready": [<node IDs>], "trace": <trace result>, "view": <presentation view>}` for one run. The `view` shape is defined in [maintainer view schema](../../../docs/implementation.md#12-dashboard-presentation-view). It includes readable decision `verified`/`unverified` lists and `worker_note`, and node `inputs`/`outputs` derived from edges. Per-attempt work summaries appear in `view.nodes[].activity` when the records include an attempt. The page draws from `view`. Check logs are fetched from `/api/evidence` only when the person presses a log button or opens a decision's details disclosure. The state, readiness, trace and view are read under that run's lock. Readiness uses `graph.available` (empty while plan approval waits); trace uses `trace.trace`.
 
 The `project` string must exactly match a registered absolute root (HTTP 404, `unknown_project`, otherwise). The run ID must fully match `[a-z0-9][a-z0-9._-]{0,63}`, resolve inside the project's runs directory and exist with an event log (HTTP 404, `unknown_run`, otherwise). These addressing rules also apply to evidence and answer endpoints. URL-encode query values, especially roots and log paths.
 
@@ -178,6 +178,42 @@ Selection or keyboard focus outlines the card and its transitive prerequisites a
 
 Under an orthographic camera, a fixed tilt changed only a few pixels and carried nothing the flat view did not already show.
 
+### Work activity at a glance
+
+The graph keeps its normal overview and existing answer cue. A running card
+with observations has one small monochrome category mark at mid and near
+zoom and in the phone list. It usually names the latest observed tool
+category. If the newest start bounds a gap immediately after the last
+completed call, the category mark describes that previous inferred gap until
+more activity is observed. An unbounded gap can never produce a thinking
+mark. Stalled and repeating cues are static and named for assistive
+technology. Category changes shift the mark once for 160 ms. The legend
+lists every activity mark, and the card omits the cue at far zoom. The
+filled diamond remains reserved for the person's answer. The existing card
+slots carry the cues and preserve the measured card rules.
+
+The selected work or review panel starts with the recorded work summary
+after any pending question and its primary reading action. The scene and
+ordered list display the same phases and attempts. Depth orders phases, the
+length of a solid encodes recorded duration up to a common scale and a
+minimum, and a wider gap separates attempts. Seven forms distinguish
+categories without hue. A hollow form marks inferred thinking, and a
+cross, bracket or parallel bars mark errors, stalled activity or repeated
+failures. The camera moves along the depth axis once and ends on a static
+overview. Pause and replay are native buttons. Polling updates geometry
+without replay or camera movement caused by the update. Reduced motion
+renders the final overview once at selection. Phone, forced SVG and WebGL
+failure show the list. The canvas is hidden from assistive technology and
+the list names every phase and marker.
+
+Progressive disclosure follows Shneiderman (1996), and shapes plus plain
+text follow the channel guidance of Lohmann et al. (2016) and WCAG 2.2 SC
+1.4.1. The capture measurements verify the implementation. They do not
+establish a benefit of 3D for workflow comprehension. This display supports
+P5 and P12 with scoped, recorded work and P6 with deterministic condensation.
+P10 still requires the same existing answers. The activity view adds zero
+human stops, approval states, execution nodes, gates or sessions.
+
 ### Graph visualization verification
 
 These checks implement Graph Flow principles P1, P3 and P6 by testing the data mapping and presentation in code. They preserve the P10 baseline of plan approval and planned decisions. The checks run in the normal graph-flow test suite and screen capture harness.
@@ -205,6 +241,17 @@ These checks implement Graph Flow principles P1, P3 and P6 by testing the data m
 | R7 | Internal invariant. Renderer failure preserves access to the same graph and current selection. | The Stage A assertions and R1/R3 under forced SVG, plus simulated WebGL loss with a selected card. | `assertRendererParity`, `assertRegistration`, `exerciseGraph` R7 |
 | R8 | Automatic motion longer than five seconds needs a pause, stop or hide mechanism (WCAG 2.2 SC 2.2.2). Zero duration under reduced motion and idle frame counts are internal invariants. | Computed animation and transition durations, animation iterations, and settled frame count. | `assertMotion` |
 | R9 | Counting separated bars preserves risk information without hue (WCAG 2.2 SC 1.4.1). The minimap depicts the whole graph in its own strip. | Effective lane, bar count, height of at least 16 apparent CSS px and contrast of at least 3:1 at mid and near. Minimap marks, viewport indicator, hit area, keyboard access and separation from cards at desktop and phone scroll extremes. | `assertGraphRecords`, `assertAppearance`, `assertMinimap`, `assertMinimapClear` |
+| A1 | Internal invariant. Persist and serve only catalogued activity metadata. | A documented hook payload with secret-looking arguments, transcript path and tool output against the log, CLI, MCP and authenticated run response. | `test_a1_hook_secret_never_reaches_ledger_cli_mcp_or_served_view` |
+| A2 | Internal invariant. An ambiguous observation stays at run level. | Exact session and directory matches, one running attempt and ties against attribution outputs. | `test_a2_attribution_priority_and_ties` |
+| A3 | Internal invariant. Observation must succeed or fail silently outside tool execution. | Packaged asynchronous hook command and script under missing run, malformed payload and simulated disk exhaustion. | `test_a3_missing_run_malformed_payload_and_full_disk`, distribution hook test |
+| A4 | Internal invariant. Condensation preserves call counts, ordering and measured duration. | Generated and fixture observations against uncapped and capped deterministic output. | `test_a4_generated_and_fixture_condensation` |
+| A5 | Internal invariant. The scene and list are projections of the phase records. | IDs, categories, shape tokens, order, duration-derived lengths and flags against the list and read-only scene description. Framebuffer ink is required in each projected solid's bounds. Fallback and loss retain the same list. | `assertWorkSummary`, activity context-loss capture |
+| A6 | Internal invariant. Only a bounded interval can describe inferred thinking. | Disjoint observed starts and ends against gaps, hollow shape, glyph and accessible name. | `test_a6_only_bounded_gaps_and_repeating_and_stalled`, `assertWorkSummary` |
+| A7 | Healey and Enns (2012) support preserving a unique urgent mark. The activity size, contrast and transition limit are internal invariants. | Running graph and phone cards, answer cue, no-observation state and computed duration. | `test_a7_activity_cues_are_optional_and_quieter_than_answers`, `assertActivityCues` |
+| A8 | WCAG 2.2 SC 2.5.8 for the 24 CSS px target floor and SC 2.2.2 for pausing motion. Playback and idle frame limits are internal invariants. | Playback with 1, 10 and 12 phases, reduced-motion frame count, keyboard pause, replay and a stationary camera on append. | `assertWorkSummary`, `checkPlayback` |
+| A9 | Shapes offer a non-color channel (WCAG 2.2 SC 1.4.1). The 10% raster margin is an internal invariant. | 64×64 grayscale silhouettes, pairwise symmetric difference divided by the union. This rendering check provides no evidence of human recognition. | `assertWorkSummary` silhouette readback |
+| A10 | Internal invariant. A host without observations still has verifiable boundary evidence. | Start, checks and submit events across boundary-only attempts and the explicit unobserved label. | `test_a10_boundary_only_and_unreadable`, `assertWorkSummary` |
+
 
 Crossing priority follows Purchase (1997), path continuity follows Ware et al. (2002), and remaining crossings use the perpendicular angle recommended by Huang et al. (2014). The ratchet data lives in `tests/fixtures/routing_ratchets.json`. The measured quantities are strict shaft intersections, logical bends, summed Manhattan route length in stage CSS pixels, and drawn shaft segments with each shared piece counted once.
 
@@ -218,7 +265,7 @@ Every reference an agent session can say is visible on the page, and every entry
 
 `gf open --decision <id>` and `gf open --node <id>` add a fragment, `#project=<root>&run=<id>&decision=<id>&node=<id>`, to the address they open. The fragment is not sent to the server. The page reads it on load and on `hashchange`, removes it from the address, switches to that run, waits for the run's view, and then acts as the find box does. Both options need `--run` or `GF_RUN`; with a run and neither option the page only switches to that run. Run changes also clear the retired panel scroll callback before redrawing, so a selected card cannot leave the previous run’s title behind. The view carries `answered` (id, node, node title, question, outcome, answer, stale) for closed decisions, `asked` and `asked_by` on each open decision, `worker`, `session` and `started` on each node, and `run`, `project` and `timeline` for the header and the record.
 
-Selecting a work or review card adds a blue outline without changing dimensions and opens the separate desktop detail column. The question, decision reference and primary reading action lead when a decision is open. Work title, worker, status and attempt summaries follow. Current and earlier attempts are explicitly labelled; expandable checks retain commands, logs, notes, files and findings. Another disclosure contains handoffs and the work summary. The panel scrolls independently without filler at its end. Completed runs have one calm completion statement and, when recorded files exist, a results action leading to their locations in the panel. Selecting the same card, Escape or the close button clears selection; close returns focus to the card.
+Selecting a work or review card adds a blue outline without changing dimensions and opens the separate desktop detail column. The question, decision reference and primary reading action lead when a decision is open. Work title, worker, status and attempt summaries follow. Current and earlier attempts are explicitly labelled; expandable checks retain commands, logs, notes, files and findings. Another disclosure contains handoffs and the node contract. The panel scrolls independently without filler at its end. Completed runs have one calm completion statement and, when recorded files exist, a results action leading to their locations in the panel. Selecting the same card, Escape or the close button clears selection; close returns focus to the card.
 
 Decisions open from the strip or a bound card. The authored question is the largest text on the screen; the work title is secondary. Neither top tab claims to be selected during a decision. Leaving returns to the originating view. Before reading, the first file (or required evidence disclosure) is the only primary action. Once the reading gate is met, acceptance becomes primary. With no files or current checks, send-back is primary and acceptance requires the explicit empty-evidence checkbox. Send-back precedes acceptance on every review/authorization screen, including plan consent. Each answer has a short factual consequence and its own disabled reason next to it. The question has only a keyboard focus underline, the worker note is explicitly labelled, and the reason for asking appears immediately below the question. Check titles lead; the small monospace command is labelled “Command run”. File prose uses the proportional UI face; only code-like extensions use monospace. The next-attempt caption is shown only when the node has a recorded attempt and remaining budget; it does not claim to start work. The recorded choice context remains in evidence details. Both desktop history and the phone disclosure label “Current attempt” and “Earlier attempt”, including seconds in timestamps and attempt numbers. Equal timestamps also show record sequence numbers. Check outcomes are stated once, without repeating “passed/failed” or the checker role on every check.
 

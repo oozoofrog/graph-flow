@@ -167,7 +167,7 @@ class ServerTests(unittest.TestCase):
     def test_static_allowlist_and_host_without_token(self):
         vendor = server.STATIC_ROOT / "vendor/three"
         self.assertEqual(set(server.STATIC_TYPES), {
-            "page.js", "graph-webgl.js",
+            "page.js", "graph-webgl.js", "activity-webgl.js",
             *("assets/frog-%s.png" % p for p in ("wave", "walk-a", "walk-b", "report")),
             *(str(p.relative_to(server.STATIC_ROOT)) for p in vendor.rglob("*") if p.is_file()),
         })

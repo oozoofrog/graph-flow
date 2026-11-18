@@ -19,12 +19,13 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlencode, urlsplit
 
-from . import core, decisions, graph, learn, state, store, trace
+from . import activity, core, decisions, graph, learn, state, store, trace
 from . import plan as planning
 
 PAGE_PATH = pathlib.Path(__file__).with_name("page.html")
 STATIC_TYPES = {"page.js": "text/javascript; charset=utf-8"}
-STATIC_TYPES["graph-webgl.js"] = STATIC_TYPES["page.js"]
+for name in ("graph-webgl.js", "activity-webgl.js"):
+    STATIC_TYPES[name] = STATIC_TYPES["page.js"]
 STATIC_TYPES.update({"assets/frog-%s.png" % pose: "image/png" for pose in
                      ("wave", "walk-a", "walk-b", "report")})
 STATIC_TYPES.update({"vendor/three/" + name: STATIC_TYPES["page.js"] for name in (
@@ -479,7 +480,7 @@ def _decision_facts(decision, current, derived, events):
                 reasked=bool(previous), options=_objects(_mapping(decision.get("evidence")).get("options")))
 
 
-def _view(current, derived, events, project):
+def _view(current, derived, events, project, activities=None):
     current = current or {}
     recorded_title = next((e["data"].get("plan_title") for e in reversed(events)
                            if e["type"] == "plan.set"), "")
@@ -513,6 +514,8 @@ def _view(current, derived, events, project):
         return {"role": _text(actor.get("role"), None), "node": _text(actor.get("node"), None),
                 "session": _text(actor.get("session"), None)}
 
+    work = activity.summaries(activities or {"status": "ok", "records": []},
+                              events, derived["nodes"], int(time.time() * 1000))
     gates = {}
     for nid, node in nodes.items():
         st = derived["nodes"][nid]
@@ -546,6 +549,8 @@ def _view(current, derived, events, project):
                               "session": actor_of(starts.get(nid))["session"],
                               "started": _text(_mapping(starts.get(nid)).get("ts"), None),
                               "inputs": [], "outputs": []})
+        if nid in work:
+            view["nodes"][-1]["activity"] = work[nid]
         observed = {r["check"]: r.get("result") for r in _attempt_results(nid, st, events)}
         view["nodes"][-1]["check_results"] = observed
         view["nodes"][-1]["planned_checks"] = [
@@ -1028,7 +1033,7 @@ try {
                 current, events, derived = _snapshot(run)
                 result = {"plan": current, "state": derived,
                           "ready": graph.available(current or {}, derived), "trace": trace.trace(run),
-                          "view": _view(current, derived, events, store.project_of(run))}
+                          "view": _view(current, derived, events, store.project_of(run), activity.read(run))}
                 return self._json(200, result)
             raise _HTTPError(404, "not_found", "unknown route")
 

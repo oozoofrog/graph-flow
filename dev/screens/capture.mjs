@@ -132,6 +132,26 @@ const dashPatterns = {open:'none',closed:'12px, 6px',waiting_for_you:'3px, 6px',
 const markerShapes = {hands_over:/Z$/,waits_for_decision:/^M[^MZ]+$/,reviews:/^M[^MZ]+ M[^MZ]+$/};
 const kindShapes = {work:/^M5 4H19V20H5Z/,review:/^M10 3A/,decision:/^M12 3L22/,goal:/^M5 21V3/};
 
+function rebaseActivityFixture(fixture) {
+  const originals = new Map();
+  if(!fixture.activity_epoch)return originals;
+  const shift = Date.now() - Date.parse(fixture.activity_epoch);
+  const dir = path.join(fixture.project,'.graph-flow/runs',fixture.run);
+  for(const name of ['events.jsonl','activity.jsonl']){
+    if(name==='activity.jsonl'&&fixture.scenario==='graph-activity-unreadable')continue;
+    const file=path.join(dir,name), raw=readFileSync(file,'utf8');
+    const rows=raw.trim().split('\n').map(line=>JSON.parse(line));
+    for(const row of rows){
+      if(name==='activity.jsonl'||row.type==='node.start'){
+        row.ts=new Date(Date.parse(row.ts)+shift).toISOString();
+      }
+    }
+    originals.set(file,raw);
+    writeFileSync(file,rows.map(row=>JSON.stringify(row)).join('\n')+'\n');
+  }
+  return originals;
+}
+
 function graphRecords(fixture) {
   const dir=path.join(fixture.project,'.graph-flow/runs',fixture.run);
   const events=readFileSync(path.join(dir,'events.jsonl'),'utf8').trim().split('\n').map(line=>JSON.parse(line));
@@ -460,6 +480,186 @@ function assertGraphInk(name, ink) {
   assert.deepEqual(ink.interiors,[],name+' R2 off-route ink inside card interiors');
   for(const {id,count,on} of ink.routes)if(count>=15)assert(on>0,name+' R2 missing ink for edge '+id);
   for(const {id,count,on} of ink.samples)if(count>=15)assert(on>0,name+' R2 missing ink for shaft '+id);
+}
+
+async function assertActivityCues(name) {
+  const cues = await evaluate(`(()=>{
+    const color = e => getComputedStyle(e).color.match(/\\d+/g).slice(0,3).map(Number);
+    const linear = n => n<=10 ? n/3294.6 : ((n/255+.055)/1.055)**2.4;
+    const contrast = e => 1.05/(.05+color(e).reduce((sum,n,i)=>sum+[.2126,.7152,.0722][i]*linear(n),0));
+    const inspect = e => ({text:e.textContent, contrast:contrast(e), size:parseFloat(getComputedStyle(e).fontSize),
+      animation:getComputedStyle(e).animationDuration, loop:getComputedStyle(e).animationIterationCount});
+    return Object.fromEntries(['#map','#phone-flow'].map(scope=>[scope,[...document.querySelectorAll(scope+' .node-card')].map(card=>({
+      id:card.dataset.node, label:card.querySelector('.node-header').ariaLabel,
+      answer:inspect(card.querySelector('.status-glyph')),
+      marks:[...card.querySelectorAll('.activity-mark')].map(e=>({key:e.dataset.activity,...inspect(e)})),
+    }))]));
+  })()`);
+  for(const cards of Object.values(cues)){
+    const answer = cards.find(card=>card.id==='q').answer;
+    assert.equal(answer.text,'◆',name+' A7 answer mark');
+    for(const [id,keys] of Object.entries({rich:['other'],stalled:['mcp','stalled'],repeating:['tool','repeating'],blind:[],q:[]})){
+      const card=cards.find(c=>c.id===id);
+      assert.deepEqual(card.marks.map(mark=>mark.key),keys,name+' A7 '+id);
+      for(const mark of card.marks){
+        assert.notEqual(mark.text,answer.text,name+' A7 unique answer mark');
+        assert(mark.size<=answer.size&&mark.contrast<=answer.contrast&&mark.contrast>=3,name+' A7 mark hierarchy '+JSON.stringify({mark,answer}));
+        assert(parseFloat(mark.animation)<=.3&&mark.loop==='1',name+' A7 static or one transition');
+      }
+    }
+    assert(cards.find(card=>card.id==='stalled').label.includes('최근 활동 없음'),name+' A7 accessible stalled');
+    assert(cards.find(card=>card.id==='repeating').label.includes('실패 반복'),name+' A7 accessible repeating');
+  }
+  assert.equal(await evaluate("document.querySelectorAll('.activity-legend .state-key').length"),9,name+' A7 activity legend');
+  return cues;
+}
+
+const workScene = "document.querySelector('.work-summary')?.activityScene";
+const shapeNames = {tool:'rectangle',skill:'star',mcp:'hexagon',session:'hourglass',gf:'triangle',other:'cross',thinking:'ring'};
+
+async function assertWorkSummary(screen, base, values, svg, webgl2) {
+  const scope = await evaluate(`(()=>{
+    const root=document.querySelector('.work-summary'), canvas=root.querySelector('canvas'), list=root.querySelector('.work-attempts');
+    return {id:root.closest('#panel').dataset.node, hidden:canvas.hidden||getComputedStyle(canvas).display==='none',
+      canvasHidden:canvas.getAttribute('aria-hidden'), below:canvas.nextElementSibling===list,
+      rows:[...list.querySelectorAll('.work-phase')].map(e=>({...e.dataset,label:e.getAttribute('aria-label'),glyph:e.firstChild.textContent})),
+      states:[...list.querySelectorAll('[data-activity-status]')].map(e=>[e.dataset.activityStatus,e.textContent]),
+      buttons:[...root.querySelectorAll('button')].map(e=>[e.offsetWidth,e.offsetHeight,e.tabIndex]),
+    };
+  })()`);
+  const query = new URLSearchParams({project:values.project,run:values.run});
+  const response = await fetch(new URL('/api/run?'+query,base),{headers:{'X-GF-Token':values.token}});
+  assert.equal(response.status,200);
+  const attempts = (await response.json()).view.nodes.find(node=>node.id===scope.id).activity;
+  const phases = attempts.flatMap(a=>a.phases.map(p=>({...p,attempt:a.attempt,id:a.attempt+':'+p.id})));
+  assert.equal(scope.canvasHidden,'true',screen.name+' A5 canvas aria hidden');
+  assert(scope.below,screen.name+' A5 text directly follows the scene');
+  assert.deepEqual(scope.rows.map(({phase,category,count,distinct,duration,errors,inferred})=>
+    [phase,category,+count,+distinct,+duration,+errors,inferred==='true']),
+    phases.map(p=>[p.id,p.category,p.count,p.distinct,p.duration_ms,p.errors,p.inferred]),screen.name+' A5 ordered text equivalence');
+  for(const row of scope.rows.filter(row=>row.inferred==='true')){
+    assert.equal(row.glyph,'◌',screen.name+' A6 inferred glyph');
+    assert.match(row.label,/추정|inferred/,screen.name+' A6 accessible name');
+  }
+  if(screen.activity_view==='phone'||svg||!webgl2){
+    assert(scope.hidden,screen.name+' A5 text-only fallback');
+    assert.equal(await evaluate(workScene),null);
+  }else{
+    await until(`${workScene}?.frames > 0 && !${workScene}.playing && !${workScene}.pending`);
+    const geometry = await evaluate(workScene);
+    assert.deepEqual(geometry.solids.map(s=>[s.id,s.attempt,s.category,s.shape,s.startMs,s.flags]),
+      phases.map(p=>[p.id,p.attempt,p.category,shapeNames[p.category],p.start_ms,
+        {errors:p.errors,stalled:!!p.stalled,repeating:!!p.repeating,inferred:p.inferred,includesInferred:!!p.includes_inferred}]),
+      screen.name+' A5 every solid equals one phase and its flags');
+    const ratios = geometry.solids.map((solid,i)=>solid.length/phases[i].duration_ms).filter(Number.isFinite);
+    const unit = ratios.length ? Math.min(...ratios) : 0;
+    for(const [index,solid] of geometry.solids.entries()){
+      assert(solid.length>0&&solid.length+1e-8>=phases[index].duration_ms*unit);
+      if(index)assert(solid.start>geometry.solids[index-1].start+geometry.solids[index-1].length);
+    }
+    assert(await evaluate(`Object.isFrozen(${workScene}) && Object.isFrozen(${workScene}.solids) &&
+      ${workScene}.solids.every(s=>Object.isFrozen(s)&&Object.isFrozen(s.flags))`));
+    const ink = await evaluate(`(()=>{
+      const section=document.querySelector('.work-summary'),canvas=section.querySelector('canvas'),gl=canvas.getContext('webgl2');
+      const width=gl.drawingBufferWidth,height=gl.drawingBufferHeight,ratio=width/canvas.clientWidth;
+      const bytes=new Uint8Array(width*height*4);
+      gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,bytes);
+      return section.activityScene.bounds.map(([l,t,r,b])=>{
+        let ink=0;
+        for(let y=Math.max(0,Math.floor(t*ratio));y<Math.min(height,Math.ceil(b*ratio));y++){
+          for(let x=Math.max(0,Math.floor(l*ratio));x<Math.min(width,Math.ceil(r*ratio));x++){
+            const offset=((height-1-y)*width+x)*4;
+            if(bytes[offset]+bytes[offset+1]+bytes[offset+2]<650)ink++;
+          }
+        }
+        return ink;
+      });
+    })()`);
+    assert(ink.every(count=>count>=4),screen.name+' A5 projected solids have ink '+JSON.stringify(ink));
+    if(screen.activity_view==='playing'){
+      assert(scope.buttons.every(([w,h,tab])=>w>=24&&h>=24&&tab===0),screen.name+' A8 native motion controls');
+      const masks = Object.entries(await evaluate("document.querySelector('.work-summary').activitySilhouettes"));
+      const differences = [];
+      for(const [index,[name,a]] of masks.entries()){
+        for(const [other,b] of masks.slice(index+1)){
+          let xor=0,union=0;
+          for(let i=0;i<a.length;i++){xor+=a[i]!==b[i];union+=a[i]==='1'||b[i]==='1';}
+          differences.push({name,other,difference:xor/union});
+        }
+      }
+      assert.equal(differences.length,21);
+      assert(differences.every(pair=>pair.difference>=.10),screen.name+' A9 raster silhouette margin '+JSON.stringify(differences));
+      scope.silhouettes=differences;
+      assert(geometry.frames>1&&geometry.elapsed<=5000,screen.name+' A8 playback reaches final frame');
+    }else{
+      assert.equal(geometry.frames,1,screen.name+' A8 reduced-motion final frame only');
+      assert(scope.buttons.every(([w,h])=>w===0&&h===0));
+    }
+    await delay(150);
+    assert.equal((await evaluate(workScene)).frames,geometry.frames,screen.name+' A8 idle frame counter');
+    scope.geometry=geometry;
+    scope.ink=ink;
+  }
+  if(screen.activity_view==='unreadable') assert(scope.states.every(([state,text])=>state==='unreadable'&&text==='활동 기록을 읽을 수 없어요.'));
+  if(scope.id==='blind'){
+    assert.deepEqual(scope.states,[['unobserved','이 세션에서 세부 활동이 관측되지 않았어요.']],screen.name+' A10 explicit state');
+    assert.deepEqual(phases.map(p=>p.label),['start','check'],screen.name+' A10 phase evidence');
+    assert(!phases.some(p=>p.inferred),screen.name+' A10 no inferred thinking');
+  }
+  if(scope.id==='stalled')assert(phases.some(p=>p.stalled),screen.name+' stalled mark');
+  if(scope.id==='repeating')assert(phases.some(p=>p.repeating),screen.name+' repeating mark');
+  return scope;
+}
+
+async function checkPlayback() {
+  await evaluate(`(async()=>{
+    const {createActivityScene}=await import('/static/activity-webgl.js');
+    const phase = id => ({id,category:'tool',start_ms:id*10,duration_ms:10,errors:0,inferred:false});
+    const models=count=>[{attempt:1,phases:Array.from({length:count},(_,i)=>phase(i+1))}];
+    const container=document.createElement('div');
+    Object.assign(container.style,{position:'fixed',left:'-400px',top:'0'});
+    document.body.append(container);
+    const scenes=[1,10,12].map(count=>{
+      const canvas=document.createElement('canvas');
+      Object.assign(canvas.style,{display:'block',width:'190px',height:'80px'});
+      container.append(canvas);
+      return createActivityScene(canvas,{attempts:models(count),capture:true,reduced:false,autoplay:true,onState(){},onLoss(){}});
+    });
+    window.activityProbe={container,scenes,models};
+  })()`);
+  const checks="window.activityProbe.scenes.map(scene=>scene.describe())";
+  await until(checks+".every(s=>s.frames>0&&!s.playing&&!s.pending)");
+  const result=await evaluate(checks);
+  assert.deepEqual(result.map(s=>s.solids.length),[1,10,12]);
+  assert(result.every(s=>s.frames>1&&s.stoppedAt-s.startedAt<=5000),'A8 elapsed motion for 1, 10 and 12 phases');
+  await delay(160);
+  assert.deepEqual(await evaluate(checks+".map(s=>s.frames)"),result.map(s=>s.frames),'A8 no idle animation');
+  await evaluate("window.activityProbe.scenes[0].update(window.activityProbe.models(2))");
+  await until(checks+".at(0).frames>"+result[0].frames);
+  const appended=(await evaluate(checks)).at(0);
+  assert.equal(appended.solids.length,2,'A5 appended activity creates a solid');
+  assert.deepEqual(appended.position,result[0].position,'A8 appended activity holds camera position');
+  assert.equal(appended.frames,result[0].frames+1,'A8 appended activity invalidates one frame without replay');
+  await evaluate("window.activityProbe.scenes.forEach(s=>s.dispose());window.activityProbe.container.remove();delete window.activityProbe");
+  return result.map(s=>({phases:s.solids.length,observedMs:s.stoppedAt-s.startedAt,frames:s.frames}));
+}
+
+async function recordPlayback(filename) {
+  const stem=filename.replace(/\.png$/,'');
+  const dir=path.join(runtime,stem);
+  mkdirSync(dir);
+  await evaluate("document.querySelector('#activity-replay').click()");
+  const started=Date.now();
+  for(let index=0;index<16;index++){
+    await delay(Math.max(0,started+index*250-Date.now()));
+    const frame=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
+    writeFileSync(path.join(dir,String(index).padStart(2,'0')+'.png'),Buffer.from(frame.data,'base64'));
+  }
+  const movie=path.join(final,stem+'.mp4');
+  const result=spawnSync(ffmpeg,['-hide_banner','-loglevel','error','-y','-framerate','4','-i',path.join(dir,'%02d.png'),
+    '-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart',movie],{encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);
+  return movie;
 }
 
 async function assertMotion(name) {
@@ -818,11 +1018,13 @@ try {
   console.log('Chrome WebGL2 context:',webgl2?'available':'unavailable');
   for (const screen of manifest.filter(row => !only || only.has(row.number))) {
     const fixture = fixtures[screen.scenario];
+    const svg = forceSVG || screen.activity_view==='fallback';
     const filename = String(screen.number).padStart(2,'0')+'-'+screen.name+'.png';
     const record = {number:screen.number,name:screen.name,scenario:screen.scenario,filename,group:screen.group};
     records = records.filter(row => row.number !== screen.number);
     const file = path.join(fixture.project,'guide.txt');
     const originalFile = screen.scenario === 'file-changed-live' ? readFileSync(file) : null;
+    const activityOriginals=rebaseActivityFixture(fixture);
     try {
       if(screen.scenario === 'changed-live') cli(fixture, ['plan','set',fixture.plan]);
       if(screen.scenario === 'file-changed-live'){const gate=cli(fixture,['gate','a'],1);fixture.decision=gate.asks[0]||gate.show?.match(/--decision (d\d+)/)?.[1];assert(fixture.decision,'current file decision is required');}
@@ -834,16 +1036,18 @@ try {
       record.deepLink = relative.replace(encodeURIComponent(values.token), '{token}');
       errors.length = 0;
       requests.length = 0;
+      await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:screen.activity_view==='playing'?'no-preference':'reduce'}]});
       await send('Emulation.setDeviceMetricsOverride', {width:screen.viewport.width,height:screen.viewport.height,deviceScaleFactor:1,mobile:false});
       const dashboard=new URL(relative,base.origin);
       dashboard.searchParams.set('graphTest','1');
-      if(forceSVG)dashboard.searchParams.set('renderer','svg');
+      if(svg)dashboard.searchParams.set('renderer','svg');
       await send('Page.navigate', {url:dashboard.href});
       const language=screen.language||'ko';
       await until(`!!document.querySelector('#map').graphScene && document.documentElement.lang===${JSON.stringify(language)}`);
       await delay(450);
       for(const action of screen.interactions) await interaction(action, fixture);
       await evaluate('document.fonts.ready');
+      if(screen.activity_view)record.activity=await assertWorkSummary(screen,base,values,svg,webgl2);
       const dom = await evaluate(`({title:document.querySelector('#title').textContent,language:document.documentElement.lang,text:document.body.innerText,level:document.querySelector('#map').dataset.level,scale:document.querySelector('#map').dataset.scale,scrollY,buttons:[...document.querySelectorAll('button')].filter(b=>b.getBoundingClientRect().width).map(b=>({text:b.textContent,disabled:b.disabled}))})`);
       assert.equal(dom.language,language);
       assert(dom.text.length > 100 && !/서버에 연결할 수 없|ERR_CONNECTION|사이트에 연결할 수 없/.test(dom.text), 'blank or connection error page');
@@ -865,6 +1069,7 @@ try {
           toolbar:!shown||count.scrollWidth<=count.clientWidth+1&&count.getBoundingClientRect().left>=toolbar.getBoundingClientRect().left,
           panel:panel.hidden||bar.getBoundingClientRect().bottom<=body.getBoundingClientRect().top+.5,
           panelTitle:bar?.querySelector('strong')?.textContent,
+          panelScroll:body?[body.scrollTop,body.clientHeight,body.scrollHeight,body.getBoundingClientRect().top]:null,
           panelFirstLines:leafRects.filter(r=>r.rect.bottom>body.getBoundingClientRect().top&&r.rect.top<body.getBoundingClientRect().top),
           contentFits:!shown||cards.every(c=>c.scrollHeight<=c.clientHeight+1&&c.getBoundingClientRect().height<=c.parentElement.getBoundingClientRect().height+1),
           selectedVisible:!selected||(()=>{const r=selected.getBoundingClientRect();return r.left>=vr.left-.5&&r.right<=vr.right+.5&&r.top>=vr.top-.5&&r.bottom<=vr.bottom+.5})(),
@@ -874,17 +1079,17 @@ try {
       assert(audit.firstSentence,'U1 first explanation is visible below the title');
       assert(audit.toolbar,'E1 count phrases must not be clipped');
       assert(audit.panel,'E2 panel body starts below its pinned title');
-      assert.equal(audit.panelFirstLines.length,0,'E2 no text is sliced at the top of the panel scroll area');
+      assert.equal(audit.panelFirstLines.length,0,'E2 no text is sliced at the top of the panel scroll area: '+JSON.stringify([audit.panelScroll,audit.panelFirstLines]));
       assert(audit.contentFits,'E6 content must fit the measured card');
       const expected=graphRecords(fixture), graph=await evaluate(`(${graphDOM})()`);
       const metrics=assertGraphRecords(screen.name,language,expected,graph,audit.shown?audit.visibleTitles.length:undefined);
       if(graph.scene.edges.length&&ratchets[screen.number])
         assert(!exceedsRatchet(metrics,ratchets[screen.number]),screen.name+' M2 route ratchet '+metrics+' exceeds '+ratchets[screen.number]);
       if(audit.shown&&graph.scene.edges.length) {
-        if(!forceSVG&&webgl2)await until("document.querySelector('#map').dataset.renderer==='webgl'");
+        if(!svg&&webgl2)await until("document.querySelector('#map').dataset.renderer==='webgl'");
         const drawing=await evaluate("document.querySelector('#map').graphDrawing");
         graph.drawing=drawing;
-        assert.equal(drawing.renderer,forceSVG||!webgl2?'svg':'webgl',screen.name+' active renderer');
+        assert.equal(drawing.renderer,svg||!webgl2?'svg':'webgl',screen.name+' active renderer');
         assertRendererParity(screen.name,graph.scene,drawing);
         assertRegistration(screen.name,graph.scene,await evaluate(`(${graphRegistration})()`));
         assertDependencyFocus(screen.name,expected,graph,drawing);
@@ -987,14 +1192,29 @@ try {
         await delay(2200);
         assert.deepEqual(await evaluate(`({scrollY,level:document.querySelector('#map').dataset.level,focus:document.activeElement?.id,text:document.querySelector('#decision')?.textContent})`),before,'polling preserves the open question');
       }
+      if(screen.activity_macro)dom.activityCues=await assertActivityCues(screen.name);
       dom.audit=audit;
       assert(requests.length, screen.name+' expected network observations');
       assert(requests.every(url=>new URL(url).origin===base.origin),screen.name+' off-origin dashboard request');
-      if(forceSVG)assert(!requests.some(url=>new URL(url).pathname.startsWith('/static/vendor/')),screen.name+' R7 forced SVG loads no vendor modules');
+      if(svg)assert(!requests.some(url=>new URL(url).pathname.startsWith('/static/vendor/')),screen.name+' R7 forced SVG loads no vendor modules');
       const shot = await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});
       const bytes = Buffer.from(shot.data,'base64');
       writeFileSync(path.join(final,filename),bytes);
       copyFileSync(path.join(final,filename),path.join(verify,filename));
+      if(screen.activity_view==='playing'&&!svg&&webgl2){
+        record.playback=await checkPlayback();
+        record.video=await recordPlayback(filename);
+        await evaluate("document.querySelector('#activity-replay').click();document.querySelector('#activity-pause').focus()");
+        await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
+        await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+        await until(`${workScene} && !${workScene}.playing && ${workScene}.elapsed<5000`);
+        const paused=await evaluate(workScene);
+        await delay(160);
+        assert.equal((await evaluate(workScene)).frames,paused.frames,screen.name+' A8 keyboard pause stops frames');
+        await evaluate("document.querySelector('.work-canvas').getContext('webgl2').getExtension('WEBGL_lose_context').loseContext()");
+        await until(`!${workScene} && document.querySelector('.work-canvas').hidden`);
+        assert.equal(await evaluate("document.querySelectorAll('.work-phase').length"),record.activity.rows.length,'A5 context loss retains the text');
+      }
       if(derivedNumbers.has(screen.number)||screen.decision_screen) {
         for(const [suffix,filter] of [['glance','scale=iw/4:ih/4,gblur=sigma=1.2,scale=iw*4:ih*4'],['gray','format=gray']]) {
           const result = spawnSync(ffmpeg,['-hide_banner','-loglevel','error','-y','-i',path.join(final,filename),'-vf',filter,'-frames:v','1',path.join(verify,filename.replace('.png','-'+suffix+'.png'))],{encoding:'utf8'});
@@ -1029,6 +1249,7 @@ try {
       await send('Page.navigate',{url:'about:blank'});
       await stop(activeServer); activeServer=null;
       if(originalFile) writeFileSync(file,originalFile);
+      for(const [file,original] of activityOriginals) writeFileSync(file,original);
       if(screen.scenario === 'changed-live') cli(fixture,['plan','set',fixture.plan]);
       records.push(record);records.sort((a,b)=>a.number-b.number);persist();
     }

@@ -122,6 +122,8 @@ TOOLS = {
                                 required=("id", "run_command"), positional=("id",), options=("run_command", "project")),
     "constraint_retire": _tool("learn retire", "Retire a constraint and its fixed check with a reason (P11).",
                                required=("id", "reason"), positional=("id",), options=("reason", "project")),
+    "run_activity": _tool("activity", "Read observed activity for the run or own worker node.",
+                          positional=("node",)),
     "run_trace": _tool("trace", "Measure work, human answers and waits, and P1–P12 observations from records.", options=("conformance",)),
     "host_set": _tool("host set", "Record available host capabilities for deterministic executor routing (P6).",
                       required=("capabilities",), positional=("capabilities",)),

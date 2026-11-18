@@ -47,6 +47,7 @@ All tools accept optional `run`. In the table, brackets mark optional arguments,
 | `constraint_add` | `learn add` | `from_node`, `text`, `review_when`, `[paths[]]`, `[tags[]]`, `[project]` | L |
 | `constraint_promote` | `learn promote` | `id`, `run_command`, `[project]` | L |
 | `constraint_retire` | `learn retire` | `id`, `reason`, `[project]` | L |
+| `run_activity` | `activity` | `[node]` | L, W |
 | `run_trace` | `trace` | None | L |
 | `host_set` | `host set` | `capabilities[]` | L |
 | `run_init` | `init` | `run_id`, `[project]` | L |
@@ -80,3 +81,5 @@ The first and last server responses have this shape; the intervening `tools/list
 `run_trace` accepts optional `conformance: true` and returns the same `human`, `stuck`, node `cmd_checks`, `integrity` and P1–P12 `conformance` measurements as `gf --json trace --conformance`; see [trace records](records.md#9-trace-p12).
 
 Follow the [human identity rule](../SKILL.md#human-identity).
+
+`run_activity` always limits workers to `GF_NODE`. See the [activity schema and retention](records.md#local-activity-observations).

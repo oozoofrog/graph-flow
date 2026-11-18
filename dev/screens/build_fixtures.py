@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 HERE = Path(__file__).resolve().parent
@@ -17,9 +18,11 @@ SKILL = HERE.parents[1] / 'skills/graph-flow'
 sys.path[:0] = [str(SKILL / 'scripts'), str(SKILL / 'tests')]
 from human_support import human_answer
 from test_review11 import Review11Tests
-from graphflow import cli
+from graphflow import activity, cli
 
 SCENARIOS = {
+    'graph-activity-unreadable': 'A damaged activity log with readable boundary records',
+    'graph-activity': 'Mixed observed, stalled, repeated, boundary-only, and waiting work',
     'graph-verification': 'Graph kinds, parallel relations, current failure and retry history',
     'graph-wrap': 'A chain whose authored order differs from dependency order',
     'graph-chain-60': 'Sixty stages in a dependency chain',
@@ -112,6 +115,7 @@ class Fixture:
         self.raw = dict(schema_version=1, title='안내 만들기', goal='확인할 수 있는 안내와 사용 설명서를 만들어요.', nodes=[work()])
         self.decision = None
         self.approval = None
+        self.activity_epoch = None
 
     def git(self, *args, **kwargs):
         return subprocess.run(['git', '-C', str(self.project), *args], env=self.env, check=True, capture_output=True, **kwargs)
@@ -165,6 +169,8 @@ class Fixture:
         result = dict(scenario=self.root.name, project=str(self.project), run=self.run.name,
                       home=str(self.home), decision=self.decision, approval=self.approval,
                       plan=str(self.root / 'plan.json'), commands=self.commands)
+        if self.activity_epoch:
+            result['activity_epoch'] = self.activity_epoch
         write_json(self.root / 'fixture.json', result)
         return result
 
@@ -176,8 +182,67 @@ def branching(count):
                  ['n%d' % n for n in (deps[i] if i < 13 else [i - 1])]) for i in range(count)]
 
 
+def activity_fixture(f):
+    f.raw['nodes'] = [work('rich', '검색 화면 정리'), work('stalled', '배포 안내 확인'),
+                      work('repeating', '검색 검사 수정'), work('blind', '예제 검토'), question()]
+    f.post(True)
+    f.call('start', 'rich')
+    f.call('submit', 'rich')
+    f.call('gate', 'rich', code=1)
+    f.call('start', 'rich')
+    for node in ('stalled', 'repeating', 'blind'):
+        f.git('worktree', 'add', '--detach', '-q', str(f.root / node))
+        f.call('assign', node, '--executor', 'subagent', '--model', '화면-검증', '--effort', 'high',
+               '--provider', 'fixture', '--family', 'claude', '--isolation', 'worktree')
+        f.call('start', node, '--cwd', str(f.root / node))
+    f.call('check', 'run', 'blind', 'text', '--cwd', str(f.root / 'blind'), code=1)
+    f.decision = f.call('gate', 'q', code=1)['asks'][0]
+    now = datetime.now(timezone.utc)
+
+    def stamp(value):
+        return value.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+    f.activity_epoch = stamp(now)
+    rows = []
+
+    def series(node, tools, age, attempt=1):
+        cursor = now - timedelta(seconds=age)
+        for index, (tool, gap, duration, failed) in enumerate(tools):
+            cursor += timedelta(milliseconds=gap)
+            end = cursor + timedelta(milliseconds=duration)
+            for event, at in (('PreToolUse', cursor), ('PostToolUseFailure' if failed else 'PostToolUse', end)):
+                record = activity.observation(dict(hook_event_name=event, session_id='screens-' + node,
+                    tool_name=tool, tool_use_id=f'{attempt}-{index}'), stamp(at))
+                record.update(node=node, attempt=attempt, via='cwd')
+                if record['phase'] == 'end':
+                    record['duration_ms'] = duration
+                rows.append(record)
+            cursor = end
+
+    series('rich', [('Read', 0, 1100, False)], 485)
+    series('rich', [('Read', 0, 900, False), ('Grep', 80, 500, False),
+        ('Skill', 1300, 1700, False), ('mcp__catalog__search', 70, 1400, False),
+        ('Agent', 80, 2400, False), ('mcp__graph-flow__check_run', 0, 800, True),
+        ('Custom', 70, 500, False)], 10, attempt=2)
+    series('stalled', [('mcp__catalog__search', 0, 1200, False)], 400)
+    series('repeating', [('Bash', gap, 700, True) for gap in (0, 90, 90)], 3)
+    events_path = f.run / 'events.jsonl'
+    events = [json.loads(line) for line in events_path.read_text().splitlines()]
+    for event in events:
+        if event['type'] == 'node.start' and event['data']['node'] in ('rich', 'stalled', 'repeating'):
+            age = 500 if event['data']['node'] == 'rich' and event['data']['attempt'] == 1 else 450
+            event['ts'] = stamp(now - timedelta(seconds=age))
+    events_path.write_text(''.join(json.dumps(event) + '\n' for event in events))
+    (f.run / 'activity.jsonl').write_bytes(b''.join(activity._encode(row) for row in sorted(rows, key=lambda row: row['ts'])))
+
+
 def build(root, scenario):
     f = Fixture(root, scenario)
+    if scenario in ('graph-activity', 'graph-activity-unreadable'):
+        activity_fixture(f)
+        if scenario == 'graph-activity-unreadable':
+            (f.run / 'activity.jsonl').write_text('invalid complete line\n')
+        return f.metadata()
     if scenario == 'graph-empty':
         return f.metadata()
     if scenario in ('graph-chain-60', 'graph-dense'):

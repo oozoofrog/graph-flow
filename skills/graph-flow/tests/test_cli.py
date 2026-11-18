@@ -147,7 +147,7 @@ class CLITests(unittest.TestCase):
                 self.assertIn('conformance', self.call('--role', role, 'trace'))
 
     def test_registry_role_table(self):
-        self.assertEqual(len(cli.COMMANDS), 32)
+        self.assertEqual(len(cli.COMMANDS), 33)
         for path, entry in cli.COMMANDS.items():
             for role in core.ROLES:
                 if role in entry['roles']:

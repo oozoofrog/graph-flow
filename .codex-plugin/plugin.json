@@ -22,5 +22,6 @@
       "$graph-flow Plan this work as a graph with checks, and track progress."
     ]
   },
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.mcp.json",
+  "hooks": "./hooks/codex.json"
 }

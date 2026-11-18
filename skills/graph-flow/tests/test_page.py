@@ -136,7 +136,7 @@ class PageTests(unittest.TestCase):
         js = (S / 'scripts/graphflow/page.js').read_text(encoding='utf-8')
         style = html[html.index('<style'):html.index('</style>')]
         declared = set(re.findall(r'@keyframes ([a-z]+)', style))
-        self.assertEqual(declared, {'arrive'})
+        self.assertEqual(declared, {'arrive', 'activitychange'})
         used = {name for rule in re.findall(r'animation:([^;}]+)', style)
                 for name in re.findall(r'(?:^|,)([a-z]+) ', rule)}
         self.assertEqual(used, declared)
@@ -149,6 +149,20 @@ class PageTests(unittest.TestCase):
             self.assertIn("'" + used_class, js.replace("' " + used_class, "'" + used_class))
         self.assertNotIn('frog-walk', js)
         self.assertEqual(js.count('requestAnimationFrame('), 1)  # Only the invalidated WebGL frame.
+
+    def test_a7_activity_cues_are_optional_and_quieter_than_answers(self):
+        self.run_controller("""
+const {activityCues} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+for (const latest of ['tool','skill','mcp','session','gf','other','thinking']) {
+  const activity = [{latest, stalled:true, repeating:true}];
+  assert.deepEqual(activityCues({status:'running',activity}), [latest,'stalled','repeating']);
+  assert.deepEqual(activityCues({status:'submitted',activity}), []);
+}
+assert.deepEqual(activityCues({status:'running',activity:[{latest:null,stalled:true}]}), []);
+assert.equal(statusGlyph('awaiting'), '◆');
+""")
+        html = (S / 'scripts/graphflow/page.html').read_text()
+        self.assertRegex(html, r'animation:activitychange (?:[1-2]?\d{1,2}|300)ms ease-out 1')
 
     def test_translation_keys_match(self):
         js = (S / 'scripts/graphflow/page.js').read_text(encoding='utf-8')

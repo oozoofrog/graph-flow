@@ -9,7 +9,7 @@ node plugins/graph-flow/dev/screens/capture.mjs /Volumes/eyedisk/build/graph-flo
 ```
 
 The builder replaces only its marked `fixtures/` directory. The capture command
-writes the 113 numbered PNGs to `final/`, copies them and makes the requested ffmpeg
+writes the numbered PNGs to `final/`, copies them and makes the requested ffmpeg
 variants in `verify/`, and records DOM observations, hashes, and process cleanup
 outside those directories. A capture can mutate its isolated fixtures, such as when it recovers a key. An optional third argument, e.g. `5,16`, recaptures only
 those numbers. Rebuild fixtures before a fresh full capture. No installs or real
@@ -55,3 +55,11 @@ WebGL2 on eligible diagrams if the probe succeeds. Rebuild the fixtures in a
 second output directory and set `SCREENS_RENDERER=svg` for the forced fallback run.
 The capture records first-frame timing, observed pan frame intervals and
 same-origin vendor transfer bytes for scenes 110–111 as diagnostics.
+
+
+Scenes 115–123 use synthetic activity observations alongside ordinary CLI
+records. They cover mixed cards, the final work overview, forced SVG,
+reduced motion, stalled and repeated work, boundary-only and unreadable
+sessions, and the phone list. The rich WebGL capture also checks projected
+ink, raster silhouettes, playback bounds, keyboard pause and context loss
+and saves a short MP4. The fixture ledger is isolated from user runs.

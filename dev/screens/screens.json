@@ -1897,4 +1897,167 @@
     "lane_crops": "near",
     "group": "GRAPH-VERIFICATION"
   }
+,
+  {
+    "number": 115,
+    "name": "activity-mixed-graph",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "desktop", "width": 1440, "height": 900},
+    "interactions": [{"action": "button", "text": "간략 보기"}],
+    "group": "GRAPH-VERIFICATION",
+    "activity_macro": true
+  },
+  {
+    "number": 116,
+    "name": "activity-summary-final",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"rich\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "playing"
+  },
+  {
+    "number": 117,
+    "name": "activity-summary-svg",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"rich\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "fallback"
+  },
+  {
+    "number": 118,
+    "name": "activity-summary-reduced",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"rich\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "reduced"
+  },
+  {
+    "number": 119,
+    "name": "activity-stalled",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"stalled\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "reduced"
+  },
+  {
+    "number": 120,
+    "name": "activity-repeating",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"repeating\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "reduced"
+  },
+  {
+    "number": 121,
+    "name": "activity-boundary-only",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"blind\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "reduced"
+  },
+  {
+    "number": 122,
+    "name": "activity-phone",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "phone",
+      "width": 390,
+      "height": 844
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#phone-flow [data-node=\"rich\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "phone"
+  },
+  {
+    "number": 123,
+    "name": "activity-unreadable",
+    "scenario": "graph-activity-unreadable",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"rich\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "unreadable"
+  }
 ]
