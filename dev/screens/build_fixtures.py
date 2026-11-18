@@ -21,6 +21,8 @@ from test_review11 import Review11Tests
 from graphflow import activity, cli
 
 SCENARIOS = {
+    'graph-spacetime': 'Recorded rework, review and an open decision on a minute-scale timeline',
+    'graph-spacetime-long': 'The same run with a three-day gap before the decision',
     'graph-instrument': 'A branched live graph with recorded work, a decision, stalls and a return',
     'graph-flow-states': 'Delivered, frontier, waiting, blocked, returned and unreachable relations',
     'graph-activity-unreadable': 'A damaged activity log with readable boundary records',
@@ -118,6 +120,7 @@ class Fixture:
         self.decision = None
         self.approval = None
         self.activity_epoch = None
+        self.history_epoch = None
 
     def git(self, *args, **kwargs):
         return subprocess.run(['git', '-C', str(self.project), *args], env=self.env, check=True, capture_output=True, **kwargs)
@@ -173,6 +176,8 @@ class Fixture:
                       plan=str(self.root / 'plan.json'), commands=self.commands)
         if self.activity_epoch:
             result['activity_epoch'] = self.activity_epoch
+        if self.history_epoch:
+            result['history_epoch'] = self.history_epoch
         write_json(self.root / 'fixture.json', result)
         return result
 
@@ -269,8 +274,96 @@ def activity_fixture(f, instrument=False):
     (f.run / 'activity.jsonl').write_bytes(b''.join(activity._encode(row) for row in sorted(rows, key=lambda row: row['ts'])))
 
 
+def spacetime_fixture(f, long_gap):
+    q = question()
+    q['needs'] = [{'from': 'api', 'artifact': '결과'}]
+    integration = work('release', '통합', ['api', 'screen', 'q'])
+    integration['needs'][-1]['artifact'] = '허가'
+    r = review('api')
+    r['title'] = 'API 검토'
+    f.raw.update(title='검색 API와 배포 안내', nodes=[
+        work('a', '요구 정리'), work('api', '검색 API', ['a']), work('screen', '화면 구성', ['a']),
+        r, q, work('guide', '안내 문서', ['screen']), integration,
+    ])
+    f.post(True)
+    f.submit('a', True)
+    f.submit('screen', True)
+    own = f.raw['nodes'][1]
+    own_path = f.project / own['owns'][0]
+    f.assign('api')
+    f.assign('r', True)
+    findings = f.root / 'findings.json'
+    for attempt in (1, 2):
+        f.call('start', 'api')
+        own_path.write_text('검색 결과와 빈 결과 처리\n' if attempt == 2 else '', encoding='utf-8')
+        f.call('check', 'run', 'api', 'text', code=1 if attempt == 1 else 0)
+        f.call('submit', 'api')
+        f.call('start', 'r')
+        write_json(findings, [dict(severity='high', file='api.txt', line=1,
+            text='검색어가 비어 있을 때의 응답을 확인해야 해요.')] if attempt == 1 else [])
+        f.call('--role', 'reviewer', '--node', 'r', 'review', 'submit', 'r',
+               '--verdict', 'fail' if attempt == 1 else 'pass', '--findings', str(findings))
+        f.call('gate', 'r')
+        f.call('gate', 'api', code=1 if attempt == 1 else 0)
+    f.call('start', 'guide')
+    f.decision = f.call('gate', 'q', code=1)['asks'][0]
+
+    # Spread real CLI boundaries and ordinary hook observations across a readable axis.
+    ledger = f.run / 'events.jsonl'
+    events = [json.loads(line) for line in ledger.read_text().splitlines()]
+    boundaries = {
+        ('a', 'node.start', 1): 2, ('a', 'node.submit', 1): 9, ('a', 'gate.verdict', 1): 9,
+        ('screen', 'node.start', 1): 10, ('screen', 'node.submit', 1): 24, ('screen', 'gate.verdict', 1): 25,
+        ('api', 'node.start', 1): 25, ('api', 'node.submit', 1): 33, ('api', 'gate.verdict', 1): 41,
+        ('api', 'node.start', 2): 44, ('api', 'node.submit', 2): 69, ('api', 'gate.verdict', 2): 79,
+        ('guide', 'node.start', 1): 83, ('q', 'decision.ask', None): 84,
+    }
+    review_starts = iter((35, 71))
+    review_submits = iter((39, 76))
+    review_verdicts = iter((40, 77))
+    gap = timedelta(days=3) if long_gap else timedelta(0)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    floor = now - timedelta(minutes=90) - gap
+    stamp = lambda value: value.isoformat(timespec='seconds').replace('+00:00','Z')
+    minute = 0
+    for event in events:
+        kind, data = event['type'], event['data']
+        node = data.get('node')
+        key = (node, kind, data.get('attempt'))
+        if node == 'r' and kind in ('node.start', 'review.submit', 'gate.verdict'):
+            minute = next({'node.start':review_starts,'review.submit':review_submits,'gate.verdict':review_verdicts}[kind])
+        elif kind == 'check.result' and data.get('phase') == 'loop':
+            minute = boundaries.get((node,'node.submit',data.get('attempt')), minute) - 1
+        elif key in boundaries:
+            minute = boundaries[key]
+        at = floor + timedelta(minutes=minute) + (gap if minute >= 84 else timedelta(0))
+        event['ts'] = stamp(at)
+    ledger.write_text(''.join(json.dumps(event) + '\n' for event in events))
+    calls = {
+        ('a',1): [('Skill',2,4), ('Read',4,7), ('Bash',7,8)],
+        ('screen',1): [('Read',10,16), ('Skill',16,21), ('mcp__figma__inspect',21,23)],
+        ('api',1): [('Read',25,29), ('Bash',29,32)],
+        ('api',2): [('Read',44,51), ('mcp__catalog__search',54,57), ('Bash',58,64), ('Skill',64,68)],
+        ('guide',1): [('Read',83,83.6)],
+        ('r',1): [('Read',35,38), ('Bash',71,75)],
+    }
+    rows = []
+    for (node, attempt), entries in calls.items():
+        for i, (tool, start, end) in enumerate(entries):
+            for kind, at in [('PreToolUse', start), ('PostToolUse', end)]:
+                row = activity.observation(dict(hook_event_name=kind,session_id='screens-'+node,tool_name=tool,
+                    tool_use_id='%s-%s' % (attempt,i)), stamp(floor+timedelta(minutes=at)))
+                row.update(node=node,attempt=attempt,via='session')
+                rows.append(row)
+    (f.run / 'activity.jsonl').write_bytes(b''.join(activity._encode(row) for row in sorted(rows,key=lambda row:row['ts'])))
+    f.history_epoch = stamp(now)
+
+
 def build(root, scenario):
     f = Fixture(root, scenario)
+    if scenario.startswith('graph-spacetime'):
+        spacetime_fixture(f, long_gap=scenario.endswith('-long'))
+        return f.metadata()
     if scenario == 'graph-flow-states':
         f.raw['nodes'] = [work('a', '초안 준비'), work('done', '초안 반영', ['a']),
                           work('next', '배포 준비', ['a']), work('broken', '예제 검사'),

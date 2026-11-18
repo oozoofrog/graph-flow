@@ -502,8 +502,17 @@ class ServerTests(unittest.TestCase):
             revision, sha = tx.write_plan(changed)
             tx.append("plan.set", {"revision": revision, "plan_sha256": sha,
                       "plan_identity": state.plan_identity(changed)}, ACTOR)
-        for index, run in enumerate(self.runs):
+        unseen = legacy_run(self.projects[0], "unobserved", ACTOR)
+        with store.transaction(unseen) as tx:
+            unobserved_plan = store.read_plan(self.runs[0])
+            revision, sha = tx.write_plan(unobserved_plan)
+            tx.append("plan.set", {"revision": revision, "plan_sha256": sha,
+                                    "plan_identity": state.plan_identity(unobserved_plan)}, ACTOR)
+        approve_current_plan(unseen)
+        checks.start(unseen, "audit", None, ACTOR)
+        for index, run in enumerate([*self.runs, unseen]):
             with self.subTest(run=run.name):
+                project = store.project_of(run)
                 current, events, derived = store.snapshot(run)
                 observed = activity.read(run)
                 # Include activity between execution record boundaries.
@@ -517,7 +526,7 @@ class ServerTests(unittest.TestCase):
                 observed_at = max(activity._boundary_time(e) for e in events) + activity.STALL_MS + 1000
                 history = server._dashboard_history(run, current, derived, events, observed, observed_at)
                 evidence = server._history_evidence(run, events)
-                self.assertEqual(history["live"], server._view(current, derived, events, self.projects[index],
+                self.assertEqual(history["live"], server._view(current, derived, events, project,
                                                                observed, observed_at=observed_at))
                 self.assertEqual(history["live"], server._prefix_view(events, observed, evidence, observed_at))
                 expected = []
@@ -535,7 +544,7 @@ class ServerTests(unittest.TestCase):
                     prefix_plan = store._load_plan(run, plan_set["data"]["revision"], plan_set["data"]) if plan_set else None
                     prefix_state = state.derive(prefix_plan, prefix)
                     store.describe_integrity(prefix_state)
-                    expected.append(server._view(prefix_plan, prefix_state, prefix, self.projects[index],
+                    expected.append(server._view(prefix_plan, prefix_state, prefix, project,
                                                  prefix_activity, observed_at=at))
                 self.assertEqual(sum(step[1] is not None for step in history["steps"]),
                                  len(events) + len(observed["records"]))
@@ -558,7 +567,7 @@ class ServerTests(unittest.TestCase):
                       history.live.observed_at_ms),history.live);
                     """, str(source)], input=json.dumps({"history": history, "expected": expected}),
                     text=True, check=True)
-                status, served = self.json_request("GET", self.api("/api/history", index=index))
+                status, served = self.json_request("GET", "/api/history?" + urlencode({"project": str(project), "run": run.name}))
                 self.assertEqual(status, 200)
                 self.assertEqual(served["version"][0], events[-1]["seq"])
 

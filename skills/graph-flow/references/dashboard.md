@@ -84,6 +84,23 @@ Returns `{"plan": <stored normalized plan or null>, "state": <derived state>, "r
 
 The `project` string must exactly match a registered absolute root (HTTP 404, `unknown_project`, otherwise). The run ID must fully match `[a-z0-9][a-z0-9._-]{0,63}`, resolve inside the project's runs directory and exist with an event log (HTTP 404, `unknown_run`, otherwise). These addressing rules also apply to evidence and answer endpoints. URL-encode query values, especially roots and log paths.
 
+## GET /api/history?project=<root>&run=<id>
+
+The authenticated history response contains a base dashboard view, forward
+patches for execution and activity record boundaries, timed stalls, relation
+transfers, inferred decision closure times, and the live view sampled by the
+same request. Execution records at the same time retain ledger order. Hook
+observations at that time follow execution records. Plan revisions use the
+verified plan file for the viewed prefix. A revision marker identifies the
+instant when the graph changes structure.
+
+The browser requests the light time index using \`history=index\` on
+\`/api/run\`. The index supplies the start and end, the ledger version,
+allowlisted timings, and intervals with recorded activity. It uses the full
+history on demand for scrubbing, replay and transfer lines. The page applies
+the patches locally. The browser works from the live view until a person
+scrubs or starts replay.
+
 ## GET /api/evidence?project=<root>&run=<id>&path=<relative path>
 
 Returns one evidence log as `text/plain; charset=utf-8`. `path` is relative to the **run directory**, matching recorded check logs, for example `evidence/build/unit/a1-1234abcd.log`.
@@ -258,6 +275,43 @@ open a branch chooser. The drawer presents the direction, relation, item,
 gate and flow records with their IDs and times. These presentation changes
 serve P1, P3 and P6 and preserve the P10 human-stop baseline.
 
+### Time and view grammar
+
+The time bar offers replay, speed, a scrubber, and Live. It states when the
+graph shows past records and labels send-backs, human waits, plan revisions
+and shortened gaps. Historical graph cards, relation tags, and the drawer
+share the viewed state. The historical dashboard suspends answers, plan
+approval and the related reading credit. Returning to Live uses the latest
+polled run. Replay crosses each boundary in order and feeds the graph's
+existing event motion. Manual seeking resets the motion baseline.
+
+The graph, space-time and side views use the same layout. In space-time the
+cards and relation edges sit together on the time cut. The floor is the run
+start. Each pillar stacks a node's observed work, checks, verification waits
+and human waits. Patterned segments identify work categories. Hollow segments
+identify inferred thinking and waits. Idle spans are visible along thin
+lifetime poles. A transfer line runs from a recorded handoff or return to the
+receiving attempt's start, clipped to the cut while that start is missing.
+Marks at both ends and a word label for waits of at least one minute show its
+timing. A drop line connects the last recorded extent to the node's card.
+
+Time frames and two opposing labels mark regular levels. The side view spreads
+nodes by layer then row and makes time vertical. It keeps the pillars and
+transfer lines and gives each drawn interval a word label. The space-time
+view labels long intervals and the selected path. The relation list and both
+forms of relation ink open the same drawer. The three view buttons also use
+keys 1, 2 and 3. Drag an empty fitted stage to tilt or rotate, or use Alt-drag
+when the flat stage can scroll. Shift plus the arrow keys adjusts the pose.
+The side view scrolls horizontally for plans with more lanes than fit.
+
+Linear is the default scale. Gaps longer than 30 minutes with zero recorded
+events or measured work across the whole run are shortened at one common
+rate, at most 1/60 of actual duration and at most 90 seconds for the longest
+gap. The bar and stage mark the breaks and state their actual durations.
+True time scale restores the linear axis. The flat SVG graph, time bar, and
+static SVG side view remain available after WebGL2 loss or with forced SVG.
+The phone keeps the flat diagram/list and time bar.
+
 ### Graph visualization verification
 
 These checks implement Graph Flow principles P1, P3 and P6 by testing the data mapping and presentation in code. They preserve the P10 baseline of plan approval and planned decisions. The checks run in the normal graph-flow test suite and screen capture harness.
@@ -309,6 +363,15 @@ These checks implement Graph Flow principles P1, P3 and P6 by testing the data m
 | G4 | Calls appear at their recorded times. | Current-attempt call IDs, future calls, boundary-only and unreadable activity. | `assertInstrument`, `test_f1_activity_strip_preserves_order_timing_and_bounds` |
 | G5 | The four roles and text contrast are invariant in the dark theme. | Computed colors, effective plate backgrounds, glyphs, strokes and flat text, including selected, stalled, returned and awaiting states. | `assertAppearance` |
 | G6 | Only fresh events start motion. | Injected timestamps for the motion inventory, lifetime, pause, reduced motion, baseline and flash cadence. | `test_g6_deterministic_event_clock_and_loop_inventory`, `recordCalls`, `verifyHandoffPulse`, `recordAnswer` |
+| T1 | The same state derivation serves ledger prefixes and Live. | Every execution and activity boundary across rework, decisions, a revised plan and unobserved work. | \`test_t1_history_at_every_ledger_boundary\` |
+| T2 | The cut clips graph facts and time geometry. | Future attempts, decisions, and transfers, including a receiver that has yet to start. | \`test_t2_t3_real_intervals_and_shared_gap_scale\`, \`captureSpacetime\` |
+| T3 | Time comes from recorded boundaries and one invertible scale. | Exact segment and transfer endpoints, drop lines, and accurately labelled compression under both scales. | \`test_t2_t3_real_intervals_and_shared_gap_scale\`, \`captureSpacetime\` |
+| T4 | The graph is drawn on the time cut. | Card rectangles and rendered route points against the projection within 0.5 CSS px, and native transfer selection. | \`test_t4_t5_t6_one_orthographic_scene\`, \`captureSpacetime\` |
+| T5 | Side lanes preserve order and share a vertical time axis. | Equal y at equal time, nonoverlapping lanes, and layer-then-row order. | \`test_t4_t5_t6_one_orthographic_scene\`, \`captureSpacetime\` |
+| T6 | Continuous pose changes preserve card identity and upright text. | Frame displacement, intermediate and exact terminal poses, native DOM identity and reduced-motion snap. | \`test_t4_t5_t6_one_orthographic_scene\`, \`captureSpacetime\` |
+| T7 | History is visible and read-only. | Past label, suppressed answer action, and restored live action. | \`captureSpacetime\` |
+| T8 | Only a replayed boundary or a new live record starts record motion. | Manual seek, opening, single handoff per relation, the four-token limit, expiration and SVG. | \`captureSpacetime\`, \`test_g6_deterministic_event_clock_and_loop_inventory\` |
+| T9 | Labels belong to their own marks and selections. | Segment words, “관계 목록”, and no legend. | \`captureSpacetime\` |
 | G7 | Labels have separate positions on individual branches. | Scene and DOM rectangles for cards and relation tags, including dense routes and shared trunks. | `assertInstrument` |
 
 

@@ -221,6 +221,51 @@ Node focus derives from recorded dependencies and review targets. Edge focus sho
 
 The layout and capture checks use one routing ratchet for fixture-specific crossing and bend limits. They validate shaft membership, drawn segments, branch markers, renderer registration, framebuffer ink, focus order, and minimap clearance.
 
+### Prefix history and the space-time scene
+
+\`server._prefix_view\` receives truncated execution and activity lists, a
+clock, and captured read inputs. It runs \`state.derive\` and the regular
+\`server._view\` projection with the applicable frozen plan. A fresh sample
+captures plan revisions, the key and location, evidence hashes, ancestry
+and allowlisted paths. These present-day filesystem checks supply integrity
+context. The ledgers define the historical execution sequence. History
+cannot reconstruct prior unrecorded bytes or the filesystem state before
+a movement or a key change.
+
+\`/api/history\` stores a base view and forward patches for the dual ledger.
+An object patch subscripts keys, with \`:\` specifying array length. A
+singleton array supplies a replacement and an empty array removes a key.
+The server omits its changing observation clock from patches and adds a
+step if a recorded attempt reaches the stall threshold between boundaries.
+On the client, \`historyStep\` binary-searches the boundary times and
+\`historyView\` applies patches to a previous view or the base. These functions
+carry state without copying execution logic to JavaScript. A run with many
+records costs a prefix replay per execution event and a dashboard projection
+per event or activity boundary at initial load. Polling the live graph
+reads the lightweight time index. Moving the playhead is local. Last-prefix
+equality uses the same observation clock, including clock-derived stalls.
+
+\`spacetime.js\` places the current graph on a shared plane at the viewed
+time. World coordinates are the existing flat scene's x and y plus the
+mapped time. An affine orthographic projection maps the relation plane into
+the existing WebGL renderer or SVG. The same projection places the card
+wrappers, tags and hit corridors. SVG carries the floor, frames, time
+segments, polyhedral faces, drop lines and transfer lines. The clocks on
+the plane and interval labels are screen-aligned DOM. The side pose
+repositions the cards onto ordered lanes while rotating toward an exact
+vertical time axis. A 650–900 ms smoothstep pose change starts at the
+currently sampled pose and becomes immediate with reduced motion or a
+static backend.
+
+The time scale is linear between breaks. Every wholly inactive gap longer
+than 30 minutes shares one compression rate, the smaller of 1/60 and
+90 seconds divided by the longest compressed gap. Time geometry and the
+scrubber share the same forward and inverse mappings. Receipt and transfer
+times use recorded boundaries. An interval or transfer with no later
+boundary ends at the cut. Plan revisions change the structure at the record
+boundary. All of this serves the recorded trajectory (P12) and keeps the
+existing human-stop baseline (P10).
+
 ### Activity presentation input
 
 The graph shares a time-based DOM strip between WebGL and SVG. The active

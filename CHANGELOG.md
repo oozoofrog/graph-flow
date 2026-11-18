@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.4.0-dev
 
+- Replay and scrub the dashboard's recorded history in the flat graph, space-time and side views. The shared time cut preserves historical plan revisions, card state and relation details. The time bar names waits, returns, revisions and shortened gaps. Past views are read-only, and SVG retains the flat graph and static side view.
+
+
 - Concurrent dashboard opens share one detached server and wait for an authenticated response. The server binds directly to its numeric loopback address.
 
 - Graph Flow uses a dark-only dashboard and retires the light presentation. Graph cards identify work, state, risk and recent recorded activity in words and patterns. Relations name their live flow state on their own branches. The graph adds record-triggered motion with one pause and a static SVG path, an overlay detail drawer, a phone bottom sheet, and locally bundled OFL fonts.
