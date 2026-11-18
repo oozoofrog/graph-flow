@@ -1479,13 +1479,176 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
         text:e.querySelector('.node-title').textContent};
     });
     return {cards,model:map.graphScene,rendered:map.graphDrawing,space:map.graphTest.space(),
-      clock:map.graphTest.history(), labels:[...map.querySelectorAll('.space-label-interval')].map(e=>({id:e.dataset.node,
-        kind:e.dataset.kind,start:+e.dataset.start,end:+e.dataset.end,text:e.textContent})),
+      clock:map.graphTest.history(),
       legend:!!document.querySelector('.legend,.map-legend,[aria-label="Legend"]')};
   })()`);
   const seek = timestamp => evaluate(test+'.seek('+timestamp+')');
   const minute = number => floor + number*60_000;
+  const short=screen.scenario.includes('-short'), english=screen.language==='en';
+  const cutAt=number=>floor+Math.round(number*(short?60_000/9:60_000));
+  const observation=readFileSync(ledgerPath(fixture,'activity.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
+  const units=english?{d:86400000,h:3600000,min:60000,s:1000,ms:1}:
+    {일:86400000,시간:3600000,분:60000,초:1000,밀리초:1};
+  const durationPattern=english?/(\d+) (d|h|min|ms|s)\b/g:/(\d+)(일|시간|분|밀리초|초)/g;
+  const duration=text=>[...text.matchAll(durationPattern)].reduce((ms,[,n,unit])=>ms+Number(n)*units[unit],0);
   const transferReady = () => until(test+'.space().transferVersion!==null');
+  const readInk=()=>evaluate(`(()=>{
+    const map=document.querySelector('#map'), viewport=map.querySelector('.map-viewport');
+    const rect=e=>{const {left,right,top,bottom}=e.getBoundingClientRect();return {left,right,top,bottom};};
+    const stage=rect(map.querySelector('.space-labels'));
+    const visible=e=>{const c=rect(e),s=getComputedStyle(e);
+      return c.right>stage.left&&c.left<stage.right&&c.top<stage.bottom&&c.bottom>stage.top&&
+        s.visibility!=='hidden'&&Number(s.opacity)>0&&c.right>c.left&&c.bottom>c.top;};
+    const points=e=>[...e.getAttribute('d').matchAll(/[ML]([0-9.e+-]+) ([0-9.e+-]+)/g)]
+      .map(m=>({x:+m[1],y:+m[2]}));
+    return {state:map.graphTest.space(),model:map.graphScene,cut:+document.querySelector('#time-slider').value,
+      labels:[...map.querySelectorAll('.space-label,.edge-tag')].filter(visible)
+        .map(e=>({id:e.dataset.label,text:e.textContent,rect:rect(e),flow:e.dataset.flow})),
+      cards:[...viewport.querySelectorAll('.node-position > .node-card')].filter(visible)
+        .map(e=>({id:e.dataset.node,rect:rect(e)})),
+      drawn:[...map.querySelectorAll('.space-ink [data-records]')].map(e=>({key:e.dataset.inspect,id:e.dataset.node,
+        kind:e.dataset.kind,ids:e.dataset.records.split(' '),start:+e.dataset.start,end:+e.dataset.end,
+        duration:+e.dataset.duration,count:+e.dataset.count,extended:e.dataset.extended==='true',
+        line:e.classList.contains('space-transfer'),tick:e.classList.contains('space-tick'),
+        shape:e.classList.contains('space-tick')?e.getAttribute('d'):null,
+        endpoints:e.dataset.relation?[...map.querySelectorAll('.space-endpoint[data-seq="'+e.dataset.seq+'"]')]
+          .filter(endpoint=>endpoint.dataset.relation===e.dataset.relation&&endpoint.dataset.reverse===e.dataset.reverse)
+          .map(endpoint=>({x:+endpoint.getAttribute('cx'),y:+endpoint.getAttribute('cy')})):null,
+        extension:[...map.querySelectorAll('.space-extension')].some(mark=>mark.dataset.for===e.dataset.inspect&&points(mark).length===4),
+        points:e.classList.contains('space-tick')?null:points(e),
+        aria:[...map.querySelectorAll('.space-inspect')].find(el=>el.dataset.inspection===e.dataset.inspect)?.getAttribute('aria-label')
+      }))};
+  })()`);
+  const intersect=(a,b)=>Math.min(a.right,b.right)-Math.max(a.left,b.left)>.05&&
+    Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>.05;
+  async function assertReading(cardSpacing=true){
+    const {state,model,...ink}=await readInk(), {scene,budget,lanes}=state;
+    for(const [i,label] of ink.labels.entries()){
+      const other=[...ink.labels.slice(i+1),...ink.cards].find(other=>intersect(label.rect,other.rect));
+      assert(!other,'L1 '+label.id+' "'+label.text+'" overlaps '+other?.id+' "'+other?.text+'"');
+    }
+    if(cardSpacing)for(const [i,card] of ink.cards.entries())
+      assert(!ink.cards.slice(i+1).some(other=>intersect(card.rect,other.rect)),'L1 default card overlap '+card.id);
+    assert.equal(budget.shown,ink.labels.length,'L2 real visible label count');
+    assert.equal(budget.withheld,Object.values(budget.results).filter(item=>item.status!=='shown').length,'L2 withheld label count');
+    const drawn=new Map(ink.drawn.map(mark=>[mark.key,mark]));
+    assert.equal(drawn.size,ink.drawn.length,'L2 unique inspectable marks');
+    const laneById=new Map(lanes.map(lane=>[lane.id,lane]));
+    const pillars=new Map(scene.pillars.map(pillar=>[pillar.id,pillar]));
+    const screenY=(id,value)=>{
+      const lane=laneById.get(id);
+      return lane.floor.y+(lane.point.y-lane.floor.y)*value/ink.cut;
+    };
+    const transferByKey=new Map(scene.lines.map(line=>['transfer:'+line.key+':'+line.seq+':'+line.reverse,line]));
+    const shapes=new Map();
+    for(const mark of ink.drawn){
+      assert(mark.ids.every(id=>id.startsWith('execution:')?ledger.some(row=>row.seq===+id.slice(10)):
+        id.startsWith('activity:')&&observation[+id.slice(9)]),'L2 drawn marks have original record IDs');
+      if(mark.tick){
+        assert.equal(mark.start,mark.end,'L3 boundary ticks are instantaneous');
+        assert(!duration(mark.aria??''),'L3 accessible tick has no duration');
+        shapes.set(mark.kind,mark.shape);
+      }else if(mark.line){
+        const line=transferByKey.get(mark.key);
+        assert(line&&mark.points.length===2&&mark.endpoints.length===2,'T3 transfer has both endpoints');
+        for(const [i,id] of [line.from,line.to].entries()){
+          const y=screenY(id,i?line.high:line.low);
+          assert(Math.abs(mark.points[i].y-y)<.5&&Math.abs(mark.endpoints[i].y-y)<.5,'T3 exact transfer ends');
+        }
+      }else{
+        const members=pillars.get(mark.id).segments.filter(s=>s.kind===mark.kind&&s.ids.every(id=>mark.ids.includes(id)));
+        assert(members.length,'L6 every span matches its recorded members');
+        const start=members.reduce((a,b)=>a.start<=b.start?a:b),end=members.reduce((a,b)=>a.end>=b.end?a:b);
+        assert.deepEqual([mark.start,mark.end],[start.start,end.end],'L6 aggregated bounds');
+        assert.equal(mark.duration,members.reduce((sum,m)=>sum+m.duration,0),'L6 aggregated duration');
+        assert.equal(mark.count,members.reduce((sum,m)=>sum+(m.count??0),0),'L6 aggregated count');
+        for(const member of members){
+          let measured=member.end-member.start;
+          if(mark.kind==='check')measured=ledger.find(row=>row.seq===+member.ids[0].slice(10)).data.duration_ms;
+          if(member.count){
+            const original=observation[+member.ids[0].slice(9)];
+            const match=model.positions[mark.id].attemptHistory.find(a=>a.attempt===original.attempt).calls.find(call=>call.id===original.call);
+            if(match.duration_ms!=null){
+              measured=match.duration_ms;
+              const endRow=member.ids.map(id=>observation[+id.slice(9)]).find(row=>row.phase==='end');
+              if(endRow.duration_ms!=null)assert.equal(measured,endRow.duration_ms,'L6 condensation uses recorded call duration');
+            }
+          }
+          assert.equal(member.duration,measured,'L3 unrounded duration for '+mark.kind);
+        }
+        const [foot,top]=mark.points;
+        assert(foot&&top,'T3 segment draws both boundaries');
+        const work=!!start.observed;
+        const radius=mark.kind==='unobserved'?3:11;
+        const faceY=state.plane.d*state.workDepth*(radius/11)-state.plane.b*radius/state.plane.zoom;
+        assert(Math.abs(foot.y-screenY(mark.id,start.low)-faceY)<.5,'T3 recorded foot at exact time');
+        const scaled=screenY(mark.id,start.low)-screenY(mark.id,end.high);
+        const height=foot.y-top.y;
+        const expected=work?Math.max(5,scaled):scaled;
+        assert(Math.abs(height-expected)<.5,'T3/L5 height uses projected record scale and work minimum');
+        if(height>scaled+1e-6)assert(mark.extended&&mark.extension&&work&&height-scaled<=5+1e-6,
+          'L5 exaggerated geometry carries its own break glyph: '+JSON.stringify({mark:mark.key,height,scaled,work,extended:mark.extended,glyph:mark.extension}));
+        if(!mark.extended)assert(!mark.extension,'L5 normal height has no break glyph');
+      }
+    }
+    const boundaryKinds=new Set(['start','check','verdict','submit','return','asked','answered','superseded','handoff']);
+    const boundaryShapes=[...shapes].filter(([kind])=>boundaryKinds.has(kind)).map(([,shape])=>shape);
+    assert.equal(new Set(boundaryShapes).size,boundaryShapes.length,'T9 each boundary kind has its own shape');
+    for(const label of ink.labels){
+      const item=budget.results[label.id],mark=drawn.get(label.id);
+      assert(item,'L1 all labels use the shared budget');
+      if(item.kind==='now'||item.kind==='tag'||item.kind==='inspection')continue;
+      let expected=item.duration;
+      if(mark?.tick)expected=0;
+      else if(mark?.line)expected=mark.end-mark.start;
+      else if(mark)expected=mark.duration;
+      else if(item.lines)expected=Math.max(...item.lines.map(id=>{
+        const line=drawn.get(id);return line.end-line.start;
+      }));
+      const encoded=[...label.text.matchAll(durationPattern)];
+      if(!expected && item.kind!=='axis')assert.equal(encoded.length,0,'L3 no zero duration in '+label.text);
+      assert.equal(duration(label.text),expected,'L3 label gives real elapsed time for '+label.text);
+      if(mark?.count>1)assert(label.text.includes(english?'×'+mark.count:mark.count+'회'),'L6 aggregate count in words');
+    }
+    for(const item of Object.values(budget.results)){
+      const urgent=['human','asked'].includes(item.recordKind)||item.cue==='blocked';
+      const failure=item.failed||item.cue==='returned';
+      const priority=urgent?0:failure?1:item.selected?2:
+        item.kind==='tag'&&['delivered','unreachable'].includes(item.cue)?4:3;
+      if(['interval','mark','transfer','tag'].includes(item.kind))
+        assert.equal(item.rank,priority,'L4 priority matches recorded kind and selection');
+      if(item.status!=='collision'||!item.blocker)continue;
+      const blocker=budget.results[item.blocker];
+      assert(blocker.status==='shown'&&intersect(blocker.rect,item.rect),'L4 measured collision with a visible label');
+      assert(blocker.rank<item.rank||blocker.rank===item.rank&&blocker.duration>=item.duration,
+        'L4 lower-priority label displaced a higher-priority label');
+    }
+    return {shown:budget.shown,withheld:budget.withheld,
+      shownKinds:Object.values(budget.results).filter(item=>item.status==='shown').map(item=>item.kind),
+      ids:[...new Set(ink.drawn.flatMap(mark=>mark.ids))].sort(),ink};
+  }
+  async function assertDrawer(ids, includeMarks){
+    const result=new Set();
+    for(const pillar of (await current()).scene.pillars){
+      await evaluate(`[...document.querySelectorAll('#map .node-card')].find(e=>e.dataset.node===${JSON.stringify(pillar.id)})
+        .querySelector('.node-header').click()`);
+      const rows=await evaluate(`(()=>{
+        const details=document.querySelector('#panel .space-records');
+        if(!details)return [];
+        details.open=true;
+        return [...details.querySelectorAll('li')].map(e=>({ids:e.dataset.records.split(' '),text:e.textContent,
+          height:e.getBoundingClientRect().height}));
+      })()`);
+      for(const row of rows){
+        assert(row.height>0&&row.text.trim().length>4,'L2 drawer exposes each record in words');
+        row.ids.forEach(id=>result.add(id));
+      }
+      const selected=await assertReading();
+      if(includeMarks&&pillar.id==='api')assert(selected.shownKinds.includes('mark'),'T9 selected path shows boundary words');
+    }
+    await click('#panel .panel-close');
+    assert.deepEqual([...result].sort(),ids,'L2 drawn and drawer-reachable record ID sets match');
+  }
   const kind=screen.space_scene;
   await until("!!document.querySelector('#time-slider') && "+test+".history()?.version!=null");
   if(!fallback && kind!=='phone') await until("document.querySelector('#map').dataset.renderer==='webgl'");
@@ -1569,17 +1732,66 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
       }
     }
     observe=await current();
+    const initial=await assertReading(!observe.animating);
+    await click('#map [data-node="api"] .node-header');
+    await assertReading(!observe.animating);
+    await click('#panel .panel-close');
+    observe={...observe,labels:initial.shown,withheld:initial.withheld};
   } else {
-    const at=kind==='early'?minute(31):kind==='return'?minute(42):kind==='node'?minute(65):minute(87);
-    if(kind!=='compressed')await seek(at);
-    const side=kind==='side'||fallback;
+    const long=['compressed','long-side','true-scale'].includes(kind);
+    const at=kind==='early'?minute(31):kind==='return'?minute(42):kind==='node'?minute(65):
+      short?cutAt(90):minute(87);
+    await seek(long?floor+3*86400000+90*60_000:at);
+    const side=kind.startsWith('side')||['long-side','short-side','true-scale'].includes(kind)||fallback;
     await choose(side?'side':'space');
     const currentView=await view(), {model,space,clock}=currentView;
+    const report=({shown,withheld,shownKinds,ids})=>({shown,withheld,shownKinds,drawnRecords:ids.length});
+    const defaultReading=await assertReading();
+    if(kind==='side'){
+      const tooltip=await evaluate(`(()=>{
+        const mark=document.querySelector('.space-inspect[data-inspection^="mark:a:start:"]');
+        const r=mark.getBoundingClientRect();
+        return {x:(r.left+r.right)/2,y:(r.top+r.bottom)/2,aria:mark.getAttribute('aria-label')};
+      })()`);
+      assert.equal(tooltip.aria,'시도 시작','T9 boundary focus target has a Korean accessible name');
+      await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:tooltip.x,y:tooltip.y});
+      await until("document.querySelector('.space-label-inspection')?.textContent==='시도 시작'");
+      await assertReading();
+      await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:36,y:220});
+      await evaluate("document.querySelector('.space-inspect[data-inspection^=\"mark:a:start:\"]').focus({preventScroll:true})");
+      await until("document.querySelector('.space-label-inspection')?.textContent==='시도 시작'");
+      await assertReading();
+      await evaluate('document.activeElement.blur()');
+      assert(defaultReading.shownKinds.includes('convergence'),'Converging transfer waits share a visible summary');
+      await click('.space-label-convergence');
+      assert(await evaluate("document.querySelector('#panel').dataset.trunk==='true' && document.querySelectorAll('#panel .edge-choices button').length>1"),
+        'Selecting a convergence expands its related transfers');
+      await click('#panel .panel-close');
+    }
+    if(['decision','side','compressed','short','short-side','long-side'].includes(kind)){
+      assert(defaultReading.withheld>0,'L2 crowded fixture exercises withholding');
+      await assertDrawer(defaultReading.ids,kind==='side');
+    }
+    if(['short','short-side'].includes(kind)){
+      const aggregate=defaultReading.ink.drawn.find(mark=>mark.count===12);
+      const summary=model.positions.api.attemptHistory[1].phases.find(phase=>phase.category==='tool'&&phase.count===12);
+      assert(aggregate&&summary,'L6 ten-minute fixture aggregates the twelve observed tool calls');
+      assert.equal(aggregate.duration,summary.duration_ms,'L6 aggregate uses the condensation total');
+      assert.notEqual(aggregate.duration,aggregate.end-aggregate.start,'L6 fixture distinguishes measured duration from envelope');
+      assert.equal(clock.at-floor,600_000,'Ten-minute capture cut');
+    }
+    if(kind==='side-scroll'){
+      assert(space.sideWidth>screen.viewport.width,'T5 fixture overflows horizontally');
+      await evaluate(`document.querySelector('.map-viewport').dispatchEvent(new WheelEvent('wheel',{deltaX:125,cancelable:true,bubbles:true}))`);
+      assert((await current()).lanes[0].point.x<space.lanes[0].point.x,'T5 side lane scrolls with its header');
+      await assertReading();
+    }
     const time=clock.at;
     const snap=kind==='early'||kind==='return'||kind==='decision'||kind==='side'||kind==='compressed';
     assert(space.scene.pillars.some(pillar=>pillar.segments.length),'T2 scene is backed by recorded intervals');
     assert(!currentView.legend,'T9 no legend');
-    assert(await evaluate("document.querySelector('#edge-list').previousElementSibling.textContent==='관계 목록'"),'T9 relation terminology');
+    assert.equal(await evaluate("document.querySelector('#edge-list').previousElementSibling.textContent"),
+      english?'Relations':'관계 목록','T9 relation terminology');
     assert(currentView.cards.every(card=>card.upright),'T6 labels are screen-aligned');
     const coordinates=new Map(currentView.cards.map(card=>[card.id,card]));
     assert(space.lanes.every(lane=>near(lane.point,coordinates.get(lane.id))),'T4 graph cards sit on the projected cut');
@@ -1600,36 +1812,20 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
         const a=coordinates.get(space.lanes[i-1].id),b=coordinates.get(space.lanes[i].id);
         assert(a.x+a.width/2<b.x-b.width/2,'T5 card lanes do not overlap');
       }
-      const mesh=await evaluate(`(()=>{
-        const yValues=e=>[...e.getAttribute('d').matchAll(/[ML]([0-9.e+-]+) ([0-9.e+-]+)/g)].map(m=>+m[2]);
-        const low=yValues(document.querySelector('.space-frame'))[0];
-        const high=yValues(document.querySelector('.space-plane'))[0];
-        return {low,high,cut:+document.querySelector('#time-slider').value,segments:[
-          ...document.querySelectorAll('.space-segment:not(.space-face),.space-tick')].map(e=>{
-            const y=yValues(e);return {id:e.dataset.node,kind:e.dataset.kind,start:+e.dataset.start,end:+e.dataset.end,
-              low:Math.max(...y),high:Math.min(...y)};
-          })};
-      })()`);
-      const heightAt=slot=>mesh.low+(mesh.high-mesh.low)*slot/mesh.cut;
-      for(const pillar of space.scene.pillars)for(const segment of pillar.segments){
-        const actual=mesh.segments.find(s=>s.id===pillar.id&&s.kind===segment.kind&&s.start===segment.start&&s.end===segment.end);
-        assert(actual&&Math.abs(actual.low-heightAt(segment.low))<.5&&Math.abs(actual.high-heightAt(segment.high))<.5,
-          'T3 actual interval geometry uses exact mapped time');
-        assert(currentView.labels.some(label=>label.id===pillar.id&&label.kind===segment.kind&&
-          label.start===segment.start&&label.end===segment.end&&label.text.length>3),'T9 word label for each side interval');
-      }
+
     }
     for(const pillar of space.scene.pillars){
-      assert(pillar.segments.every(seg=>seg.start<=seg.end&&seg.end<=time),'T2 every visible interval ends at/before the cut');
+      assert(pillar.segments.every(seg=>seg.start<seg.end&&seg.end<=time),'T2 every visible interval ends at/before the cut');
+      assert(pillar.marks.every(mark=>mark.start===mark.end&&mark.end<=time),'T2 every visible tick stays at/before the cut');
       if(pillar.drop)assert.deepEqual(pillar.drop,{start:pillar.top,end:time},'T3 drop line connects pillar to card on cut');
     }
     for(const line of space.scene.lines){
       assert(line.start<=line.end&&line.end<=time,'T2 transfers stay below the cut');
       const from=space.scene.pillars.find(p=>p.id===line.from),to=space.scene.pillars.find(p=>p.id===line.to);
       assert.equal(line.start,Date.parse(ledger.find(row=>row.seq===line.seq).ts),'T3 actual transfer time');
-      assert(from.segments.some(seg=>seg.end===line.start),'T3 source is an interval top');
+      assert([...from.segments,...from.marks].some(seg=>seg.end===line.start),'T3 source is a recorded interval top or boundary tick');
       assert.equal(line.end,line.receiver??time,'T3 receiver start or cut');
-      if(line.receiver!=null)assert(to.segments.some(seg=>seg.start===line.end),'T3 receiver is an interval foot');
+      if(line.receiver!=null)assert([...to.segments,...to.marks].some(seg=>seg.start===line.end),'T3 receiver is a recorded interval foot or boundary tick');
     }
     if(kind==='early'){
       assert.equal(coordinates.get('q').state,'notStarted','T2 future question is absent');
@@ -1638,9 +1834,14 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
     }
     if(kind==='return')assert.equal(coordinates.get('api').state,'returned','T2 return boundary is visible');
     if(kind==='decision')assert.equal(coordinates.get('q').state,'awaiting','T2 viewed question is open');
-    if(kind==='node'){
+    if(kind==='node'||kind==='side-node'){
       await click('[data-node="api"] .node-header');
-      assert(await evaluate("document.querySelector('#panel').dataset.node==='api' && !!document.querySelector('#map .space-label-interval[data-node=api]')"),'T9 selected node has its interval words and shared detail panel');
+      assert(await evaluate("document.querySelector('#panel').dataset.node==='api' && !!document.querySelector('#panel .space-records li')"),
+        'T9 selected node has shared detail panel with record words');
+      await evaluate("document.querySelector('#panel .space-records').open=true; document.querySelector('#panel .panel-body').scrollTop=0");
+      const selected=await assertReading();
+      assert(selected.ink.labels.some(label=>label.id?.startsWith('span:api:')||label.id?.startsWith('mark:api:')),
+        'T9 selected path has a visible interval or boundary word label');
     }
     if(kind==='relation'){
       const transfer=await evaluate(`(()=>{
@@ -1650,15 +1851,21 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
       })()`);
       for(const type of ['mousePressed','mouseReleased'])await send('Input.dispatchMouseEvent',{type,x:transfer.x,y:transfer.y,button:'left',clickCount:1});
       assert.equal(await evaluate("document.querySelector('#panel').dataset.edge"),transfer.key,'T4 native transfer selection uses shared relation drawer');
+      assert(await evaluate("!!document.querySelector('#panel .space-records li')"),'L2 relation transfer details are reachable');
+      await evaluate("document.querySelector('#panel .space-records').open=true");
+      await assertReading();
     }
-    if(kind==='compressed'){
+    if(kind==='compressed'||kind==='true-scale'){
       const gaps=await evaluate(`[...document.querySelectorAll('.history-mark-label[data-kind=break]')].map(e=>({
         text:e.textContent,start:+e.dataset.start,end:+e.dataset.end}))`);
       assert(gaps.some(gap=>gap.end-gap.start>=3*86400000&&gap.text.includes('3일')),'T3 three-day gap has a real-duration break mark');
       assert(await evaluate("document.querySelectorAll('.space-break').length>=2"),'T3 break frames on the axis');
       await click('#time-scale');
       assert.equal(await evaluate("document.querySelectorAll('.history-mark-label[data-kind=break]').length"),0,'T3 true scale removes breaks');
-      await click('#time-scale');
+      if(kind==='true-scale'){
+        const linear=await assertReading();
+        assert(linear.ink.drawn.some(mark=>mark.extended),'L5 true scale actually exercises the exaggerated work minimum');
+      }else await click('#time-scale');
     }
     if(kind==='past'){
       assert(await evaluate("!document.querySelector('#time-past').hidden && !document.querySelector('#attention button')"),
@@ -1673,8 +1880,13 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
         'T7 returning live restores the actual pending action');
       await seek(at);
     }
+    if(!['node','side-node','relation'].includes(kind)){
+      await click('#map [data-node="api"] .node-header');
+      await assertReading();
+      await click('#panel .panel-close');
+    }
     if(snap)assert(await evaluate("document.querySelector('#time-bar').dataset.mode==='past' || !document.querySelector('#time-readout').hidden"));
-    observe={space,labels:currentView.labels};
+    observe={space,defaultReading:report(defaultReading),capturedReading:report(await assertReading())};
   }
   await paint();
   const {data}=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false,fromSurface:true});

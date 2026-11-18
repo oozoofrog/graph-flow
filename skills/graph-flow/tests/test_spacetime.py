@@ -53,8 +53,9 @@ assert.deepEqual(model.pillars[0].drop,{start:7*minute,end:day-5000});
 assert.equal(model.pillars[1].segments.length,0,'T2 neither a future start nor decision leaks onto the pillar');
 model=spaceHistory(layout,{at:3*day,index,axis},transfers);
 assert.deepEqual([model.lines[0].start,model.lines[0].end],[5*minute,day]);
-assert(model.pillars[0].segments.some(s=>s.end===model.lines[0].start));
-assert(model.pillars[1].segments.some(s=>s.start===model.lines[0].end));
+assert(model.pillars[0].marks.some(s=>s.kind==='submit'&&s.start===model.lines[0].start));
+assert(model.pillars[1].marks.some(s=>s.kind==='start'&&s.start===model.lines[0].end));
+assert.deepEqual(model.lines[0].ids,['execution:2','execution:4']);
 for(const pillar of model.pillars)for(const s of pillar.segments)
   assert.deepEqual([s.low,s.high],[axis.toScale(s.start),axis.toScale(s.end)]);
 assert(model.pillars[1].segments.some(s=>s.kind==='human'&&s.start===day+minute&&s.end===3*day));

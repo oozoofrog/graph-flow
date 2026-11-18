@@ -23,6 +23,8 @@ from graphflow import activity, cli
 SCENARIOS = {
     'graph-spacetime': 'Recorded rework, review and an open decision on a minute-scale timeline',
     'graph-spacetime-long': 'The same run with a three-day gap before the decision',
+    'graph-spacetime-short': 'A ten-minute run with a burst of short tool calls of one category',
+    'graph-spacetime-short-en': 'The ten-minute run in English',
     'graph-instrument': 'A branched live graph with recorded work, a decision, stalls and a return',
     'graph-flow-states': 'Delivered, frontier, waiting, blocked, returned and unreachable relations',
     'graph-activity-unreadable': 'A damaged activity log with readable boundary records',
@@ -274,7 +276,7 @@ def activity_fixture(f, instrument=False):
     (f.run / 'activity.jsonl').write_bytes(b''.join(activity._encode(row) for row in sorted(rows, key=lambda row: row['ts'])))
 
 
-def spacetime_fixture(f, long_gap):
+def spacetime_fixture(f, long_gap, short, english):
     q = question()
     q['needs'] = [{'from': 'api', 'artifact': '결과'}]
     integration = work('release', '통합', ['api', 'screen', 'q'])
@@ -285,6 +287,17 @@ def spacetime_fixture(f, long_gap):
         work('a', '요구 정리'), work('api', '검색 API', ['a']), work('screen', '화면 구성', ['a']),
         r, q, work('guide', '안내 문서', ['screen']), integration,
     ])
+    if english:
+        f.raw.update(title='Search API and release notes', goal='Prepare the search API and release notes.')
+        titles = ('Gather requirements', 'Search API', 'Search interface', 'API review',
+                  'Release scope', 'Release notes', 'Integration')
+        for node, title in zip(f.raw['nodes'], titles):
+            node.update(title=title, goal=title + ' for the test release.')
+            for check in node.get('checks', []):
+                check['title'] = 'The result file has content'
+        q['question'] = 'Publish the guide to the test environment?'
+        q['context'] = {'why': 'Check the reviewed guide in the test environment.',
+                        'undo': 'The guide can be taken down.'}
     own = f.raw['nodes'][1]
     own['checks'][0]['run'] = 'grep -q "빈 결과 처리" api.txt'
     f.post(True)
@@ -324,8 +337,11 @@ def spacetime_fixture(f, long_gap):
     review_verdicts = iter((40, 77))
     gap = timedelta(days=3) if long_gap else timedelta(0)
     now = datetime.now(timezone.utc).replace(microsecond=0)
-    floor = now - timedelta(minutes=90) - gap
-    stamp = lambda value: value.isoformat(timespec='seconds').replace('+00:00','Z')
+    minute_size = 60 / 9 if short else 60
+    floor = now - timedelta(seconds=90 * minute_size) - gap
+
+    def stamp(value, precision='seconds'):
+        return value.isoformat(timespec=precision).replace('+00:00', 'Z')
     minute = 0
     for event in events:
         kind, data = event['type'], event['data']
@@ -337,7 +353,7 @@ def spacetime_fixture(f, long_gap):
             minute = boundaries.get((node,'node.submit',data.get('attempt')), minute) - 1
         elif key in boundaries:
             minute = boundaries[key]
-        at = floor + timedelta(minutes=minute) + (gap if minute >= 84 else timedelta(0))
+        at = floor + timedelta(seconds=minute * minute_size) + (gap if minute >= 84 else timedelta(0))
         event['ts'] = stamp(at)
     ledger.write_text(''.join(json.dumps(event) + '\n' for event in events))
     calls = {
@@ -348,13 +364,18 @@ def spacetime_fixture(f, long_gap):
         ('guide',1): [('Read',83,83.6)],
         ('r',1): [('Read',35,38), ('Bash',71,75)],
     }
+    if short:
+        # Each call projects below a line; together they occupy a readable part of the pillar.
+        calls['api', 2][0:1] = [('Read', 44 + i * .55, 44 + (i + 1) * .55) for i in range(12)]
     rows = []
     for (node, attempt), entries in calls.items():
         for i, (tool, start, end) in enumerate(entries):
             for kind, at in [('PreToolUse', start), ('PostToolUse', end)]:
                 row = activity.observation(dict(hook_event_name=kind,session_id='screens-'+node,tool_name=tool,
-                    tool_use_id='%s-%s' % (attempt,i)), stamp(floor+timedelta(minutes=at)))
+                    tool_use_id='%s-%s' % (attempt,i)), stamp(floor+timedelta(seconds=at * minute_size), 'milliseconds' if short else 'seconds'))
                 row.update(node=node,attempt=attempt,via='session')
+                if short and node == 'api' and attempt == 2 and i < 12 and kind == 'PostToolUse':
+                    row['duration_ms'] = 3650 + i
                 rows.append(row)
     (f.run / 'activity.jsonl').write_bytes(b''.join(activity._encode(row) for row in sorted(rows,key=lambda row:row['ts'])))
     f.history_epoch = stamp(now)
@@ -363,7 +384,8 @@ def spacetime_fixture(f, long_gap):
 def build(root, scenario):
     f = Fixture(root, scenario)
     if scenario.startswith('graph-spacetime'):
-        spacetime_fixture(f, long_gap=scenario.endswith('-long'))
+        spacetime_fixture(f, long_gap=scenario.endswith('-long'), short='-short' in scenario,
+                          english=scenario.endswith('-en'))
         return f.metadata()
     if scenario == 'graph-flow-states':
         f.raw['nodes'] = [work('a', '초안 준비'), work('done', '초안 반영', ['a']),
