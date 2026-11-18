@@ -1758,7 +1758,7 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
       await until("document.querySelector('.space-label-inspection')?.textContent==='시도 시작'");
       await assertReading();
       await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:36,y:220});
-      await evaluate("document.querySelector('.space-inspect[data-inspection^=\"mark:a:start:\"]').focus({preventScroll:true})");
+      await evaluate(`document.querySelector('.space-inspect[data-inspection^="mark:a:start:"]').focus({preventScroll:true})`);
       await until("document.querySelector('.space-label-inspection')?.textContent==='시도 시작'");
       await assertReading();
       await evaluate('document.activeElement.blur()');
