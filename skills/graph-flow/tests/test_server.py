@@ -19,7 +19,7 @@ from urllib.parse import urlencode
 
 SCRIPTS = pathlib.Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
-from graphflow import assign, checks, core, decisions, gate, learn, plan, server, state, store
+from graphflow import activity, assign, checks, core, decisions, gate, learn, plan, server, state, store
 
 from human_support import recorded_question, legacy_run, approve_current_plan
 
@@ -133,7 +133,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual((body["ok"], body["code"]), (False, code))
 
     def test_host_and_token_for_every_route(self):
-        routes = ["/", "/api/projects", "/api/queue", self.api("/api/run"),
+        routes = ["/", "/api/projects", "/api/queue", self.api("/api/run"), self.api("/api/history"),
                   self.api("/api/evidence", path="evidence/missing"),
                   self.api("/api/file", decision=self.asks[0], path="built.txt"), "/not-found"]
         for path in routes:
@@ -485,6 +485,82 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(item["id"], fresh["id"])
         self.assertEqual(item["node_state"]["attempts"], 2)
         self.assertEqual(item["checks"], [])
+
+    @unittest.skipUnless(shutil.which("node"), "requires Node.js")
+    def test_t1_history_at_every_ledger_boundary(self):
+        run = self.runs[0]
+        with store.transaction(run) as tx:
+            # Include a returned attempt and a structural change while the other
+            # fixture keeps its open decision and its unobserved activity.
+            tx.append("gate.verdict", {"node": "build", "attempt": 1, "verdict": "reject",
+                      "rejection": {"reason": "Check the input."}}, ACTOR)
+            tx.append("node.start", {"node": "build", "attempt": 2}, ACTOR)
+            extra = {"id": "audit", "kind": "work", "goal": "check wording", "owns": ["audit.txt"],
+                     "lane": 1, "grade": "daily", "checks": [dict(CMD)]}
+            changed, _ = plan.normalize({**tx.plan, "nodes": tx.plan["nodes"] + [extra]})
+            self.assertEqual(plan.validate(changed), [])
+            revision, sha = tx.write_plan(changed)
+            tx.append("plan.set", {"revision": revision, "plan_sha256": sha,
+                      "plan_identity": state.plan_identity(changed)}, ACTOR)
+        for index, run in enumerate(self.runs):
+            with self.subTest(run=run.name):
+                current, events, derived = store.snapshot(run)
+                observed = activity.read(run)
+                # Include activity between execution record boundaries.
+                started = next(e for e in events if e["type"] == "node.start")
+                for j, phase in enumerate(("PreToolUse", "PostToolUse") if index == 0 else ()):
+                    row = activity.observation({"hook_event_name": phase, "session_id": "work",
+                                               "tool_name": "Read", "tool_use_id": "one"},
+                                               started["ts"].replace("Z", ".%03dZ" % (100+j)))
+                    row.update(node="build", attempt=1, via="session")
+                    observed["records"].append(row)
+                observed_at = max(activity._boundary_time(e) for e in events) + activity.STALL_MS + 1000
+                history = server._dashboard_history(run, current, derived, events, observed, observed_at)
+                evidence = server._history_evidence(run, events)
+                self.assertEqual(history["live"], server._view(current, derived, events, self.projects[index],
+                                                               observed, observed_at=observed_at))
+                self.assertEqual(history["live"], server._prefix_view(events, observed, evidence, observed_at))
+                expected = []
+                sequence, activity_indices = 0, set()
+                for at, record_index, _ in history["steps"]:
+                    if record_index is not None:
+                        row = history["records"][record_index]
+                        if "activity" in row:
+                            activity_indices.add(row["activity"])
+                        else:
+                            sequence = row["seq"]
+                    prefix = store.EventLog([e for e in events if e["seq"] <= sequence], run)
+                    prefix_activity = dict(observed, records=[observed["records"][i] for i in sorted(activity_indices)])
+                    plan_set = store._last_plan_set(prefix)
+                    prefix_plan = store._load_plan(run, plan_set["data"]["revision"], plan_set["data"]) if plan_set else None
+                    prefix_state = state.derive(prefix_plan, prefix)
+                    store.describe_integrity(prefix_state)
+                    expected.append(server._view(prefix_plan, prefix_state, prefix, self.projects[index],
+                                                 prefix_activity, observed_at=at))
+                self.assertEqual(sum(step[1] is not None for step in history["steps"]),
+                                 len(events) + len(observed["records"]))
+                source = SCRIPTS / "graphflow" / "history.js"
+                subprocess.run(["node", "--input-type=module", "-e", """
+                    import assert from 'node:assert/strict';
+                    import {readFileSync} from 'node:fs';
+                    const js=readFileSync(process.argv[1]);
+                    const {historyView,historyStep}=await import('data:text/javascript;base64,'+js.toString('base64'));
+                    const {history,expected}=JSON.parse(readFileSync(0));
+                    let previous;
+                    for(const [step,[at]] of history.steps.entries()){
+                      const view=historyView(history,step,at,previous);
+                      assert.deepEqual(view,expected[step], 'forward boundary '+step);
+                      assert.deepEqual(historyView(history,step,at),expected[step], 'random boundary '+step);
+                      assert(historyStep(history.steps,at)>=step);
+                      previous={step,view};
+                    }
+                    assert.deepEqual(historyView(history,historyStep(history.steps,history.live.observed_at_ms),
+                      history.live.observed_at_ms),history.live);
+                    """, str(source)], input=json.dumps({"history": history, "expected": expected}),
+                    text=True, check=True)
+                status, served = self.json_request("GET", self.api("/api/history", index=index))
+                self.assertEqual(status, 200)
+                self.assertEqual(served["version"][0], events[-1]["seq"])
 
     def test_run_shape_and_unknown_id_validation(self):
         status, data = self.json_request("GET", self.api("/api/run"))

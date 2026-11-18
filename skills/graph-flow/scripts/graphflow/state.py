@@ -238,9 +238,24 @@ def require_submission_binding(derived, node_id, refresh=False):
                 raise core.GFError("approval_changed", "The submission or evidence differs from the human approval. Run the gate again to request current evidence approval; if the signed record was altered, restore the intact record first.", core.EXIT_STATE)
 
 
-def derive(plan, events):
+def _is_ancestor(run_dir, commit):
+    return subprocess.run(["git", "-C", str(store.project_of(run_dir)),
+                           "merge-base", "--is-ancestor", commit, "HEAD"],
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+
+
+def derive(plan, events, evidence=None):
     run_dir = getattr(events, "run_dir", None)
-    actual_location = store.location(run_dir) if run_dir is not None else None
+    trusted = evidence is not None or run_dir is not None
+    actual_location = evidence["location"] if evidence is not None else store.location(run_dir) if trusted else None
+    key = (lambda: evidence["fingerprint"]) if evidence is not None else core.key_fingerprint
+    sign = evidence["sign"] if evidence is not None else core.human_sig
+
+    def hashes(decision, submission=None):
+        if evidence is not None:
+            return evidence["artifacts"].get(decision["seq"], {})
+        return artifact_hashes(run_dir, decision.get("evidence"), submission)
+
     events = [ev for ev in (events or []) if isinstance(ev, dict)]
     nodes = planning.node_index(plan)
 
@@ -262,8 +277,8 @@ def derive(plan, events):
     repins = []
     for e in events:
         d = _data(e)
-        if e.get("type") == "human.repin" and d.get("run_nonce") and d.get("human_key_sha256") == core.key_fingerprint():
-            expected = core.human_sig(e.get("run"), "human.repin", "repinned", "", d) if d.get("location") else None
+        if e.get("type") == "human.repin" and d.get("run_nonce") and d.get("human_key_sha256") == key():
+            expected = sign(e.get("run"), "human.repin", "repinned", "", d) if d.get("location") else None
             if expected and hmac.compare_digest(expected, str(d.get("sig", ""))):
                 repins.append(e)
     pinned_key = next((_data(e).get("human_key_sha256") for e in events
@@ -271,7 +286,7 @@ def derive(plan, events):
     if repins:
         repin = repins[-1]
         pinned_key, run_nonce, repin_seq = (_data(repin)["human_key_sha256"], _data(repin)["run_nonce"], repin["seq"])
-    key_mismatch = bool(pinned_key and pinned_key != core.key_fingerprint())
+    key_mismatch = bool(pinned_key and pinned_key != key())
     host = []
     final = None
     decisions = {}
@@ -310,9 +325,11 @@ def derive(plan, events):
             last_reset_seq = max(last_reset_seq, seq)
             if d.get("revision") is not None:
                 plan_revision = d["revision"]
-            if run_dir is not None:
+            if trusted:
                 try:
-                    revision_plan = store._load_plan(run_dir, int(d["revision"]), d)
+                    revision_plan = evidence["plans"][seq] if evidence is not None else store._load_plan(run_dir, int(d["revision"]), d)
+                    if revision_plan is None:
+                        raise ValueError("Unverified plan revision")
                     fps = {nid: fingerprint(n, revision_plan) for nid, n in planning.node_index(revision_plan).items()}
                 except (core.GFError, KeyError, ValueError, TypeError):
                     fps = {}
@@ -452,7 +469,7 @@ def derive(plan, events):
                 "submission_binding": copy.deepcopy(d.get("submission_binding")),
                 "artifact_hashes": copy.deepcopy(d.get("artifact_hashes")),
                 "binding_changed": False,
-                "legacy_binding": run_dir is not None and not all(k in d for k in ("location", "submission_binding", "artifact_hashes")),
+                "legacy_binding": trusted and not all(k in d for k in ("location", "submission_binding", "artifact_hashes")),
                 "run_nonce": run_nonce,
                 "human_key_sha256": pinned_key,
                 "kind": d.get("kind"),
@@ -496,14 +513,14 @@ def derive(plan, events):
         if dec.get("answer_seq") is not None and isinstance(sig, str):
             # Old signatures are history only, never authorization for new execution.
             modern = sig.startswith("v3:")
-            expected = (core.human_sig(run_id, did, dec["outcome"], dec["answer"], dec)
+            expected = (sign(run_id, did, dec["outcome"], dec["answer"], dec)
                         if modern and actual_location and run_nonce and pinned_key and not key_mismatch and dec["seq"] > repin_seq else None)
             if expected is not None:
                 dec["verified"] = hmac.compare_digest(
                     expected.encode("utf-8"), sig.encode("utf-8"))
         nid = dec["node"]
         if nid is None:
-            if not (dec.get("purpose") == "plan_approval" and dec["status"] == "answered") and run_dir is not None and not dec["legacy_binding"] and dec.get("artifact_hashes") != artifact_hashes(run_dir, dec.get("evidence")):
+            if not (dec.get("purpose") == "plan_approval" and dec["status"] == "answered") and trusted and not dec["legacy_binding"] and dec.get("artifact_hashes") != hashes(dec):
                 dec["binding_changed"] = True
                 if dec["status"] == "open" or dec["verified"]:
                     dec["stale"] = True
@@ -515,9 +532,9 @@ def derive(plan, events):
             dec["stale"] = True
         else:
             sub = a.get("submission")
-            if run_dir is not None and not dec["legacy_binding"] and dec.get("submission") == _sub_id(a):
+            if trusted and not dec["legacy_binding"] and dec.get("submission") == _sub_id(a):
                 dec["binding_changed"] = (dec.get("submission_binding") != submission_binding(sub)
-                    or dec.get("artifact_hashes") != artifact_hashes(run_dir, dec.get("evidence"), sub))
+                    or dec.get("artifact_hashes") != hashes(dec, sub))
                 if dec["binding_changed"]:
                     if (dec["status"] == "open" or dec["verified"]) and dec.get("submission_binding") == submission_binding(sub):
                         dec["stale"] = True
@@ -611,12 +628,11 @@ def derive(plan, events):
         and current_final is not None
         and current_final.get("result") == "passed"
     )
-    if complete and run_dir is not None:
+    if complete and trusted:
         for node in out_nodes.values():
             commit = (node.get("submission") or {}).get("commit")
-            if commit and subprocess.run(["git", "-C", str(store.project_of(run_dir)),
-                    "merge-base", "--is-ancestor", commit, "HEAD"],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
+            if commit and not (commit in evidence["ancestors"] if evidence is not None
+                               else _is_ancestor(run_dir, commit)):
                 complete = False
                 break
     return {
