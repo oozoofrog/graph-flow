@@ -26,7 +26,7 @@ export function spaceProjection(layout, box, pose, axis, at, sideScroll=0) {
   const sideWidth=Math.max(box.width,order.length*158+84);
   const laneWidth=(sideWidth-84)/Math.max(order.length,1);
   const surfaceHeight=axis.toScale(at)/Math.max(1,axis.total)*timeHeight;
-  const cx=mix(box.x+xCenter*box.scale,box.width/2,lean)-sideScroll*lanes;
+  const cx=mix(box.x+xCenter*box.scale,box.width/2,lean)-clamp(sideScroll,0,sideWidth-box.width)*lanes;
   const cy=mix(box.y+yCenter*box.scale,box.height/2+3,lean);
   const timeZ=time=>axis.toScale(time)/Math.max(1,axis.total)*timeHeight;
   const timeCenter=timeHeight/2;
@@ -36,7 +36,7 @@ export function spaceProjection(layout, box, pose, axis, at, sideScroll=0) {
       y:cy+zoom*(pitchY*(sine*dx+cosine*dy)-pitchTime*(z-timeCenter)*lean)};
   }
   const cards=new Map(order.map((card,i)=>{
-    const laneX=xCenter+(42+(i+.5)*laneWidth-box.width/2)/sideScale;
+    const laneX=xCenter+(42+(i+.36)*laneWidth-box.width/2)/sideScale;
     return [card.id,{x:mix(card.x+card.width/2,laneX,lanes),y:mix(card.y+card.height/2,yCenter,lanes),lane:i}];
   }));
   const worldWidth=mix(width,(sideWidth-64)/sideScale,lanes);
@@ -52,32 +52,45 @@ export function spaceProjection(layout, box, pose, axis, at, sideScroll=0) {
     nodeAt:(id,time)=>{const position=cards.get(id);return timePoint(position.x,position.y,time);}};
 }
 
-const segmentKinds={tool:'tool',skill:'skill',mcp:'mcp',session:'session',gf:'gf',other:'other'};
+const observedKinds=new Set(['tool','skill','mcp','session','gf','other']);
 const terminalVerdicts=new Set(['pass','reject','replan','unverified']);
+const eventId=seq=>'execution:'+seq;
+const observationId=index=>'activity:'+index;
+const unique=values=>[...new Set(values)];
 
 export function spaceHistory(layout,{at,index,axis},transfers,waitEnds={},resets={}) {
-  const pillars=new Map(layout.cards.map(card=>[card.id,{id:card.id,attempts:[],segments:[],starts:[],calls:new Map()}]));
+  const pillars=new Map(layout.cards.map(card=>[card.id,{id:card.id,attempts:[],segments:[],marks:[],starts:[],calls:new Map()}]));
+  const attempts=new Map(layout.cards.map(card=>[card.id,new Map((card.attemptHistory||[]).map(attempt=>
+    [attempt.attempt,new Map(attempt.calls.map(call=>[call.id,call]))]))]));
   const asks=new Map(), edgeKeys=new Set(layout.edges.map(edge=>edge.key));
   const min=index.start, max=at;
-  const add=(pillar,kind,from,to,seq=null)=>{
+  const add=(pillar,kind,from,to,records,options={})=>{
     if(!Number.isFinite(from)||!Number.isFinite(to)||from>max||to<min||from>to)return;
     const start=clamp(from,min,max), end=clamp(to,min,max);
-    pillar.segments.push({kind,start,end,seq,low:axis.toScale(start),high:axis.toScale(end)});
+    const timing={kind,start,end,ids:unique(records),low:axis.toScale(start),high:axis.toScale(end),...options};
+    if(start===end){
+      if(options.point) pillar.marks.push(timing);
+      return;
+    }
+    pillar.segments.push({...timing,duration:options.duration??end-start});
   };
   for(const row of index.records) {
     if(row.at>at)break;
     const pillar=pillars.get(row.node), time=row.activity==null?row.time:row.at, kind=row.kind;
     if(!Number.isFinite(time))continue;
+    const record=eventId(row.seq);
+    const mark=(kind,failed=false)=>add(pillar,kind,time,time,[record],{point:true,failed});
     for(const node of resets[row.seq]||[]){
       const ended=pillars.get(node)?.attempts.at(-1);
       if(ended && ended.stop==null){
         ended.stop=Math.max(ended.start,time);
+        ended.stopId=record;
         ended.end ??= ended.stop;
       }
     }
     if(kind==='decision.answer'||kind==='decision.superseded'){
       const ask=asks.get(row.id);
-      if(ask && ask.end==null)ask.end=Math.max(ask.start,time);
+      if(ask && ask.end==null){ask.end=Math.max(ask.start,time);ask.closeId=record;}
     }
     if(!pillar)continue;
     const active=pillar.attempts.at(-1);
@@ -85,58 +98,81 @@ export function spaceHistory(layout,{at,index,axis},transfers,waitEnds={},resets
       if(active && active.end==null)active.end=Math.max(active.start,time);
       pillar.attempts.push({start:time,seq:row.seq,number:row.attempt});
       pillar.starts.push({time,seq:row.seq});
-    } else if(kind==='node.reopen' && active && active.end==null) {
-      active.end=Math.max(active.start,time);
+      mark('start');
+    } else if(kind==='node.reopen') {
+      if(active && active.end==null)active.end=Math.max(active.start,time);
+      mark('return',true);
     } else if(kind==='node.submit'||kind==='review.submit'){
-      if(active)active.end=active.submit=Math.max(active.start,time);
-      add(pillar,'submit',time,time,row.seq);
+      if(active){active.end=active.submit=Math.max(active.start,time);active.submitId=record;}
+      mark('submit');
     } else if(kind==='gate.verdict'){
+      const failed=['reject','replan','unverified'].includes(row.verdict);
       if(active && terminalVerdicts.has(row.verdict)){
         active.verdict=Math.max(active.submit??active.start,time);
+        active.verdictId=record;active.failed=failed;
         active.end ??= active.verdict;
       }
-      add(pillar,['reject','replan'].includes(row.verdict)?'return':'verdict',time,time,row.seq);
+      mark(['reject','replan'].includes(row.verdict)?'return':'verdict',failed);
     } else if(kind==='decision.ask'){
       asks.set(row.id??'d'+row.seq,{pillar,start:time,seq:row.seq});
+      mark('asked');
     } else if(kind==='decision.answer'||kind==='decision.superseded'){
-      add(pillar,'verdict',time,time,row.seq);
+      mark(kind==='decision.answer'?'answered':'superseded');
     } else if(kind==='check.result'||kind==='check.red'){
-      const start=time-(Number.isFinite(row.duration_ms)?row.duration_ms:0);
-      add(pillar,'check',Math.max(active?.start??min,start),time,row.seq);
+      const duration=Number.isFinite(row.duration_ms)?row.duration_ms:0, start=time-duration;
+      const failed=row.result==='failed';
+      add(pillar,'check',Math.max(active?.start??min,start),time,[record],{duration,failed,observed:true});
+      mark('check',failed);
       if(!active && !pillar.starts.length)pillar.starts.push({time:Math.max(min,start),seq:row.seq});
     } else if(kind==='gate.final'){
-      add(pillar,'verdict',time,time,row.seq);
+      mark('verdict',row.result==='failed');
     } else if(row.activity!=null) {
-      const call=pillar.calls.get(row.call)??{category:segmentKinds[row.category]||'other',number:row.attempt};
+      const key=JSON.stringify([row.attempt,row.call]);
+      const call=pillar.calls.get(key)??{id:row.call,category:observedKinds.has(row.category)?row.category:'other',
+        number:row.attempt,ids:[]};
       call[row.phase]=time;
-      pillar.calls.set(row.call,call);
+      call.ids.push(observationId(row.activity));
+      pillar.calls.set(key,call);
     }
   }
   for(const [id,ask] of asks){
     ask.end ??= waitEnds[id];
-    add(ask.pillar,'human',ask.start,ask.end??at,ask.seq);
+    add(ask.pillar,'human',ask.start,ask.end??at,[eventId(ask.seq),ask.closeId].filter(Boolean));
     ask.pillar.starts.push({time:ask.start,seq:ask.seq});
   }
   for(const pillar of pillars.values()){
-    for(const attempt of pillar.attempts){
-      const next=pillar.attempts.find(other=>other.seq>attempt.seq);
+    const callsByAttempt=attempts.get(pillar.id);
+    for(const [i,attempt] of pillar.attempts.entries()){
+      const next=pillar.attempts[i+1];
       const workEnd=attempt.end??at;
-      add(pillar,'start',attempt.start,attempt.start,attempt.seq);
-      if(attempt.submit!=null)add(pillar,'verify',attempt.submit,attempt.verdict??attempt.stop??next?.start??at);
-      const calls=[...pillar.calls.values()].filter(call=>{
-        const anchor=call.start??call.end;
-        return anchor>=attempt.start && (!next || anchor<next.start) && call.number===attempt.number;
-      }).sort((a,b)=>(a.start??a.end)-(b.start??b.end));
+      const startId=eventId(attempt.seq), nextId=next&&eventId(next.seq);
+      if(attempt.submit!=null)add(pillar,'verify',attempt.submit,attempt.verdict??attempt.stop??next?.start??at,
+        [attempt.submitId,attempt.verdictId??attempt.stopId??nextId].filter(Boolean),{failed:attempt.failed});
+      const calls=[...pillar.calls.values()].filter(call=>call.number===attempt.number &&
+        (call.start??call.end)>=attempt.start && (!next || (call.start??call.end)<next.start))
+        .sort((a,b)=>(a.start??a.end)-(b.start??b.end));
       let covered=null, open=false;
       for(const call of calls){
-        if(covered!=null && !open && call.start-covered>=1000)add(pillar,'thinking',covered,call.start);
-        if(call.start==null)add(pillar,call.category,call.end,call.end);
-        else add(pillar,call.category,call.start,call.end??workEnd);
+        const measured=callsByAttempt.get(attempt.number)?.get(call.id);
+        const options={point:true,observed:true,count:1,attempt:attempt.seq,
+          duration:call.end!=null?measured?.duration_ms:undefined,failed:call.end!=null&&measured?.failed};
+        if(covered && !open && call.start-covered.end>=1000)
+          add(pillar,'thinking',covered.end,call.start,[...covered.ids,...call.ids]);
+        if(call.start==null)add(pillar,call.category,call.end,call.end,call.ids,options);
+        else add(pillar,call.category,call.start,Math.max(call.start,call.end??workEnd),call.ids,options);
         if(call.end==null)open=true;
-        else covered=Math.max(covered??call.end,call.end);
+        else if(!covered || call.end>covered.end)covered=call;
+        pillar.calls.delete(JSON.stringify([call.number,call.id]));
       }
-      if(!calls.length && workEnd>=attempt.start)add(pillar,'unobserved',attempt.start,workEnd);
+      if(!calls.length)add(pillar,'unobserved',attempt.start,workEnd,
+        [startId,attempt.submitId??attempt.verdictId??attempt.stopId??nextId].filter(Boolean));
     }
+    // An observation with no matching visible attempt still has its own recorded timestamp.
+    for(const call of pillar.calls.values()){
+      const time=call.start??call.end;
+      add(pillar,call.category,time,time,call.ids,{point:true,observed:true,count:1});
+    }
+    delete pillar.calls;
   }
 
   const lines=[];
@@ -151,18 +187,47 @@ export function spaceHistory(layout,{at,index,axis},transfers,waitEnds={},resets
     const receiver=b.starts.filter(row=>row.seq>transfer.seq&&row.time>=started)
       .sort((a,b)=>a.seq-b.seq)[0];
     const start=clamp(started,min,max), end=clamp(receiver?.time??at,min,max);
-    if(!a.segments.some(segment=>segment.end===start))add(a,transfer.reverse?'return':'handoff',start,start,transfer.seq);
-    if(receiver && !b.segments.some(segment=>segment.start===end))add(b,'start',end,end,receiver.seq);
-    lines.push({key,from,to,start,end,low:axis.toScale(start),high:axis.toScale(end),receiver:receiver?.time??null,
-      reverse:transfer.reverse,seq:transfer.seq});
+    const ids=[eventId(transfer.seq)];
+    if(receiver)ids.push(eventId(receiver.seq));
+    if(![...a.marks,...a.segments].some(item=>item.end===start))
+      add(a,transfer.reverse?'return':'handoff',start,start,[ids[0]],{point:true,failed:transfer.reverse});
+    if(receiver && ![...b.marks,...b.segments].some(item=>item.start===end))
+      add(b,'start',end,end,[ids[1]],{point:true});
+    lines.push({key,from,to,start,end,duration:end-start,ids,low:axis.toScale(start),high:axis.toScale(end),
+      receiver:receiver?.time??null,receiverSeq:receiver?.seq,reverse:transfer.reverse,seq:transfer.seq});
   }
 
   for(const pillar of pillars.values()){
-    pillar.top=pillar.segments.reduce((top,segment)=>Math.max(top??segment.end,segment.end),null);
+    pillar.top=[...pillar.segments,...pillar.marks].reduce((top,item)=>Math.max(top??item.end,item.end),null);
     pillar.drop=pillar.top!=null&&pillar.top<at?{start:pillar.top,end:at}:null;
-    delete pillar.calls;
   }
   return {pillars:[...pillars.values()],lines};
+}
+
+// Geometry can cover overlapping calls. The words add the same per-call
+// contributions as activity condensation, including concurrent measured time.
+export function aggregateSegments(segments,scaledHeight,lineHeight) {
+  const ordered=[...segments].sort((a,b)=>a.start-b.start||b.end-a.end);
+  const work=[], standing=[];
+  for(const segment of ordered)(segment.count?work:standing).push(segment);
+  const groups=[];
+  let coveredUntil;
+  for(const segment of work){
+    const prior=groups.at(-1), last=prior?.at(-1);
+    if(last && last.kind===segment.kind && last.attempt===segment.attempt &&
+        segment.start-coveredUntil<1000 && scaledHeight(last)<lineHeight && scaledHeight(segment)<lineHeight){
+      prior.push(segment);coveredUntil=Math.max(coveredUntil,segment.end);
+    }else{
+      groups.push([segment]);coveredUntil=segment.end;
+    }
+  }
+  return [...standing,...groups.map(members=>{
+    if(members.length===1)return members[0];
+    const first=members[0],last=members.reduce((a,b)=>a.end>=b.end?a:b);
+    return {...first,end:last.end,high:last.high,ids:unique(members.flatMap(member=>member.ids)),
+      count:members.reduce((n,member)=>n+member.count,0),duration:members.reduce((n,member)=>n+member.duration,0),
+      failed:members.some(member=>member.failed),members};
+  })].sort((a,b)=>a.start-b.start||b.end-a.end);
 }
 
 export function spaceTicks(axis, at) {
@@ -185,15 +250,35 @@ const pathOf=(points,closed=false)=>'M'+points.map(p=>p.x+' '+p.y).join(' L')+(c
 const segmentLabels={
   start:'activityStart',check:'spaceCheck',submit:'activitySubmit',verify:'spaceVerify',human:'spaceHuman',
   unobserved:'spaceUnobserved',handoff:'spaceHandoff',return:'timeReturned',verdict:'spaceVerdict',
+  asked:'spaceAsked',answered:'spaceAnswered',superseded:'evSuperseded',
   thinking:'activityThinking',tool:'activityNameTool',skill:'activityNameSkill',mcp:'activityNameMcp',
   session:'activityNameSession',gf:'cardChecks',other:'activityNameOther',
 };
 
+const LABEL_LINE=15, MIN_WORK_HEIGHT=5, TRANSFER_SHARE=.10;
+const activeTags=new Set(['frontier','waiting','blocked','returned']);
+const priority=(kind,failed,selected)=>['human','asked','blocked'].includes(kind)?0:
+  failed||kind==='returned'?1:selected?2:3;
+
+const markerShapes={
+  start:'M-4 3L0 -3L4 3Z', check:'M-4 -3H4V3H-4Z', verdict:'M-4 0L0 -4L4 0L0 4Z',
+  submit:'M-4 -3H4L0 3Z', return:'M3 -4L-3 0L3 4', asked:'M-3 -3H3L0 0L3 3H-3L0 0Z',
+  answered:'M-4 -1L-1 3L4 -3', superseded:'M-3 -3L3 3M-3 3L3 -3', handoff:'M-4 0H4M0 -4V4',
+};
+const markerSlots={start:-9,check:7,verdict:18,submit:-19,return:28,asked:-9,answered:9,superseded:18,handoff:-29};
+
+const recordWords=(item,t,duration)=>[
+  item.count>1?t('spaceActivityCount',{name:t(segmentLabels[item.kind]),n:item.count}):t(segmentLabels[item.kind]),
+  item.start!==item.end&&item.duration>0?duration(item.duration):'',
+].filter(Boolean).join(' · ');
+const waitWords=(line,t,duration)=>line.duration>0?t('spaceTransferWait',{duration:duration(line.duration)}):
+  t(line.reverse?'timeReturned':'spaceHandoff');
+
 function ink(projection, scene, cut, focus, tools) {
-  const {svg,t,duration,stamp,width,height}=tools;
+  const {svg,t,duration,stamp,width,tags}=tools;
   const {frame,timePoint,nodeAt,lanes,lean,cards}=projection;
-  const {at,axis}=cut;
-  const layers={grid:[],frame:[],body:[],links:[]}, labels=[];
+  const {at,axis,index}=cut;
+  const layers={grid:[],frame:[],body:[],links:[]}, labels=[], inspections=[];
   const path=(layer,knots,kind,attributes={},closed=false)=>{
     const item=svg('path',{class:kind,d:pathOf(knots,closed),...attributes});
     layers[layer].push(item);return item;
@@ -201,7 +286,8 @@ function ink(projection, scene, cut, focus, tools) {
   const dot=(layer,point,kind,attributes={})=>{
     layers[layer].push(svg('circle',{class:kind,cx:point.x,cy:point.y,r:3,...attributes}));
   };
-  const label=(point,text,kind,options={})=>labels.push({point,text,kind,...options});
+  const label=(id,point,text,kind,options={})=>labels.push({id,point,text,kind,rank:-2,...options});
+  const projectedSide=lanes>.98;
   const projectFrame=time=>frame.map(([x,y])=>timePoint(x,y,time));
   const ticks=spaceTicks(axis,at);
   const [[x0,y0],[x1],[,y1]]=frame;
@@ -215,23 +301,26 @@ function ink(projection, scene, cut, focus, tools) {
   for(const time of ticks){
     const points=projectFrame(time);
     path('frame',points,'space-frame',{'data-time':time},true);
-    label({x:Math.max(52,points[3].x-6),y:points[3].y},duration(time-axis.start),'axis',{align:'right',time});
-    label({x:Math.min(width-6,points[1].x+6),y:points[1].y},duration(time-axis.start),'axis',
-      {time,align:points[1].x>width-80?'right':'left'});
+    label('left:'+time,{x:projectedSide?6:Math.max(6,points[3].x-55),y:points[3].y},
+      duration(time-axis.start),'axis',{time,duration:time-axis.start});
+    label('right:'+time,{x:projectedSide?width-6:Math.min(width-6,points[1].x+25),y:points[1].y},
+      duration(time-axis.start),'axis',{align:'right',time,duration:time-axis.start});
   }
   for(const gap of axis.gaps){
     if(gap.end>at)break;
     for(const time of [gap.start,gap.end])path('frame',projectFrame(time),'space-break',{'data-time':time},true);
     const p=timePoint(frame[1][0],frame[1][1],(gap.start+gap.end)/2);
-    label({x:Math.min(width-5,p.x+6),y:p.y},t('timeBreak',{duration:duration(gap.duration)}),'break',
-      {align:p.x>width-190?'right':'left'});
+    label('break:'+gap.start,{x:projectedSide?width-6:Math.min(width-6,p.x+120),y:p.y},
+      t('timeBreak',{duration:duration(gap.duration)}),'break',
+      {align:'right',duration:gap.duration,offsets:[[0,0],[0,-17],[0,17]]});
   }
   for(const [x,y] of frame)
     path('frame',[timePoint(x,y,axis.start),timePoint(x,y,at)],'space-corner');
   const now=projectFrame(at);
   path('frame',now,'space-plane',{'data-time':at},true);
-  label({x:Math.max(now[1].x,now[2].x)-4,y:Math.min(now[1].y,now[2].y)-19},
-    (cut.past?t('spaceViewed'):t('timeLive'))+' · '+stamp(at),'now',{align:'right',time:at});
+  label('cut',{x:projectedSide?width-6:Math.max(now[1].x,now[2].x)-4,y:Math.min(now[1].y,now[2].y)-26},
+    (cut.past?t('spaceViewed'):t('timeLive'))+' · '+stamp(at),'now',
+    {align:'right',time:at,offsets:[[0,0],[0,-17],[0,17]]});
 
   for(const pillar of scene.pillars){
     if(pillar.top==null)continue;
@@ -242,93 +331,192 @@ function ink(projection, scene, cut, focus, tools) {
     path('body',[start,end],'space-pole',attrs);
     if(pillar.drop)path('body',[end,nodeAt(id,at)],'space-drop',{'data-start':pillar.top,'data-end':at,...attrs});
     const center=cards.get(id);
-    const ordered=[...pillar.segments].sort((a,b)=>a.start-b.start||b.end-a.end);
+    const scaledHeight=segment=>nodeAt(id,segment.start).y-nodeAt(id,segment.end).y;
+    const segments=aggregateSegments(pillar.segments,scaledHeight,LABEL_LINE);
     let overlap=[];
-    for(const segment of ordered){
+    for(const segment of segments){
       const a=nodeAt(id,segment.start), b=nodeAt(id,segment.end);
-      const span=segment.end-segment.start, key=segmentLabels[segment.kind];
-      const title=t(key)+' · '+duration(span);
-      const lineAttrs={...attrs,'data-kind':segment.kind,'data-start':segment.start,'data-end':segment.end};
+      const scaled=scaledHeight(segment);
+      const extension=segment.observed?Math.max(0,MIN_WORK_HEIGHT-scaled):0;
+      const title=recordWords(segment,t,duration);
+      const key='span:'+id+':'+segment.kind+':'+segment.ids.join(',');
+      const lineAttrs={...attrs,'data-kind':segment.kind,'data-start':segment.start,'data-end':segment.end,
+        'data-duration':segment.duration,'data-records':segment.ids.join(' '),'data-inspect':key,
+        'data-count':segment.count??0,'data-extended':extension>0};
       overlap=overlap.filter(end=>end>segment.start);
-      const offset=(overlap.length%3)*8;
-      if(span)overlap.push(segment.end);
-      const atOffset=p=>({x:p.x+offset,y:p.y});
+      const offset=(overlap.length%3)*6;
+      overlap.push(segment.end);
       const hollow=['thinking','unobserved','verify','human'].includes(segment.kind);
-      if(!span) {
-        path('body',[{x:a.x-5,y:a.y},{x:a.x+5,y:a.y}],'space-tick',lineAttrs);
-      } else {
-        const radius=mix(segment.kind==='unobserved'?2:12,segment.kind==='unobserved'?2:11,lanes);
-        const halfDepth=radius*mix(.55,0,lanes);
-        const extent=radius/projection.zoom;
-        const face=(x,y)=>[timePoint(x,y,segment.start),timePoint(x,y,segment.end)].map(atOffset);
-        const [frontA,frontB]=face(center.x-extent,center.y+halfDepth/projection.zoom);
-        const [rightA,rightB]=face(center.x+extent,center.y+halfDepth/projection.zoom);
-        const [backA,backB]=face(center.x+extent,center.y-halfDepth/projection.zoom);
-        if(lanes<.999)path('body',[rightA,rightB,backB,backA],'space-segment space-face',lineAttrs,true);
-        const facePath=path('body',[frontA,frontB,rightB,rightA],'space-segment'+(hollow?' hollow':''),lineAttrs,true);
-        facePath.append(svg('title'));facePath.lastChild.textContent=title;
-      }
-      if (lanes>.68||picked||span>=480_000||segment.kind==='human'&&span>=60_000){
-        const mid={x:(a.x+b.x)/2+15+offset,y:(a.y+b.y)/2};
-        label(mid,title,'interval',{id,segment,dim,leader:{x:mid.x-5,y:mid.y}});
-      }
+      const radius=segment.kind==='unobserved'?3:11;
+      const halfDepth=radius*mix(.55,0,lanes);
+      const extent=radius/projection.zoom;
+      const face=(x,y)=>{
+        const foot=timePoint(x,y,segment.start),top=timePoint(x,y,segment.end);
+        return [{x:foot.x+offset,y:foot.y},{x:top.x+offset,y:top.y-extension}];
+      };
+      const [frontA,frontB]=face(center.x-extent,center.y+halfDepth/projection.zoom);
+      const [rightA,rightB]=face(center.x+extent,center.y+halfDepth/projection.zoom);
+      const [backA,backB]=face(center.x+extent,center.y-halfDepth/projection.zoom);
+      if(lanes<.999)path('body',[rightA,rightB,backB,backA],'space-segment space-face',
+        {'data-kind':segment.kind,'data-emphasis':emphasis},true);
+      const drawn=path('body',[frontA,frontB,rightB,rightA],'space-segment'+(hollow?' hollow':''),lineAttrs,true);
+      if(extension>0)layers.body.push(svg('path',{class:'space-extension','data-for':key,...attrs,
+        d:[-5,1].map(dx=>pathOf([{x:rightA.x+dx-3,y:rightA.y-1},{x:rightA.x+dx,y:rightA.y-MIN_WORK_HEIGHT+1}])).join(' ')}));
+      const point={x:rightA.x+5,y:(a.y+b.y-extension)/2};
+      const bounds=projectedSide?{left:a.x-projection.laneWidth*.36+3,right:a.x+projection.laneWidth*.64-4}:undefined;
+      const item={node:id,record:segment,dim,selected:picked,rank:priority(segment.kind,segment.failed,picked),duration:segment.duration};
+      label(key,point,title,'interval',{...item,scaled,bounds,
+        offsets:segment.kind==='human'?[[0,0],[0,18],[0,36]]:undefined});
+      inspections.push({key,drawn,point,text:extension>0?title+' · '+t('spaceNotToScale'):title,node:id,time:segment.start,
+        box:{left:frontA.x-3,top:Math.min(frontB.y,rightB.y)-3,right:rightA.x+3,bottom:Math.max(frontA.y,rightA.y)+3}});
+    }
+    for(const mark of pillar.marks){
+      const a=nodeAt(id,mark.start), key='mark:'+id+':'+mark.kind+':'+mark.ids.join(','), text=recordWords(mark,t,duration);
+      const x=a.x+(markerSlots[mark.kind]??0);
+      const drawn=svg('path',{...attrs,class:'space-tick',d:markerShapes[mark.kind]??'M0 -3L3 0L0 3L-3 0Z',
+        transform:'translate('+x+' '+a.y+')','data-kind':mark.kind,'data-start':mark.start,'data-end':mark.end,
+        'data-records':mark.ids.join(' '),'data-inspect':key});
+      if(Math.abs(x-a.x)>8)path('body',[a,{x:x+Math.sign(a.x-x)*5,y:a.y}],'space-tick-stem',attrs);
+      layers.body.push(drawn);
+      const point={x:a.x+32,y:a.y};
+      const bounds=projectedSide?{left:a.x-projection.laneWidth*.36+3,right:a.x+projection.laneWidth*.64-4}:undefined;
+      label(key,point,text,'mark',{node:id,record:mark,dim,bounds,selected:picked,eligible:picked,rank:priority(mark.kind,mark.failed,picked)});
+      inspections.push({key,drawn,point,text,node:id,time:mark.start,box:{left:x-5,top:a.y-6,right:x+5,bottom:a.y+6}});
     }
   }
 
-  const hits=[];
+  const hits=[], convergence=new Map();
+  const threshold=(index.end-index.start)*TRANSFER_SHARE;
+  const transferLabels=[];
   for(const line of scene.lines){
     const a=nodeAt(line.from,line.start), b=nodeAt(line.to,line.end);
-    const dim=focus.active&&!focus.relations.has(line.key);
+    const picked=focus.active&&focus.relations.has(line.key), dim=focus.active&&!picked;
+    const key='transfer:'+line.key+':'+line.seq+':'+line.reverse;
     const attrs={'data-relation':line.key,'data-seq':line.seq,'data-start':line.start,'data-end':line.end,
-      'data-reverse':String(line.reverse),'data-emphasis':dim?'context':focus.active?'selected':'normal'};
-    path('links',[a,b],'space-transfer',attrs);
+      'data-reverse':String(line.reverse),'data-emphasis':dim?'context':picked?'selected':'normal'};
+    const drawn=path('links',[a,b],'space-transfer',{...attrs,'data-records':line.ids.join(' '),'data-inspect':key});
     dot('links',a,'space-endpoint',attrs);
     dot('links',b,'space-endpoint',attrs);
     hits.push({key:line.key,a,b});
-    if(line.end-line.start>=60_000)label({x:(a.x+b.x)/2,y:(a.y+b.y)/2-10},
-      t('spaceTransferWait',{duration:duration(line.end-line.start)}),'transfer',{dim,align:'center'});
+    const point={x:mix(a.x,b.x,.52),y:mix(a.y,b.y,.52)-10}, text=waitWords(line,t,duration);
+    const item={labelId:key,point,text,dim,line,selected:picked,rank:priority('',line.reverse,picked),duration:line.duration};
+    transferLabels.push(item);
+    inspections.push({key,drawn,point,text,time:line.start,relation:line.key,from:line.from,to:line.to,a,b});
+    if(!picked){
+      const receiver=line.to+':'+(line.receiverSeq??'cut');
+      const group=convergence.get(receiver)||[];
+      group.push(item);convergence.set(receiver,group);
+    }
   }
+  const grouped=new Set(), transferOptions={align:'center',offsets:[[0,0],[0,-18],[0,18]]};
+  for(const [id,group] of convergence){
+    if(group.length<2)continue;
+    group.forEach(item=>grouped.add(item.labelId));
+    const longest=group.reduce((a,b)=>a.duration>=b.duration?a:b);
+    if(longest.duration>0&&longest.duration>=threshold)
+      label('convergence:'+id,longest.point,t('spaceTransferGroup',{n:group.length,duration:duration(longest.duration)}),
+        'convergence',{...transferOptions,dim:longest.dim,rank:Math.min(...group.map(item=>item.rank)),
+          duration:longest.duration,lines:group.map(item=>item.labelId),
+          relations:unique(group.map(item=>item.line.key))});
+  }
+  for(const item of transferLabels){
+    const eligible=item.selected || (!grouped.has(item.labelId)&&item.duration>0&&item.duration>=threshold);
+    label(item.labelId,item.point,item.text,'transfer',{...item,...transferOptions,eligible});
+  }
+  if(lanes<.97){
+    for(const tag of tags){
+      const picked=focus.active&&focus.relations.has(tag.key);
+      label('tag:'+tag.key,timePoint(tag.anchor.x,tag.anchor.y,at),tag.text,'tag',{
+        align:'center',tone:tag.tone,cue:tag.cue,dim:focus.active&&!picked,selected:picked,
+        rank:picked||activeTags.has(tag.cue)?priority(tag.cue,false,picked):4,
+        offsets:[[0,0],[0,-16],[0,16]],
+      });
+    }
+  }
+  return {paths:[...layers.grid,...layers.frame,...layers.body,...layers.links],labels,hits,inspections,opacity:ease((lean-.03)/.55)};
+}
 
-  if(lanes>.68){
-    const byLane=new Map();
-    for(const item of labels.filter(label=>label.kind==='interval')){
-      if(!byLane.has(item.id))byLane.set(item.id,[]);
-      byLane.get(item.id).push(item);
+const intersects=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+const visibleIn=(rect,box)=>rect.left>=box.left&&rect.right<=box.right&&rect.top>=box.top&&rect.bottom<=box.bottom;
+const lineDistance=(p,a,b)=>{
+  const dx=b.x-a.x,dy=b.y-a.y;
+  const fraction=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1));
+  return Math.hypot(p.x-a.x-dx*fraction,p.y-a.y-dy*fraction);
+};
+
+function placeLabels(host,candidates,cards,inspected,width,height,openGroup) {
+  const origin=host.getBoundingClientRect();
+  const bounds={left:4,top:2,right:width-4,bottom:height-3};
+  const rectOf=element=>{
+    const r=element.getBoundingClientRect();
+    return {left:r.left-origin.left,right:r.right-origin.left,top:r.top-origin.top,bottom:r.bottom-origin.top};
+  };
+  const occupied=cards.map(element=>({rect:rectOf(element)}));
+  const tooltip=inspected && {
+    id:'inspection',kind:'inspection',point:inspected.point,text:inspected.text,rank:-1,clamp:true,
+    offsets:[[0,0],[0,-18],[0,18],[0,-36],[0,36],[0,-54],[0,54]],
+  };
+  const ordered=[...candidates.filter(item=>item.id!==inspected?.key),...(tooltip?[tooltip]:[])].sort((a,b)=>a.rank-b.rank||(b.duration??0)-(a.duration??0));
+  const pending=ordered.map(item=>{
+    const element=document.createElement(item.relations?'button':'span');
+    if(item.relations){
+      element.type='button';
+      element.addEventListener('click',()=>openGroup(item.relations));
     }
-    for(const group of byLane.values()){
-      group.sort((a,b)=>a.point.y-b.point.y);
-      const spacing=Math.min(15,Math.max(2,(height-28)/group.length));
-      const min=15,max=height-12;
-      let y=min-spacing;
-      for(const item of group)y=item.point.y=Math.max(y+spacing,item.point.y);
-      y=max+spacing;
-      for(const item of group.slice().reverse()){
-        y=item.point.y=Math.min(y-spacing,item.point.y);
-        if(Math.abs(item.point.y-item.leader.y)>3)
-          path('body',[item.leader,item.point],'space-leader',{'data-emphasis':item.dim?'context':'path'});
-      }
-    }
-  }
-  const labelElements=labels.flatMap(item=>{
-    const {point,kind,align,text,id,segment,dim,time}=item;
-    if(point.x<-150||point.x>width+150||point.y<-10||point.y>height+10)return [];
-    const element=document.createElement('span');
-    element.className='space-label space-label-'+kind;
-    element.dataset.align=align||'left';
-    if(id)element.dataset.node=id;
-    if(segment)Object.assign(element.dataset,{kind:segment.kind,start:segment.start,end:segment.end});
-    if(time!=null)element.dataset.time=time;
-    if(dim)element.dataset.emphasis='context';
-    element.style.left=clamp(point.x,4,width-4)+'px';
-    element.style.top=point.y+'px';
-    element.textContent=text;
-    return [element];
+    element.className='space-label space-label-'+item.kind;
+    element.dataset.align=item.align||'left';
+    element.dataset.label=item.id;
+    if(item.node)element.dataset.node=item.node;
+    if(item.record)Object.assign(element.dataset,{kind:item.record.kind,start:item.record.start,end:item.record.end});
+    if(item.time!=null)element.dataset.time=item.time;
+    if(item.duration!=null)element.dataset.duration=item.duration;
+    if(item.tone)Object.assign(element.dataset,{role:item.tone,flow:item.cue});
+    if(item.dim)element.dataset.emphasis='context';
+    element.textContent=item.text;
+    return {item,element};
   });
-  return {paths:[...layers.grid,...layers.frame,...layers.body,...layers.links],labels:labelElements,hits,opacity:ease((lean-.03)/.55)};
+  host.replaceChildren(...pending.map(({element})=>element));
+  // Read each text box once before writing any positions.
+  const sizes=pending.map(({element})=>rectOf(element));
+  const results={}, counts={shown:0,withheld:0};
+  const keep=[];
+  for(const [i,{item,element}] of pending.entries()){
+    const {id,point,rank,align,duration=0}=item;
+    const size=sizes[i], w=size.right-size.left, h=size.bottom-size.top;
+    let status='outside', rect, blocker, nearest, collisionRect;
+    if(item.eligible===false)status='policy';
+    else if(item.scaled!=null&&item.scaled+.01<h)status='height';
+    else for(const [dx,dy] of item.offsets||[[0,0]]){
+      const x=point.x+dx-(align==='right'?w:align==='center'?w/2:0), y=point.y+dy-h/2;
+      const left=item.clamp?clamp(x,bounds.left,bounds.right-w):x;
+      const top=item.clamp?clamp(y,bounds.top,bounds.bottom-h):y;
+      const candidate={left,top,right:left+w,bottom:top+h};
+      nearest??=candidate;
+      if(!visibleIn(candidate,bounds) || item.bounds&&!visibleIn(candidate,{...bounds,...item.bounds}))continue;
+      const collision=occupied.find(other=>intersects(candidate,other.rect));
+      if(collision){blocker=collision;collisionRect=candidate;continue;}
+      rect=candidate;break;
+    }
+    if(rect){
+      status='shown';counts.shown++;
+      occupied.push({rect,id,rank});
+      element.dataset.align='left';
+      element.style.left=rect.left+'px';element.style.top=rect.top+h/2+'px';
+      keep.push(element);
+    }else{
+      counts.withheld++;
+      if(blocker)status='collision';
+    }
+    results[id]={kind:item.kind,rank,duration,status,rect:rect??collisionRect??nearest,blocker:blocker?.id,
+      lines:item.lines,text:item.text,cue:item.cue,selected:!!item.selected,
+      recordKind:item.record?.kind,failed:!!(item.record?.failed||item.line?.reverse)};
+  }
+  host.replaceChildren(...keep);
+  return {...counts,results};
 }
 
 export function createSpaceView({area,viewport,toolbar,svg,t,duration,stamp,read,apply,load,clock,deterministic,
-  canAnimate,canOrbit,isPhone,select,choose}) {
+  canAnimate,canOrbit,isPhone,select,choose,selectNode,notes,nodeTitle}) {
   const controls=document.createElement('div');controls.className='space-views';
   controls.setAttribute('role','group');toolbar.append(controls);
   const buttons=new Map(Object.keys(VIEW_POSES).map((key,i)=>{
@@ -337,14 +525,107 @@ export function createSpaceView({area,viewport,toolbar,svg,t,duration,stamp,read
     button.addEventListener('click',()=>view(key));
     controls.append(button);return [key,button];
   }));
-  const layer=svg('svg',{class:'space-ink','aria-hidden':'true'});
-  const labels=document.createElement('div');labels.className='space-labels';
-  const motion=svg('g',{class:'space-effects'});
+  const layer=svg('svg',{class:'space-ink'});
+  const drawing=svg('g',{'aria-hidden':'true'}), targets=svg('g');
+  const labels=document.createElement('div');labels.className='space-labels';labels.style.lineHeight=LABEL_LINE+'px';
+  const motion=svg('g',{class:'space-effects','aria-hidden':'true'});
+  layer.append(drawing,motion,targets);
   area.prepend(layer);area.append(labels);
   let target='flat', pose=VIEW_POSES.flat, transition=null, raf=0, drag=null, projection, scene, hits=[], cutVersion;
   let transfers=[], waitEnds={}, resets={}, request=0, attemptedVersion;
-  const defaultPlane=()=>{layer.style.display=labels.style.display='none';layer.replaceChildren();labels.replaceChildren();};
+  let candidates=[], inspections=[], obstacles=[], budget, hovered, focused;
+  const focusTargets=new Map();
+  const defaultPlane=()=>{
+    layer.style.display=labels.style.display='none';drawing.replaceChildren();motion.replaceChildren();
+    targets.replaceChildren();focusTargets.clear();labels.replaceChildren();candidates=[];inspections=[];
+    focused=hovered=null;budget=null;notes([]);
+  };
   defaultPlane();
+
+  const inStage=item=>{
+    const width=layer.clientWidth,height=layer.clientHeight;
+    if(item.a)return Math.min(item.a.x,item.b.x)<width&&Math.max(item.a.x,item.b.x)>0&&
+      Math.min(item.a.y,item.b.y)<height&&Math.max(item.a.y,item.b.y)>0;
+    return item.box.right>0&&item.box.left<width&&item.box.bottom>0&&item.box.top<height;
+  };
+  function budgetLabels(){
+    const item=inspections.find(item=>item.key===(focused??hovered));
+    budget=placeLabels(labels,candidates,obstacles,item,labels.clientWidth,labels.clientHeight,keys=>{
+      if(keys.length===1)select(keys[0],viewport);
+      else choose(keys,viewport);
+    });
+  }
+  function updateTargets(){
+    const active=new Set(inspections.filter(inStage).map(item=>item.key));
+    for(const [key,element] of focusTargets)if(!active.has(key)){
+      element.remove();focusTargets.delete(key);
+      if(focused===key)focused=null;
+      if(hovered===key)hovered=null;
+    }
+    for(const item of inspections){
+      if(!active.has(item.key))continue;
+      let element=focusTargets.get(item.key);
+      if(!element){
+        element=svg('path',{class:'space-inspect',tabindex:0,role:'button','data-inspection':item.key});
+        focusTargets.set(item.key,element);targets.append(element);
+      }
+      element.setAttribute('aria-label',item.text);
+      element.setAttribute('aria-description',(item.node?nodeTitle(item.node):nodeTitle(item.from)+' → '+nodeTitle(item.to))+
+        ' · '+stamp(item.time));
+      element.setAttribute('d',item.drawn.getAttribute('d'));
+      const transform=item.drawn.getAttribute('transform');
+      if(transform)element.setAttribute('transform',transform);
+      else element.removeAttribute('transform');
+    }
+  }
+  layer.addEventListener('focusin',event=>{
+    focused=event.target.dataset.inspection;
+    budgetLabels();
+  });
+  layer.addEventListener('focusout',()=>{
+    focused=null;
+    if(layer.style.display!=='none')budgetLabels();
+  });
+  layer.addEventListener('keydown',event=>{
+    if(!['Enter',' '].includes(event.key))return;
+    const item=inspections.find(item=>item.key===focused);
+    if(!item)return;
+    event.preventDefault();
+    if(item.relation)select(item.relation,event.target);
+    else selectNode(item.node);
+  });
+  area.addEventListener('pointermove',event=>{
+    if(!projection||event.buttons)return;
+    const r=layer.getBoundingClientRect(), point={x:event.clientX-r.left,y:event.clientY-r.top};
+    let nearest=null,distance=Infinity;
+    if(!event.target.closest('.node-position')){
+      for(const item of inspections){
+        const box=item.box;
+        const d=box?(visibleIn({left:point.x,right:point.x,top:point.y,bottom:point.y},box)?
+          Math.abs(point.x-(box.left+box.right)/2):Infinity):lineDistance(point,item.a,item.b)+3;
+        if(d<distance&&d<=17){nearest=item.key;distance=d;}
+      }
+    }
+    if(nearest!==hovered){hovered=nearest;budgetLabels();}
+  });
+  area.addEventListener('pointerleave',()=>{
+    if(hovered){hovered=null;budgetLabels();}
+  });
+
+  function drawerRows(){
+    const data=read();
+    if(!scene||!data)return [];
+    const {node,relation}=data.selection;
+    const pillar=scene.pillars.find(p=>p.id===node);
+    const rows=pillar?[...pillar.segments,...pillar.marks].map(item=>({...item,text:recordWords(item,t,duration)})):[];
+    for(const line of scene.lines)if(line.key===relation||node&&(line.from===node||line.to===node)){
+      const direction=nodeTitle(line.from)+' → '+nodeTitle(line.to);
+      const text=(line.reverse?t('timeReturned'):t('spaceHandoff'))+' · '+direction+
+        (line.duration>0?' · '+waitWords(line,t,duration):'');
+      rows.push({...line,text});
+    }
+    return rows.sort((a,b)=>a.start-b.start||a.end-b.end).map(row=>({...row,text:stamp(row.start)+' · '+row.text}));
+  }
 
   function controlsState(){
     controls.hidden=isPhone();
@@ -377,17 +658,20 @@ export function createSpaceView({area,viewport,toolbar,svg,t,duration,stamp,read
     if(!data?.cut||!data.layout.cards.length||!pose[0]||isPhone()){
       projection=scene=null;hits=[];defaultPlane();apply(null);return;
     }
-    const {cut,layout,box,focus,sideScroll}=data;
+    const {cut,layout,box,focus,sideScroll,tags}=data;
     updateTransfers(cut);
     projection=spaceProjection(layout,box,pose,cut.axis,cut.at,sideScroll);
     scene=spaceHistory(layout,cut,transfers,waitEnds,resets);
-    const result=ink(projection,scene,cut,focus,{svg,t,duration,stamp,width:box.width,height:box.height});
-    hits=result.hits;
+    const result=ink(projection,scene,cut,focus,{svg,t,duration,stamp,tags,width:box.width});
+    ({hits,labels:candidates,inspections}=result);
     layer.style.display=labels.style.display='';
     for(const element of [layer,labels])Object.assign(element.style,{opacity:result.opacity,
       width:box.width+'px',height:box.height+'px',left:viewport.clientLeft+'px',top:viewport.clientTop+'px'});
-    layer.replaceChildren(...result.paths,motion);labels.replaceChildren(...result.labels);
-    apply({projection,pose,cut,box});
+    drawing.replaceChildren(...result.paths);
+    obstacles=apply({projection,pose,cut,box});
+    updateTargets();
+    budgetLabels();
+    notes(drawerRows());
   }
 
   function schedule(){
@@ -457,9 +741,7 @@ export function createSpaceView({area,viewport,toolbar,svg,t,duration,stamp,read
   function pick(point,origin) {
     let nearest=null;
     for(const {key,a,b} of hits){
-      const dx=b.x-a.x,dy=b.y-a.y;
-      const along=clamp(((point.x-a.x)*dx+(point.y-a.y)*dy)/(dx*dx+dy*dy||1));
-      const distance=Math.hypot(point.x-a.x-dx*along,point.y-a.y-dy*along);
+      const distance=lineDistance(point,a,b);
       if(distance<=12&&(!nearest||distance<nearest.distance))nearest={key,distance};
     }
     if(nearest&&projection?.plane.opacity!==1&&projection?.lanes>=.68){select(nearest.key,origin);return true;}
@@ -507,7 +789,9 @@ export function createSpaceView({area,viewport,toolbar,svg,t,duration,stamp,read
     backendChanged(){if(!canOrbit()&&target==='space')view('side');else if(!canAnimate()&&transition){pose=transition.to;transition=null;refresh();}else refresh();},
     reset(){request++;cutVersion=attemptedVersion=null;transfers=[];waitEnds={};resets={};pose=VIEW_POSES.flat;target='flat';transition=null;refresh();},
     describe:()=>({pose:[...pose],target,animating:!!transition,scene,plane:projection?.plane,sideWidth:projection?.sideWidth,
-      lanes:projection?[...projection.cards].map(([id,{lane}])=>({id,lane,point:projection.nodeAt(id,read().cut.at)})):[],
-      transferVersion:cutVersion}),
+      lanes:projection?[...projection.cards].map(([id,{lane}])=>({id,lane,point:projection.nodeAt(id,read().cut.at),
+        floor:projection.nodeAt(id,read().cut.axis.start)})):[],
+      transferVersion:cutVersion,budget,laneWidth:projection?.laneWidth,
+      workDepth:projection?11*mix(.55,0,projection.lanes)/projection.zoom:0}),
   };
 }

@@ -963,7 +963,7 @@ def _history_index(events, activities, observed_at, complete):
             node = decisions_by_id.get(decision_id) if isinstance(decision_id, str) else None
         if kind in ("gate.final", "check.result") and (kind == "gate.final" or node == "_run"):
             node = "_run_checks"
-        fields = {key: data[key] for key in ("attempt", "id", "revision", "verdict", "outcome", "duration_ms") if key in data}
+        fields = {key: data[key] for key in ("attempt", "id", "revision", "verdict", "outcome", "result", "duration_ms") if key in data}
         duration = data.get("duration_ms")
         if kind in ("check.red", "check.result") and stamp is not None and type(duration) is int and duration > 0:
             busy.append((stamp - duration, stamp))

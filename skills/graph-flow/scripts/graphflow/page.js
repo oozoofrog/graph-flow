@@ -142,7 +142,13 @@ const STRINGS = {
     "spaceHandoff": "전달",
     "spaceVerdict": "판정",
     "spaceCheck": "검사",
-    "spaceTransferWait": "전달 뒤 {duration} 기다림",
+    "spaceTransferWait": "{duration} 기다림",
+    "spaceTransferGroup": "전달 {n}건 · 최대 {duration} 기다림",
+    "spaceActivityCount": "{name} {n}회",
+    "spaceAsked": "질문을 올림",
+    "spaceAnswered": "답변을 받음",
+    "spaceNotToScale": "높이를 실제보다 크게 표시",
+    "spaceRecords": "시간순 기록",
     "handoffs": "주고받는 것",
     "yourTurn": "내가 할 일",
     "choiceEffects": "고르면 생기는 일",
@@ -965,7 +971,13 @@ const STRINGS = {
     "spaceHandoff": "Handoff",
     "spaceVerdict": "Verdict",
     "spaceCheck": "Check",
-    "spaceTransferWait": "Waited {duration} after delivery",
+    "spaceTransferWait": "Waited {duration}",
+    "spaceTransferGroup": "{n} transfers · up to {duration} waiting",
+    "spaceActivityCount": "{name} ×{n}",
+    "spaceAsked": "Question asked",
+    "spaceAnswered": "Answer recorded",
+    "spaceNotToScale": "Height exaggerated",
+    "spaceRecords": "Records in time order",
     "handoffs": "What is handed over",
     "yourTurn": "Your turn",
     "choiceEffects": "What each choice does",
@@ -4142,11 +4154,11 @@ function historyStamp(at) {
   return new Intl.DateTimeFormat(language,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(at);
 }
 
-function historyDuration(ms) {
+function historyDuration(ms, exact = false) {
   const units=t('timeUnits').split(',');
   const steps=[86_400_000,3_600_000,60_000,1_000,1];
   let remaining=Math.max(0,Math.round(ms));
-  const words=(remaining>=1000?steps.slice(0,-1):steps).flatMap((step,i)=>{
+  const words=(remaining>=1000&&!exact?steps.slice(0,-1):steps).flatMap((step,i)=>{
     const count=Math.floor(remaining/step);remaining%=step;
     return count?[count+units[i]]:[];
   });
@@ -4454,7 +4466,14 @@ function createMap() {
   const capture=startup.searchParams.get('graphTest')==='1';
   let gpu=null, gpuRequested=startup.searchParams.get('renderer')==='svg'||typeof WebGL2RenderingContext==='undefined';
   let lastDraw, drawPending=false, svgStrokes=[], svgMarkers=[], keyboardNode=null, focusId=null, focus;
-  let space, spaceFrame, spacePlane, sideScroll=0;
+  let space, spaceFrame, spacePlane, spaceTags=[], sideScroll=0;
+  const sideRail=el('div',undefined,'space-scroll'), sideTrack=el('div');
+  sideRail.hidden=true;sideRail.tabIndex=0;sideRail.dataset.i18nLabel='spaceSide';
+  sideRail.setAttribute('role','region');sideRail.append(sideTrack);area.append(sideRail);
+  sideRail.addEventListener('scroll',()=>{
+    if(sideRail.hidden||sideRail.scrollLeft===sideScroll)return;
+    sideScroll=sideRail.scrollLeft;space?.refresh();
+  });
   const phone=matchMedia('(max-width:760px)');
   const forcedColors=matchMedia('(forced-colors: active)');
   const highContrast=matchMedia('(prefers-contrast: more)');
@@ -4608,6 +4627,29 @@ function createMap() {
     insetX:viewport.clientLeft,insetY:viewport.clientTop,focusId,
     transfers:map.dataset.transfers || '', highContrast:highContrast.matches, background:'#080b10'});
   const viewBox=()=>({...flatBox(),plane:spacePlane});
+  function spaceNotes(rows) {
+    const body=$('panel').querySelector('.panel-body');
+    if(!body)return;
+    let list=body.querySelector('.space-records');
+    if(!rows.length){list?.remove();return;}
+    const signature=JSON.stringify(rows.map(({ids,text})=>[ids,text]));
+    if(list?.dataset.signature===signature)return;
+    if(!list){
+      list=el('details',undefined,'space-records');
+      list.append(el('summary',t('spaceRecords')),el('ol'));
+      const pending=body.querySelector(':scope>.paper');
+      if(pending)pending.after(list);
+      else body.prepend(list);
+    }
+    const items=rows.map(row=>{
+      const item=el('li',row.text);
+      item.dataset.records=row.ids.join(' ');
+      item.dataset.duration=row.duration??0;
+      return item;
+    });
+    list.lastElementChild.replaceChildren(...items);
+    list.dataset.signature=signature;
+  }
   function applySpace(next) {
     if(!next&&!spaceFrame)return;
     if(next&&!spaceFrame)sideScroll=0;
@@ -4624,21 +4666,38 @@ function createMap() {
     const projection=next?.projection, lean=projection?.lean||0, lanes=projection?.lanes||0;
     const lerp=(a,b,p)=>a+(b-a)*p;
     const fold=Math.min(1,lean*1.4);
+    const chipsOnCut=projection&&layout.cards.map(card=>({
+      id:card.id,point:projection.nodeAt(card.id,next.cut.at),
+      width:Math.max(92,Math.min(lanes>.25?projection.laneWidth-14:192,card.width*projection.zoom)),height:36,
+    }));
+    if(chipsOnCut&&lanes<.85){
+      for(const chip of chipsOnCut){
+        if(chipsOnCut.some(other=>other!==chip&&Math.abs(chip.point.y-other.point.y)<40&&
+          Math.abs(chip.point.x-other.point.x)<(chip.width+other.width)/2+4))chip.height=26;
+      }
+      for(const chip of chipsOnCut){
+        for(const other of chipsOnCut){
+          if(other===chip||Math.abs(chip.point.y-other.point.y)>=(chip.height+other.height)/2+3)continue;
+          chip.width=Math.min(chip.width,Math.max(28,Math.abs(chip.point.x-other.point.x)-4));
+        }
+      }
+    }
+    const chipByNode=new Map(chipsOnCut?.map(chip=>[chip.id,chip]));
     for(const card of layout?.cards||[]){
       const element=nodes.get(card.id);if(!element)continue;
       const extras=element.querySelector('.node-essentials');
       if(extras)extras.inert=fold>.95;
       if(!projection){
-        setRect(element,card);delete element.dataset.fold;
+        setRect(element,card);delete element.dataset.fold;delete element.dataset.compact;
         for(const key of ['--map-text','--kind-size','--status-size','--fold'])element.style.removeProperty(key);
         continue;
       }
-      const p=projection.nodeAt(card.id,next.cut.at);
-      const compactWidth=Math.max(112,Math.min(lanes>.25?projection.laneWidth-14:192,card.width*projection.zoom));
+      const {point:p,width:compactWidth,height:compactHeight}=chipByNode.get(card.id);
       const width=lerp(card.width,compactWidth/scale,lean);
-      const height=lerp(card.height,36/scale,fold);
+      const height=lerp(card.height,compactHeight/scale,fold);
       setRect(element,{x:(p.x-box.x)/scale-width/2,y:(p.y-box.y)/scale-height/2,width,height});
       element.dataset.fold=String(fold>.95);
+      element.dataset.compact=String(compactHeight===26&&fold>.95);
       element.style.visibility='visible';
       for(const label of element.querySelectorAll('[style*="clip-path"]'))label.style.clipPath='';
       element.style.setProperty('--map-text',Math.max(13/scale,14)+'px');
@@ -4648,17 +4707,22 @@ function createMap() {
     }
     for(const tag of layout?.tags||[]){
       const element=chips.get(tag.id);if(!element)continue;
-      if(!projection){setRect(element,tag);element.style.opacity='';continue;}
-      const center=projection.timePoint(tag.x+tag.width/2,tag.y+tag.height/2,next.cut.at);
-      setRect(element,{x:(center.x-box.x)/scale-tag.width/2,
-        y:(center.y-box.y)/scale-tag.height/2,width:tag.width,height:tag.height});
-      element.hidden=plane.opacity<=.03;
-      const quiet=!focus?.edges.has(tag.id)&&['delivered','unreachable'].includes(tag.cue);
-      element.style.opacity=String(plane.opacity*(quiet?1-lean*.95:1));
+      if(projection)element.hidden=true;
+      else setRect(element,tag);
     }
+    sideRail.hidden=!(lanes>.98&&projection.sideWidth>box.width);
+    if(!sideRail.hidden){
+      sideRail.style.left=viewport.clientLeft+'px';
+      sideRail.style.width=box.width+'px';
+      sideTrack.style.width=projection.sideWidth+'px';
+      if(sideRail.scrollLeft!==sideScroll)sideRail.scrollLeft=sideScroll;
+    }
+    if(tagLeads&&projection)tagLeads.style.opacity='0';
     if(!projection){sideScroll=0;outside();}
     requestDrawing();
+    return [...nodes.values()].map(wrapper=>wrapper.firstElementChild);
   }
+
   function updateFocus() {
     if(!layout)return;
     const keys=new Set(selectedEdge?[selectedEdge]:edgeChoices);
@@ -4986,6 +5050,17 @@ function createMap() {
         'data-marker-id':model.id,'data-role':model.tone,'marker-end':`url(#arrow-${relation})`});
       svgMarkers.push({model,line});
     }
+    const lineLength=([a,b])=>Math.hypot(a.x-b.x,a.y-b.y);
+    const routedTags=new Map(layout.tags.map(tag=>[tag.id,tag]));
+    spaceTags=layout.edges.flatMap(edge=>{
+      const tag=routedTags.get(edge.id);
+      if(tag)return [{key:edge.key,...tag}];
+      const points=edge.points;
+      if(points.length<2)return [];
+      const [a,b]=points.slice(1).map((p,i)=>[points[i],p]).reduce((longest,part)=>
+        lineLength(part)>lineLength(longest)?part:longest);
+      return [{key:edge.key,...edgeTag(edge,language),anchor:{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}];
+    });
     tagLeads?.remove();
     tagLeads=svg('svg',{width:layout.bounds.width,height:layout.bounds.height,class:'tag-leads','aria-hidden':'true'});
     for(const tag of layout.tags){
@@ -5130,13 +5205,15 @@ function createMap() {
   function enableSpace(createSpaceView) {
     if(space)return;
     viewport.setAttribute("aria-keyshortcuts", "1 2 3 Shift+ArrowUp Shift+ArrowDown Shift+ArrowLeft Shift+ArrowRight");
-    space=createSpaceView({area,viewport,toolbar,svg,t,duration:historyDuration,stamp:historyStamp,
+    space=createSpaceView({area,viewport,toolbar,svg,t,duration:ms=>historyDuration(ms,true),stamp:historyStamp,
       read:()=>layout&&timeCut&&viewport.clientWidth?{layout,cut:timeCut,box:flatBox(),sideScroll,
+        selection:{node:selected,relation:selectedEdge},tags:spaceTags,
         focus:{active:!!focusId,cards:focus?.cards||new Set(),
           relations:new Set(layout.edges.filter(e=>focus?.edges.has(e.id)).map(e=>e.key))}}:null,
       apply:applySpace,load:()=>timeBar.history(),clock:motionClock,deterministic:()=>graphTestClock?.time!=null,
       canAnimate:()=>!reduced.matches&&!motionPaused,canOrbit:()=>!!gpu&&!forcedColors.matches,
-      isPhone:()=>phone.matches,select:selectEdge,choose:chooseEdge});
+      isPhone:()=>phone.matches,select:selectEdge,choose:chooseEdge,selectNode,
+      notes:spaceNotes,nodeTitle:id=>layout.positions[id]?.title||id});
     space.refresh();
   }
   return {update,observeReplay,enableSpace,timeCut:()=>space?.refresh(),resetSpace:()=>space?.reset(),resetMotion:()=>fx.observe(null,motionClock(),false,true),
