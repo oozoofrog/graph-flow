@@ -116,6 +116,19 @@ const STRINGS = {
     "skip": "내용으로 건너뛰기",
     "listView": "그래프를 목록으로 보기",
     "nodes": "하는 일",
+    "relationList": "관계 목록",
+    "timePlay": "▶ 재생",
+    "timePause": "Ⅱ 일시 정지",
+    "timeSpeed": "재생 속도",
+    "timeLive": "지금",
+    "timePast": "과거 기록을 보고 있어요",
+    "timeLinear": "실제 시간 간격",
+    "timeScrub": "실행 시점",
+    "timeReturned": "되돌려 보냄",
+    "timeRevision": "계획 개정 {n}",
+    "timeHuman": "사람의 답을 기다림 · {duration}",
+    "timeBreak": "줄인 시간 간격 · {duration}",
+    "timeFailed": "과거 기록을 불러오지 못했어요",
     "handoffs": "주고받는 것",
     "yourTurn": "내가 할 일",
     "choiceEffects": "고르면 생기는 일",
@@ -912,6 +925,19 @@ const STRINGS = {
     "skip": "Skip to content",
     "listView": "Read the graph as a list",
     "nodes": "The work",
+    "relationList": "Relations",
+    "timePlay": "▶ Play",
+    "timePause": "Ⅱ Pause",
+    "timeSpeed": "Playback speed",
+    "timeLive": "Live",
+    "timePast": "Viewing past records",
+    "timeLinear": "True time scale",
+    "timeScrub": "Time in the run",
+    "timeReturned": "Sent back",
+    "timeRevision": "Plan revised · {n}",
+    "timeHuman": "Wait for a human answer · {duration}",
+    "timeBreak": "Shortened time gap · {duration}",
+    "timeFailed": "Past records could not be loaded",
     "handoffs": "What is handed over",
     "yourTurn": "Your turn",
     "choiceEffects": "What each choice does",
@@ -2556,17 +2582,20 @@ export function activityStrip(attempt, facts, now) {
     head:facts.now?position(now):null};
 }
 
+function graphMotionCard(node, decisions, now, language) {
+  const facts=cardFacts(node,decisions,now,language);
+  const attempt=graphAttempt(node);
+  return {id:node.id,kind:facts.kind,state:facts.state,lane:facts.lane,facts,
+    attemptHistory:node.activity||[],recordedAttempt:node.attempts||0,strip:activityStrip(attempt,facts,now)};
+}
+
 export function createGraphScene(nodes, layout, decisions, level, now = 0, language = 'en') {
   const byId = new Map(nodes.map(node => [node.id, node]));
   const cards = layout.order.map((id, order) => {
-    const node = byId.get(id);
     const {x, y, width, height, layer} = layout.positions[id];
-    const facts=cardFacts(node,decisions,now,language);
-    const card = {id, kind:facts.kind, state:facts.state, level, x, y, width, height, layer, order,
-      lane:facts.lane, facts, attemptHistory:node.activity || [], recordedAttempt:node.attempts||0};
-    card.strip=activityStrip(graphAttempt(node),facts,now);
-    card.tier=card.state==='awaiting'?1:card.state==='stalled'||graphAttempt(node)?.repeating?2:card.strip?3:null;
-    return card;
+    const card=graphMotionCard(byId.get(id),decisions,now,language);
+    const tier=card.state==='awaiting'?1:card.state==='stalled'||graphAttempt(byId.get(id))?.repeating?2:card.strip?3:null;
+    return {...card,tier,level,x,y,width,height,layer,order};
   });
   const positions = Object.fromEntries(cards.map(card => [card.id, card]));
   const edges = layout.routes.map(route => ({
@@ -2677,6 +2706,8 @@ function translate() {
 translate();
 let chosen = null, projects = [], view = null, fingerprint = '', ageFingerprint = '', mode = 'flow', selected = null;
 let selectedEdge = null, edgeChoices = [], edgeOrigin = null;
+let timeBar, timeBarModule, liveView, timeCut;
+const isPast = () => !!timeBar?.describe().past;
 function flowNode(id) { return planFlow(view,language).nodes.find(n => n.id === id); }
 let queuedRefresh = false;
 let timer = 0, loading = false, generation = 0, renderer = null;
@@ -2684,6 +2715,7 @@ const decisionController = createDecisionController();
 let decisionUI = null, decisionNotice = '', cameFrom = 'flow';
 
 async function api(path, body, text = false) {
+  if (body && isPast()) throw new Error(t("timePast"));
   const response = await fetch(path, {method: body ? 'POST' : 'GET', headers: {'X-GF-Token': token, ...(body ? {'Content-Type':'application/json'} : {})}, ...(body ? {body:JSON.stringify(body)} : {})});
   if (!response.ok) { const err = new Error('request'); err.status = response.status; try{err.code=(await response.json()).code;}catch{} throw err; }
   return text ? response.text() : response.json();
@@ -2907,7 +2939,7 @@ function graphReadReason() {
   return remaining.length?t(remaining.some(n=>planChanges?.some(c=>c.id===n.id&&!planRead.has(c.id)))?'changesReadReason':'planRemainingReason',{names:remaining.map(title).join(', ')}):'';
 }
 function recordGraphRead() {
-  if(!view||!planBlocked()||mode!=='flow'||$('accessible').open||(matchMedia('(max-width:760px)').matches&&selected))return;
+  if(isPast()||!view||!planBlocked()||mode!=='flow'||$('accessible').open||(matchMedia('(max-width:760px)').matches&&selected))return;
   const identity=JSON.stringify(view.plan_approval?.identity);
   if(identity!==graphReadIdentity){graphRead.clear();graphReadSpans.clear();graphReadIdentity=identity;}
   const phone=matchMedia('(max-width:760px)').matches&&!$('flow').classList.contains('phone-diagram');
@@ -2927,7 +2959,7 @@ function recordGraphRead() {
   updateUnreadMarks();planBanner?.update?.();
 }
 function updateUnreadMarks(){
-  const remaining=new Set(planBlocked()?unreadCards().map(n=>n.id):[]);
+  const remaining=new Set(!isPast()&&planBlocked()?unreadCards().map(n=>n.id):[]);
   for(const card of document.querySelectorAll('.node-card')){
     const unread=remaining.has(card.dataset.node);
     let mark=card.querySelector('.unread-mark');
@@ -2945,12 +2977,12 @@ function renderPlanDiff(parent,id){
   for(const field of change.fields||[])box.append(el('p',diffText(field)));parent.append(box);
 }
 function unreadPlanChanges(){return !!planChanges?.some(c=>!planRead.has(c.id));}
-function readPlanChange(id){planRead.add(id);updateUnreadMarks();planBanner?.update?.();}
+function readPlanChange(id){if(isPast())return;planRead.add(id);updateUnreadMarks();planBanner?.update?.();}
 
 
 function planAttention(box) {
   const approval = view.plan_approval;
-  const blocked = planBlocked();
+  const blocked = !isPast() && planBlocked();
   if (!blocked) { planBanner = null; return false; }
   box.hidden = false; box.classList.add('plan-banner');
   const key = JSON.stringify([mode, chosen, approval?.id, approval?.status, approval?.verified, approval?.outcome, approval?.answer, view.plan_error, view.key_mismatch, view.location_mismatch, view.has_work, approval?.identity, planChanges]);
@@ -3058,6 +3090,10 @@ function attention() {
   if (planAttention(planBox)) return;
   planBox.classList.remove('plan-banner','problem'); planBox.removeAttribute('aria-labelledby');
   const box = $('attention'); clear(box); box.hidden = !view.decisions.length;
+  if(isPast()) {
+    for(const decision of view.decisions) box.append(el('p',question(decision)||purposeWording(decision.purpose,language)));
+    return;
+  }
   box.setAttribute('aria-label', t('yourTurn'));
   if (box.hidden) return;
   const heading = el('div', undefined, 'attention-heading');
@@ -3384,7 +3420,7 @@ function panel() {
   }
   delete shell.dataset.edge;
   delete shell.dataset.trunk;
-  const signature=JSON.stringify([selected,details,view.decisions.filter(d=>d.node===selected),view.timeline.filter(r=>r.node===selected)]);
+  const signature=JSON.stringify([isPast(),selected,details,view.decisions.filter(d=>d.node===selected),view.timeline.filter(r=>r.node===selected)]);
   if(signature===panelFingerprint){
     workSummary?.render(activity || []);
     return;
@@ -3405,7 +3441,8 @@ function panel() {
   const panelBar=el('div',undefined,'panel-bar'),intro=el('div',undefined,'panel-intro'); intro.append(el('strong',title(node)),el('p',nodeSentence(node,view.nodes,language),'node-sentence')); panelBar.append(intro,close); shell.append(panelBar,p);
   for (const d of view.decisions.filter(d => d.node === node.id)) {
     const ask = card(t('yourTurn'), question(d) || purposeWording(d.purpose, language), true);
-    ask.append(refChip(d.id, `${d.id} · ${title(node)}`, true, d.free),button(t('read'),()=>openDecision(d.id),'primary')); p.append(ask);
+    if(!isPast())ask.append(refChip(d.id, `${d.id} · ${title(node)}`, true, d.free),button(t('read'),()=>openDecision(d.id),'primary'));
+    p.append(ask);
   }
   if(showSummary){
     workSummary ||= createWorkSummary();
@@ -3632,7 +3669,8 @@ function accessible() {
 }
 function showMode(next) {
   if (next !== 'decision' && (mode === 'decision' || next === 'home') && !discardDecision()) return false;
-  mode = next; if(view&&planBlocked())planAttention($('attention')); $('attention').hidden = !planBlocked() && (next!=='flow' || !view?.decisions.length); $('home').hidden = next !== 'home'; $('flow').hidden = next !== 'flow'; $('decision').hidden = next !== 'decision'; $('accessible').hidden = next !== 'flow' || !!view?.plan_error;
+  if(next==='home' && isPast())timeBar.returnLive();
+  mode = next; if(view&&planBlocked())planAttention($('attention')); $('attention').hidden = (isPast()||!planBlocked()) && (next!=='flow' || !view?.decisions.length); $('home').hidden = next !== 'home'; $('flow').hidden = next !== 'flow'; $('decision').hidden = next !== 'decision'; $('accessible').hidden = next !== 'flow' || !!view?.plan_error;
   workSummary?.visible(next === 'flow');
   $('home-tab').setAttribute('aria-pressed', String(next === 'home')); $('flow-tab').setAttribute('aria-pressed', String(next === 'flow'));
   // The map can only measure its cards while it is on screen.
@@ -3716,6 +3754,7 @@ function selectNode(id) {
 }
 function focusHeading(heading) { heading.tabIndex = -1; heading.focus({preventScroll:true}); }
 function openDecision(id, focus = true) {
+  if(isPast())return;
   replacementDecision=null; decisionNotice=''; notice('');
   if (view.decisions.find(d => d.id === id)?.purpose === 'plan_approval') {
     showGraph(); attention(); if (focus) $('plan-question')?.focus({preventScroll:true}); return;
@@ -3969,13 +4008,19 @@ function applyView(next) {
   }
   const nextFingerprint=JSON.stringify(recorded),nextAgeFingerprint=JSON.stringify(ages);
   if(nextFingerprint===fingerprint&&(mode!=='flow'||nextAgeFingerprint===ageFingerprint))return;
-  const active=document.activeElement,focusId=active?.id,focusLabel=active?.getAttribute?.('aria-label');
-  const focusHeader=active?.className==='node-header',phoneFocus=!!active?.closest?.('#phone-flow'),focusNode=active?.closest?.('[data-node]')?.dataset.node;
-  const pageScroll=typeof scrollY==='number'?{left:scrollX,top:scrollY}:null;
   const languageChanged=language!==viewLanguage(next,navigator.language);
   language = viewLanguage(next, navigator.language); translate();
   if(languageChanged && projects.length)chooseRuns({projects});
-  view = next; fingerprint = nextFingerprint; ageFingerprint=nextAgeFingerprint;
+  fingerprint = nextFingerprint; ageFingerprint=nextAgeFingerprint;
+  renderView(next);
+}
+
+function renderView(next) {
+  const active=document.activeElement,focusId=active?.id,focusLabel=active?.getAttribute?.('aria-label');
+  const focusHeader=active?.className==='node-header',phoneFocus=!!active?.closest?.('#phone-flow'),focusNode=active?.closest?.('[data-node]')?.dataset.node;
+  const pageScroll=typeof scrollY==='number'?{left:scrollX,top:scrollY}:null;
+  view = {...next,nodes:next.nodes.map(n=>({...n,plan_revision_wait:next.plan_approval?.status==='answered'&&
+    ['rejected','revision_requested'].includes(next.plan_approval.outcome)}))};
   const flow=planFlow(view,language), keys=new Set(flow.edges.map(edgeKey));
   if(!flow.nodes.some(n=>n.id===selected))selected=null;
   if(!keys.has(selectedEdge))selectedEdge=null;
@@ -3986,11 +4031,9 @@ function applyView(next) {
   $('title').textContent = view.title || t('brand'); $('where').textContent = '';
   const sent = view.plan_approval?.verified && ['rejected','revision_requested'].includes(view.plan_approval.outcome);
   $('flow').classList.toggle('sent-plan',!!sent); $('flow').classList.toggle('plan-unavailable',!!view.plan_error);
-  const sentBack=view.plan_approval?.status==='answered'&&['rejected','revision_requested'].includes(view.plan_approval.outcome);
-  view.nodes.forEach(n=>n.plan_revision_wait=sentBack);
   updateSubtitle();
   if(view.complete){const resultNode=[...view.nodes].reverse().find(n=>n.kind==='work'&&view.timeline.some(r=>r.node===n.id&&r.files?.length));if(resultNode){const files=[...new Set(view.timeline.filter(r=>r.node===resultNode.id).flatMap(r=>r.files||[]))];$('subtitle').append(button(t('results'),()=>selectNode(resultNode.id),'primary result-action'),el('span',t('runResultSummary',{files:files.join(', ')}),'result-summary'));}}
-  accessible(); attention(); panel(); home(); showMode(mode);
+  accessible(); attention(); panel(); if(!isPast())home(); showMode(mode);
   if (mode === 'decision' && decisionController.session) openDecision(decisionController.session.target.id, false);
   if(active && active.isConnected===false){
     const scope=phoneFocus?$('phone-flow'):document;
@@ -4027,13 +4070,58 @@ async function refresh(force = false) {
     if (!projects.length) { resetView(); notice(decisionNotice || 'noProjects'); return; }
     if (!chosen) { resetView(); notice(decisionNotice || (projects.some(p => p.error) ? 'unreadable' : 'noRun')); return; }
     if (available && available.error) { resetView(); notice(decisionNotice || 'unreadable', true); return; }
-    const data = await api(query('/api/run')); if (currentGeneration !== generation || document.hidden || decisionController.session?.busy) return;
-    notice(decisionNotice || (data.view.plan_error ? '' : !data.plan ? 'noPlan' : '')); applyView(data.view);
+    const data = await api(query('/api/run',{history:'index'})); if (currentGeneration !== generation || document.hidden || decisionController.session?.busy) return;
+    liveView=data.view;
+    if(!isPast()){
+      notice(decisionNotice || (data.view.plan_error ? '' : !data.plan ? 'noPlan' : ''));
+      applyView(liveView);
+    }
+    if(data.history)await receiveTimeIndex(data.history,currentGeneration);
     if (pendingJump && view && !decisionController.session?.busy) { const target = pendingJump; pendingJump = null; jump(target); }
   } catch (error) { if (currentGeneration === generation) notice(error.status === 401 ? 'unauthorized' : error.status === 400 || error.status === 404 || error.status === 500 ? 'unreadable' : 'lost', true); }
   finally { loading = false; if (queuedRefresh) { queuedRefresh = false; refresh(true); } else schedule(); }
 }
-function resetView() { workSummary?.dispose();workSummary=null;planSeen=null;planChanges=null;planRead.clear(); $('panel').onscroll=null; $('panel').hidden=true; $('flow').classList.remove('has-selection'); panelFingerprint=''; panelNode=null; language = viewLanguage(null, navigator.language); translate(); closeInvalidDecision(chosen, []); view = null; selected = selectedEdge = edgeOrigin = null; edgeChoices=[]; fingerprint = ''; ['node-list','edge-list','decision-list','panel','home','attention'].forEach(id => clear($(id))); if (renderer) renderer.update({nodes:[],edges:[],decisions:[],complete:false}, null); $('flow').hidden = true; $('home').hidden = true; $('accessible').hidden = true; $('decision').hidden = true; $('subtitle').textContent = ''; $('where').textContent = ''; }
+async function receiveTimeIndex(index, snapshotGeneration) {
+  const root=$('time-bar');
+  if(!root)return;
+  if(!timeBar){
+    timeBarModule ||= import('./history.js');
+    const {createTimeBar}=await timeBarModule;
+    if(snapshotGeneration!==generation)return;
+    timeBar ||= createTimeBar({root,t,duration:historyDuration,stamp:historyStamp,
+      load:()=>api(query('/api/history')),
+      display:(next, reset)=>{
+        if(reset)renderer?.resetMotion();
+        renderView(next);
+        if(reset)renderer?.baselineMotion();
+      },
+      live:()=>{
+        if(!liveView)return;
+        renderer?.resetMotion();fingerprint='';applyView(liveView);renderer?.baselineMotion();
+      },
+      cut:next=>{timeCut=next;renderer?.timeCut?.();},
+      clock:()=>graphTestClock?.time??performance.now(),
+      deterministic:()=>graphTestClock?.time!=null});
+    timeBar.setMotion(next=>renderer?.observeReplay(next));
+  }
+  timeBar.update(index);
+}
+
+function historyStamp(at) {
+  return new Intl.DateTimeFormat(language,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(at);
+}
+
+function historyDuration(ms) {
+  const units = language==='ko'?['일','시간','분','초','밀리초']:['d','h','min','s','ms'];
+  const steps=[86_400_000,3_600_000,60_000,1_000,1];
+  let remaining=Math.max(0,Math.round(ms));
+  const words=steps.flatMap((step,i)=>{
+    const count=Math.floor(remaining/step);remaining%=step;
+    return count?[count+(language==='ko'?'':' ')+units[i]]:[];
+  });
+  return words.join(' ')||(language==='ko'?'0초':'0 s');
+}
+function resetView() { timeBar?.reset();timeCut=liveView=null;workSummary?.dispose();workSummary=null;planSeen=null;planChanges=null;planRead.clear(); $('panel').onscroll=null; $('panel').hidden=true; $('flow').classList.remove('has-selection'); panelFingerprint=''; panelNode=null; language = viewLanguage(null, navigator.language); translate(); closeInvalidDecision(chosen, []); view = null; selected = selectedEdge = edgeOrigin = null; edgeChoices=[]; fingerprint = ''; ['node-list','edge-list','decision-list','panel','home','attention'].forEach(id => clear($(id))); if (renderer) renderer.update({nodes:[],edges:[],decisions:[],complete:false}, null); $('flow').hidden = true; $('home').hidden = true; $('accessible').hidden = true; $('decision').hidden = true; $('subtitle').textContent = ''; $('where').textContent = ''; }
 function schedule() { clearTimeout(timer); if (!document.hidden) timer = setTimeout(refresh, 2000); }
 $('phone-view-toggle').addEventListener('click',()=>{const diagram=$('flow').classList.toggle('phone-diagram');$('phone-view-toggle').dataset.i18n=diagram?'showFlowList':'showDiagram';$('phone-view-toggle').textContent=t(diagram?'showFlowList':'showDiagram');$('phone-view-toggle').setAttribute('aria-pressed',String(diagram));if(renderer&&view)renderer.update(view,selected);});
 $('home-tab').addEventListener('click', () => { if (view) goHome(); });
@@ -4117,7 +4205,7 @@ function appendStrip(root, strip, facts) {
   }
 }
 function nodeCard(n, expanded = false, level = 'detail', state, model) {
-  const now=graphTestClock?.wall ?? view?.observed_at_ms ?? graphNow(), facts=model?.facts || cardFacts(n,view.decisions,now,language);
+  const now=(isPast()?view?.observed_at_ms:graphTestClock?.wall) ?? view?.observed_at_ms ?? graphNow(), facts=model?.facts || cardFacts(n,view.decisions,now,language);
   state=facts.state;
   const {kind,lane}=facts;
   const root=el('article',undefined,'node-card '+cardTone(n,state)+(runningCard(state)?' working':'')+(expanded?' expanded':''));
@@ -4128,7 +4216,7 @@ function nodeCard(n, expanded = false, level = 'detail', state, model) {
   root.append(plate);
   if(planBlocked())root.classList.add('read-status');
   if(planBlocked())root.append(el('p',t('cardUnread'),'unread-mark'));
-  const change=planChanges?.find(c=>c.id===n.id);if(change)root.append(el('p',t(change.kind),'change-mark'));
+  const change=isPast()?null:planChanges?.find(c=>c.id===n.id);if(change)root.append(el('p',t(change.kind),'change-mark'));
   const header=button('',()=>selectNode(n.id),'node-header');
   const titleLine=el('span',undefined,'node-title-line');
   titleLine.append(typeIcon(kind),el('strong',title(n),'node-title'));
@@ -4469,7 +4557,7 @@ function createMap() {
   flowCount.hidden=attentionCount.hidden=pauseMotion.hidden=true;
   if(capture)Object.defineProperty(map,'graphTest',{value:{
     step(time,wall=graphTestClock.wall){
-      graphTestClock.time=time;graphTestClock.wall=wall;syncMotion();
+      graphTestClock.time=time;graphTestClock.wall=wall;timeBar?.tick(time);syncMotion();
       return structuredClone(lastMotion);
     },
     updateTime(time,wall){
@@ -4477,6 +4565,8 @@ function createMap() {
       return structuredClone(lastMotion);
     },
     frame:()=>structuredClone(lastMotion),
+    history:()=>timeBar?.describe(),
+    seek:time=>timeBar?.seek(time),
   }});
   const viewBox=()=>({width:viewport.clientWidth,height:viewport.clientHeight,scale,
     x:origin.x-viewport.scrollLeft,y:origin.y-viewport.scrollTop,dpr:globalThis.devicePixelRatio||1,
@@ -4744,7 +4834,7 @@ function createMap() {
       sample.remove();return height;
     }})]));
     layouts.overview=compactOverview(layouts.overview,viewport.clientWidth-24);
-    const now=graphTestClock?.wall ?? next.observed_at_ms ?? graphNow();
+    const now=(isPast()?next.observed_at_ms:graphTestClock?.wall) ?? next.observed_at_ms ?? graphNow();
     for(const name of ['detail','overview'])layouts[name]=createGraphScene(data.nodes,layouts[name],data.decisions,name,now,language);
     layout=layouts[level];
     size();
@@ -4845,7 +4935,7 @@ function createMap() {
       }
     }
 
-    fx.observe(layout,motionClock(),motionAllowed());
+    if(!isPast())fx.observe(layout,motionClock(),motionAllowed());
     updateFocus();outside();syncMotion();
     if(focused)nodes.get(focused)?.querySelector('button')?.focus({preventScroll:true});
   }
@@ -4918,7 +5008,17 @@ function createMap() {
     else if(bottom>viewport.scrollTop+h-12)viewport.scrollTop=bottom-h+12;
     rememberScroll();outside();
   }
-  return {update,select:id=>{
+  function observeReplay(history) {
+    const model=planFlow(history,language);
+    const cards=model.nodes.map(node=>graphMotionCard(node,model.decisions,history.observed_at_ms,language));
+    const positions=Object.fromEntries(cards.map(card=>[card.id,card]));
+    const routes=new Map(layout?.edges.map(edge=>[edge.key,edge.points]));
+    const edges=model.edges.map(edge=>({...edge,key:edgeKey(edge),points:routes.get(edgeKey(edge))||[],
+      targetRunning:runningCard(positions[edge.to]?.state)}));
+    fx.observe({cards,positions,edges},motionClock(),motionAllowed());
+  }
+  return {update,observeReplay,resetMotion:()=>fx.observe(null,motionClock(),false,true),
+    baselineMotion:()=>fx.observe(layout,motionClock(),false,true),select:id=>{
     chosenNode=id;
     for(const [key,element] of nodes){element.firstElementChild.classList.toggle('expanded',key===id);element.querySelector('.node-header').setAttribute('aria-expanded',String(key===id));}
     updateFocus();resize(true);size();revealSelection();

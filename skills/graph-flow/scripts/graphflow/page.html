@@ -504,6 +504,31 @@ button:disabled::before{background:var(--soft)!important;border-color:var(--line
   [data-pattern="mcp"],[data-pattern="other"]{border-bottom-style:dotted}
   [data-pattern="gf"],[data-pattern="thinking"]{border-bottom-style:double}
 }
+
+#time-bar{grid-column:1/-1;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--structure);padding:9px 12px 6px;min-width:0}
+.history-controls{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;font-family:var(--mono)}
+.history-controls button,.history-controls select{min-height:28px;padding:3px 8px}
+#time-readout{margin-inline-start:auto;color:var(--violet);font-size:13px}
+#time-past{color:var(--ink);background:var(--violet);padding:3px 7px;font:700 13px var(--font)}
+#time-bar[data-mode=past]{border-left-color:var(--violet)}
+#time-status:empty{display:none}
+body:has(#flow.time-loading) #attention{visibility:hidden}
+#flow.time-loading #panel{visibility:hidden}
+.history-track{position:relative;display:grid;margin:4px 8px 0}
+.history-marks{position:absolute;inset:0 8px;pointer-events:none}
+.history-mark{position:absolute;top:2px;height:7px;min-width:2px;border-left:2px solid var(--structure)}
+.history-mark[data-kind=human]{border:0;background:repeating-linear-gradient(115deg,var(--amber) 0 4px,transparent 4px 7px)}
+.history-mark[data-kind=return]{border-color:var(--coral)}
+.history-mark[data-kind=break]{border-inline:2px solid var(--muted);background:repeating-linear-gradient(125deg,transparent 0 3px,var(--muted) 3px 4px)}
+#time-slider{z-index:1;display:block;box-sizing:border-box;width:100%;margin:9px 0 0;min-height:24px;accent-color:var(--violet);cursor:ew-resize}
+.history-mark-list{display:flex;gap:6px;overflow-x:auto}
+.history-mark-list:empty{display:none}
+.history-mark-list .history-mark-label{font:12px var(--font);min-height:24px;white-space:nowrap;border:0;padding:2px 5px;color:var(--structure);background:none}
+.history-mark-list [data-kind=human]{color:var(--amber)}
+.history-mark-list [data-kind=return]{color:var(--coral)}
+.history-mark-list [data-kind=break]{color:var(--muted)}
+@media(max-width:760px){#time-bar{grid-row:3}#flow:not(.phone-diagram) #time-bar{grid-row:2}.history-controls{gap:4px}#time-readout{margin:0}}
+
 </style>
 <script type="importmap" nonce="__NONCE__">
 {"imports":{"three":"/static/vendor/three/build/three.module.js"}}
@@ -513,5 +538,5 @@ button:disabled::before{background:var(--soft)!important;border-color:var(--line
 <body>
 <a class="skip" href="#content" data-i18n="skip"></a>
 <header><div><p class="eyebrow" id="where"></p><h1 id="title">Graph flow</h1><p id="subtitle" class="muted" aria-live="polite"></p></div><nav aria-label="Views"><button id="flow-tab" data-i18n="graph" aria-pressed="true"></button><button id="home-tab" data-i18n="home" aria-pressed="false"></button><form id="find" role="search"><label><span data-i18n="find"></span><input id="find-text" type="search" autocomplete="off" spellcheck="false"></label></form><label id="picker-label" hidden><span data-i18n="chooseRun"></span><select id="picker"></select></label></nav></header>
-<main id="content"><section id="notice" role="status" hidden></section><section id="attention" hidden aria-label="Your turn"></section><div id="home" hidden></div><section id="flow"><div id="map" role="region" aria-label="Flow map"></div><button id="phone-view-toggle" data-i18n="showDiagram" aria-pressed="false"></button><ol id="phone-flow"></ol><aside id="panel" hidden></aside></section><section id="decision" hidden aria-labelledby="decision-title"></section><details id="accessible"><summary data-i18n="listView"></summary><h2 data-i18n="nodes"></h2><ul id="node-list"></ul><h2 data-i18n="handoffs"></h2><ul id="edge-list"></ul><h2 data-i18n="yourTurn"></h2><ul id="decision-list"></ul></details></main>
+<main id="content"><section id="notice" role="status" hidden></section><section id="attention" hidden aria-label="Your turn"></section><div id="home" hidden></div><section id="flow"><div id="map" role="region" aria-label="Flow map"></div><button id="phone-view-toggle" data-i18n="showDiagram" aria-pressed="false"></button><div id="time-bar" hidden></div><ol id="phone-flow"></ol><aside id="panel" hidden></aside></section><section id="decision" hidden aria-labelledby="decision-title"></section><details id="accessible"><summary data-i18n="listView"></summary><h2 data-i18n="nodes"></h2><ul id="node-list"></ul><h2 data-i18n="relationList"></h2><ul id="edge-list"></ul><h2 data-i18n="yourTurn"></h2><ul id="decision-list"></ul></details></main>
 </body></html>
