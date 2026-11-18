@@ -1501,7 +1501,7 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
         s.visibility!=='hidden'&&Number(s.opacity)>0&&c.right>c.left&&c.bottom>c.top;};
     const points=e=>[...e.getAttribute('d').matchAll(/[ML]([0-9.e+-]+) ([0-9.e+-]+)/g)]
       .map(m=>({x:+m[1],y:+m[2]}));
-    return {state:map.graphTest.space(),model:map.graphScene,cut:+document.querySelector('#time-slider').value,
+    return {state:map.graphTest.space(),model:map.graphScene,stage,cut:+document.querySelector('#time-slider').value,
       labels:[...map.querySelectorAll('.space-label,.edge-tag')].filter(visible)
         .map(e=>({id:e.dataset.label,text:e.textContent,rect:rect(e),flow:e.dataset.flow})),
       cards:[...viewport.querySelectorAll('.node-position > .node-card')].filter(visible)
@@ -1597,6 +1597,10 @@ async function captureSpacetime(screen, fixture, filename, fallback) {
     for(const label of ink.labels){
       const item=budget.results[label.id],mark=drawn.get(label.id);
       assert(item,'L1 all labels use the shared budget');
+      for(const key of ['left','right','top','bottom']){
+        const offset=['left','right'].includes(key)?ink.stage.left:ink.stage.top;
+        assert(Math.abs(label.rect[key]-offset-item.rect[key])<.08,'L1 painted label matches its budgeted rectangle: '+label.id);
+      }
       if(item.kind==='now'||item.kind==='tag'||item.kind==='inspection')continue;
       let expected=item.duration;
       if(mark?.tick)expected=0;
@@ -1976,7 +1980,7 @@ try {
         assert(requests.every(url=>new URL(url).origin===base.origin),'space-time is served entirely locally');
         if(svg)assert(!requests.some(url=>new URL(url).pathname.startsWith('/static/vendor/three/')));
         const observation=path.join(runtime,filename.replace('.png','.json'));
-        writeFileSync(observation,JSON.stringify(spatial.observe??{},null,2)+'\\n');
+        writeFileSync(observation,JSON.stringify(spatial.observe??{},null,2)+'\n');
         Object.assign(record,{status:'captured',sha256:spatial.sha256,video:spatial.video,observation});
         console.log('Captured '+filename);
         continue;

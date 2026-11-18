@@ -574,9 +574,11 @@ button:disabled::before{background:var(--soft)!important;border-color:var(--line
  background:var(--night);color:var(--ink);white-space:nowrap;padding:0 2px}
 .space-label[data-align=right]{transform:translate(-100%,-50%)}
 .space-label[data-align=center]{transform:translate(-50%,-50%)}
-#map .space-label-convergence{pointer-events:auto;min-height:0;border:0;border-radius:0;
+#map .space-label-convergence{position:absolute;pointer-events:auto;min-height:0;border:0;border-radius:0;
   padding:0 2px;margin:0;font:inherit;color:var(--ink);background:var(--night);clip-path:none}
 #map .space-label-convergence{font-family:var(--mono);font-size:12px;line-height:inherit}
+#map .space-label-convergence::before{content:none}
+#map .space-label-convergence:is(:focus-visible,:hover){outline:1px solid var(--structure)}
 .space-scroll{position:absolute;bottom:0;height:16px;overflow-x:auto;overflow-y:hidden;z-index:4}
 .space-scroll>div{height:1px}
 .space-label-tag{border:1px solid var(--mark-ink,var(--structure));padding-inline:5px}
