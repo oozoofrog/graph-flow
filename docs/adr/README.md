@@ -42,3 +42,4 @@ An architecture decision record (ADR) explains one choice that future maintainer
 - [0007 Show trails in a separate local reader](0007-show-trails-in-a-separate-local-reader.md)
 - [0008 Keep authored material in project documents](0008-keep-authored-material-in-project-documents.md)
 - [0009 Turn confirmed links into checks](0009-turn-confirmed-links-into-checks.md)
+- [0010 Confirm outside a run with a signed commit](0010-confirm-outside-a-run-with-a-signed-commit.md)

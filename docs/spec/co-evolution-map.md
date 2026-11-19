@@ -141,7 +141,7 @@ The cross-run `gf summary` MUST report the measures below from source records. P
 | Measure | Counting rule |
 | --- | --- |
 | Later rework | Count approvals followed by a recorded rejection, reopen, or rollback for the same unit. Count each approval once. |
-| Short waits | Count approvals with recorded ask-to-answer time below a displayed threshold in seconds. |
+| Short waits | Count approvals with recorded ask-to-answer time below the threshold for their decision kind. Show each threshold in seconds. |
 | Approval rate | For each kind, divide approvals by answered decisions with an approval outcome available. |
 | Prediction calibration | For scored pass and fail forecasts, show counts and observed pass rates in each group. Use only the corresponding grade-1 result. |
 | Baseline and skips | Show accuracy minus the majority-outcome rate on the same scored cases. Report explicit skips per recorded prediction or skip. |
@@ -213,11 +213,10 @@ The design adds no execution node, required answer, or blocking state. The count
 | OQ-1 | A separate local reader opens trails. Answers stay on the dashboard. | [ADR 0007](../adr/0007-show-trails-in-a-separate-local-reader.md) |
 | OQ-2 | Authored thoughts, terms, and links live in Git-tracked project documents. | [ADR 0008](../adr/0008-keep-authored-material-in-project-documents.md) |
 | OQ-3 | Only gates with a risk signal offer a prediction. | [CEM-R7](#cem-r7--predict-before-evidence) |
+| OQ-4 | Each decision kind has its own short-wait threshold. | [CEM-R9](#cem-r9--show-the-person-what-happened-after-approval) |
+| OQ-5 | Each authored item has its own file. | [ADR 0008](../adr/0008-keep-authored-material-in-project-documents.md) |
+| OQ-6 | A commit signed with the person's own key confirms an item outside a run. | [ADR 0010](../adr/0010-confirm-outside-a-run-with-a-signed-commit.md) |
 
 ## Open questions
 
-| ID | Question | Options and consequences |
-| --- | --- | --- |
-| OQ-4 | What counts as a short wait? | One project threshold: comparisons share a cutoff. A threshold per decision kind: comparisons reflect different reading loads. |
-| OQ-5 | How are authored documents laid out? | One file per item: small diffs, many files. One file per domain: easy reading, larger merge conflicts. |
-| OQ-6 | How does the person confirm a link outside a run? | Open a free decision in a run: uses the signed path, needs a run. A commit signed with the person's Git key: works anywhere, needs key setup. A person-only terminal command: no run needed, adds a second human path. |
+No open questions remain in this revision. Add new ones as OQ-7 and later.

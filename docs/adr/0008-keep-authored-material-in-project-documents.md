@@ -8,7 +8,7 @@ The person writes thoughts, domain terms, and links. Agents propose links and co
 
 ## Decision
 
-Store authored material as text files in Git-tracked project documents. Review changes to these files like other project changes. An agent proposal enters as an unconfirmed item. The person confirms an item as ADR 0003 describes. [ADR 0003](0003-keep-link-confirmation-with-the-person.md)
+Store authored material as text files in Git-tracked project documents. Give each authored item its own file (OQ-5). Review changes to these files like other project changes. An agent proposal enters as an unconfirmed item. The person confirms an item as ADR 0003 describes. [ADR 0003](0003-keep-link-confirmation-with-the-person.md)
 
 ## Alternatives considered
 
@@ -16,7 +16,7 @@ Private local records keep personal notes on one machine. They need a separate b
 
 ## Consequences
 
-Git keeps the history of each thought, term, and link. Agents can read the material in their briefs. Everyone with access to the repository can read it. Do not write secrets or private personal data in these files. The file layout stays open in OQ-5. Confirmation outside a run stays open in OQ-6.
+Git keeps the history of each thought, term, and link. Agents can read the material in their briefs. Everyone with access to the repository can read it. Do not write secrets or private personal data in these files. One file per item keeps diffs small and merge conflicts rare. The number of files grows with the map. [ADR 0010](0010-confirm-outside-a-run-with-a-signed-commit.md) sets confirmation outside a run.
 
 ## Principles served
 
