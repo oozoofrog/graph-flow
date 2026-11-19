@@ -63,7 +63,7 @@ The dashboard listens on loopback. The registry, dashboard token, and approval
 signing key live in `${GF_HOME:-$HOME/.graph-flow}`. See the
 [records reference](skills/graph-flow/references/records.md).
 
-In 0.4.0-dev, asynchronous hooks in Claude Code and local Codex sessions write
+Since 0.4.0, asynchronous hooks in Claude Code and local Codex sessions write
 activity metadata for an active run to its local `activity.jsonl`. Codex requires
 you to trust the hooks. The log stores tool names, timestamps, optional timings,
 session IDs, and attempt attribution. It omits prompts, tool arguments and
@@ -86,3 +86,7 @@ Chrome executable. See [screen captures](dev/screens/README.md),
 [eval tasks](dev/eval/README.md), and the [design sources](docs/design-sources.md).
 
 See [third-party notices](docs/third-party-notices.md) for the dashboard's bundled renderer and fonts.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Bundled third-party software keeps its own licences; see [third-party notices](docs/third-party-notices.md).

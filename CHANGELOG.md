@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased — 0.4.0-dev
+## Unreleased
+
+## Graph Flow [0.4.0] — 2026-11-19
 
 - The space-time and side views use shaped marks for instantaneous records and fit words around the cards and time ticks. Adjacent short calls can share a measured total, converging transfers can share their longest wait, and every drawn record remains readable in the detail drawer.
 

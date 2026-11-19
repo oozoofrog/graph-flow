@@ -61,7 +61,7 @@ codex plugin add graph-flow@graph-flow
 `${GF_HOME:-$HOME/.graph-flow}`에 저장합니다.
 [기록 형식](skills/graph-flow/references/records.md)을 참고하세요.
 
-0.4.0-dev에서는 Claude Code와 로컬 Codex 세션의 비동기 훅이 진행 중인 실행의
+0.4.0부터 Claude Code와 로컬 Codex 세션의 비동기 훅이 진행 중인 실행의
 `activity.jsonl`에 활동 메타데이터를 기록합니다. Codex에서는 훅을 신뢰하도록
 설정해야 합니다. 도구 이름, 시각, 제공되는 경우 실행 시간, 세션 ID와 시도
 정보를 저장합니다. 프롬프트, 도구 인자와 응답, 명령 문자열, 경로는 이 활동
@@ -85,3 +85,7 @@ Chrome 실행 파일을 지정할 수 있습니다. [화면 캡처](dev/screens/
 [평가 작업](dev/eval/README.md), [설계 자료](docs/design-sources.md)를 참고하세요.
 
 대시보드에 포함된 렌더러와 글꼴은 [제3자 라이선스](docs/third-party-notices.md)를 참고하세요.
+
+## 라이선스
+
+MIT입니다. [LICENSE](LICENSE)를 보세요. 함께 넣은 외부 소프트웨어는 각자의 라이선스를 따릅니다. [외부 소프트웨어 고지](docs/third-party-notices.md)에 정리돼 있습니다.
