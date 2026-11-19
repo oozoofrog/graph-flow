@@ -46,9 +46,9 @@ for(const lang of ['ko','en'])for(const [a,b] of [[{},before],[before,{}],[befor
 
     def test_e10_every_panel_relation_equals_a_drawn_edge(self):
         self.js(r"""
-const original={nodes:[{id:'a',title:'Work',kind:'work'},{id:'r',title:'Review',kind:'review'},{id:'q',title:'Permission',kind:'decision'}],edges:[{from:'r',to:'a',relation:'reviews'},{from:'a',to:'q',relation:'waits_for_decision'}]};
+const original={nodes:[{id:'a',title:'Work',kind:'work'},{id:'r',title:'Review',kind:'review'},{id:'q',title:'Permission',kind:'decision'}],edges:[{from:'a',to:'r',relation:'reviews'},{from:'a',to:'q',relation:'waits_for_decision'}]};
 for(const lang of ['ko','en']){
- const flow=planFlow(original,lang),edges=forwardEdges(flow.edges);
+ const flow=planFlow(original,lang),edges=flow.edges;
  for(const n of flow.nodes){
   assert.deepEqual(n.inputs.map(r=>r.other_id),edges.filter(e=>e.to===n.id).map(e=>e.from));
   assert.deepEqual(n.outputs.map(r=>r.other_id),edges.filter(e=>e.from===n.id).map(e=>e.to));

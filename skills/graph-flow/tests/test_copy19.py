@@ -27,7 +27,7 @@ assert(!get('attention').textContent.includes('보낸 내 답'));
         self.run_dom(r"""
 const api=globalThis.surfaceTest;live={...live,language:'ko',decisions:[],nodes:[{...live.nodes[0],kind:'review',status:'running',attempts:1,max_attempts:3,contract:{},worker:{model:'화면-검증'}}]};api.applyView(live);
 live.timeline[0].by={role:'leader'};api.applyView(live);assert(get('home').querySelectorAll('.row-who').find(e=>e.textContent.includes('모델: m')).textContent.startsWith('작업 담당자'));
-assert(get('phone-flow').textContent.includes('검토하고 있어요'));assert(!get('phone-flow').textContent.includes('만들고 있어요'));assert(get('phone-flow').textContent.includes('1번째 시도 · 최대 3번'));api.selectNode('work');assert(get('panel').textContent.includes('모델: 화면-검증'));
+assert(get('phone-flow').textContent.includes('검토 중'));assert(!get('phone-flow').textContent.includes('만들고 있어요'));assert(get('phone-flow').textContent.includes('1번째 시도 · 최대 3번'));api.selectNode('work');assert(get('panel').textContent.includes('모델: 화면-검증'));
 """)
 
     def test_v8_evidence_button_next_to_hint_and_legacy_question(self):

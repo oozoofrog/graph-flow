@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -S -B \"${PLUGIN_ROOT}/skills/graph-flow/scripts/gf\" _observe-activity codex >/dev/null 2>&1 || :",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -S -B \"${PLUGIN_ROOT}/skills/graph-flow/scripts/gf\" _observe-activity codex >/dev/null 2>&1 || :",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -424,17 +424,7 @@ def snapshot(run_dir):
             derived = state.derive(tx.plan, tx.events)
             if tx.plan_error:
                 derived["run"]["plan_error"] = True
-            problems = []
-            if derived["run"].get("plan_error"):
-                problems.append({"code": "plan_tampered", "recovery":
-                    "Re-post the plan with gf plan set <file> for approval."})
-            if derived["run"].get("location_mismatch"):
-                problems.append({"code": "project_moved", "recovery":
-                    "Re-post the plan with gf plan set <file> for approval."})
-            if derived["run"].get("key_mismatch"):
-                problems.append({"code": "human_key_mismatch", "recovery": state.key_recovery(derived["run"])})
-            if problems:
-                derived["run"]["integrity"] = problems
+            describe_integrity(derived)
             return tx.plan, tx.events, derived
     except GFError as exc:
         if exc.code not in ("log_sequence", "log_corrupt"):
@@ -445,3 +435,18 @@ def snapshot(run_dir):
         derived["run"]["integrity"] = [{"code": exc.code, "message": exc.message,
             "recovery": "Restore an intact events.jsonl from backup; the damaged log cannot be replayed."}]
         return None, events, derived
+
+
+def describe_integrity(derived):
+    from . import state
+    problems = []
+    if derived["run"].get("plan_error"):
+        problems.append({"code": "plan_tampered", "recovery":
+            "Re-post the plan with gf plan set <file> for approval."})
+    if derived["run"].get("location_mismatch"):
+        problems.append({"code": "project_moved", "recovery":
+            "Re-post the plan with gf plan set <file> for approval."})
+    if derived["run"].get("key_mismatch"):
+        problems.append({"code": "human_key_mismatch", "recovery": state.key_recovery(derived["run"])})
+    if problems:
+        derived["run"]["integrity"] = problems

@@ -48,6 +48,11 @@ codex plugin add graph-flow@graph-flow
 제출 결과는 그대로 이어갈 수 있습니다. `GF_NO_OPEN=1`로 브라우저 자동 실행을
 끄더라도 계획 승인은 필요합니다.
 
+그래프 아래 시간바에서 지난 실행 기록을 살펴보거나 재생할 수 있습니다.
+**시공간**은 작업과 전달이 이어진 흐름을 보여 주고, **옆에서**는 시작과 종료,
+대기 시간을 읽기 쉽게 보여 줍니다. 과거 기록을 본 뒤 현재 질문에 답하려면
+**지금**을 선택하세요.
+
 ## 로컬 기록과 개인정보
 
 프로젝트의 `.graph-flow/`에 계획, 세션과 배정 기록, 사람의 답변, 변경 파일명,
@@ -56,8 +61,13 @@ codex plugin add graph-flow@graph-flow
 `${GF_HOME:-$HOME/.graph-flow}`에 저장합니다.
 [기록 형식](skills/graph-flow/references/records.md)을 참고하세요.
 
-0.3.0은 시도 시작과 제출 같은 실행 이벤트로 활동을 기록합니다. 도구별 활동
-훅은 개발 브랜치에 들어 있습니다.
+0.4.0부터 Claude Code와 로컬 Codex 세션의 비동기 훅이 진행 중인 실행의
+`activity.jsonl`에 활동 메타데이터를 기록합니다. Codex에서는 훅을 신뢰하도록
+설정해야 합니다. 도구 이름, 시각, 제공되는 경우 실행 시간, 세션 ID와 시도
+정보를 저장합니다. 프롬프트, 도구 인자와 응답, 명령 문자열, 경로는 이 활동
+로그에 기록하지 않습니다. 대시보드의 그래프 카드와 작업 상세 화면에서 활동을
+볼 수 있습니다. 관측이 없는 세션은 기록된 시작, 검사, 제출을 표시합니다.
+[활동 기록 형식](skills/graph-flow/references/records.md#local-activity-observations)을 참고하세요.
 
 ## 개발
 
@@ -73,3 +83,9 @@ python3.12 -I -S -B -m unittest discover -s dev/eval/tests -t dev/eval
 첫 번째 스위트에는 헤드리스 Chrome 테스트가 포함됩니다. `CHROME_BIN`으로
 Chrome 실행 파일을 지정할 수 있습니다. [화면 캡처](dev/screens/README.md),
 [평가 작업](dev/eval/README.md), [설계 자료](docs/design-sources.md)를 참고하세요.
+
+대시보드에 포함된 렌더러와 글꼴은 [제3자 라이선스](docs/third-party-notices.md)를 참고하세요.
+
+## 라이선스
+
+MIT입니다. [LICENSE](LICENSE)를 보세요. 함께 넣은 외부 소프트웨어는 각자의 라이선스를 따릅니다. [외부 소프트웨어 고지](docs/third-party-notices.md)에 정리돼 있습니다.

@@ -370,6 +370,12 @@ def _loop(args, actor):
         if path[1] == "promote":
             return learn.promote(root, args.id, args.run_command, actor, args.run)
         return learn.retire(root, args.id, args.reason, actor, args.run)
+    if path == ("activity",):
+        node = actor["node"] if actor["role"] == "worker" else args.target_node
+        events = store.events(args.run)
+        if not events:
+            raise core.GFError("no_run", "run has no records", core.EXIT_STATE)
+        return _lazy_import("activity").read(args.run, node)
     if path == ("trace",):
         return _lazy_import("trace").trace(args.run)
 
@@ -388,6 +394,7 @@ def _register(paths, roles, needs_run=True, own_node_only=False):
 _register("init,plan set,host set,ready,route,assign,brief,merge,gate,reopen,learn add,learn promote,learn retire", "leader")
 _register("plan validate,learn list", "leader worker reviewer human")
 _register("trace", "leader human")
+_register("activity", "leader human worker", own_node_only=True)
 _register("status", "leader worker reviewer human", own_node_only=True)
 _register("start", "leader worker reviewer", own_node_only=True)
 _register("red,check run,check record,submit", "leader worker", own_node_only=True)
@@ -433,7 +440,7 @@ def _parser(authorize_only=False):
             sub.add_argument("capabilities", nargs="+")
         elif path == ("trace",):
             sub.add_argument("--conformance", action="store_true")
-        elif path == ("status",):
+        elif path in (("status",), ("activity",)):
             sub.add_argument("target_node", nargs="?")
         elif path in (("route",), ("assign",), ("start",), ("red",), ("submit",),
                       ("reopen",), ("review", "submit"), ("check", "run"), ("check", "record")):

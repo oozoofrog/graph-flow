@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 HERE = Path(__file__).resolve().parent
@@ -17,9 +18,22 @@ SKILL = HERE.parents[1] / 'skills/graph-flow'
 sys.path[:0] = [str(SKILL / 'scripts'), str(SKILL / 'tests')]
 from human_support import human_answer
 from test_review11 import Review11Tests
-from graphflow import cli
+from graphflow import activity, cli
 
 SCENARIOS = {
+    'graph-spacetime': 'Recorded rework, review and an open decision on a minute-scale timeline',
+    'graph-spacetime-long': 'The same run with a three-day gap before the decision',
+    'graph-spacetime-short': 'A ten-minute run with a burst of short tool calls of one category',
+    'graph-spacetime-short-en': 'The ten-minute run in English',
+    'graph-instrument': 'A branched live graph with recorded work, a decision, stalls and a return',
+    'graph-flow-states': 'Delivered, frontier, waiting, blocked, returned and unreachable relations',
+    'graph-activity-unreadable': 'A damaged activity log with readable boundary records',
+    'graph-activity': 'Mixed observed, stalled, repeated, boundary-only, and waiting work',
+    'graph-verification': 'Graph kinds, parallel relations, current failure and retry history',
+    'graph-wrap': 'A chain whose authored order differs from dependency order',
+    'graph-chain-60': 'Sixty stages in a dependency chain',
+    'graph-dense': 'Three complete adjacent layers for comparing full context and a selected dependency path',
+    'graph-empty': 'An initialized run with no posted plan',
     'check-lines': '검사 네 개의 제목과 통과·실패·아직 안 함 표시',
     'notices': '뒤 작업의 파일을 쓰는 전체 검사와 작업 전 통과 알림',
     'trajectory': '세 번째 제출: 전체 검사 반려, 자체 검사 반려, 실패 후 통과한 검토',
@@ -107,6 +121,8 @@ class Fixture:
         self.raw = dict(schema_version=1, title='안내 만들기', goal='확인할 수 있는 안내와 사용 설명서를 만들어요.', nodes=[work()])
         self.decision = None
         self.approval = None
+        self.activity_epoch = None
+        self.history_epoch = None
 
     def git(self, *args, **kwargs):
         return subprocess.run(['git', '-C', str(self.project), *args], env=self.env, check=True, capture_output=True, **kwargs)
@@ -160,6 +176,10 @@ class Fixture:
         result = dict(scenario=self.root.name, project=str(self.project), run=self.run.name,
                       home=str(self.home), decision=self.decision, approval=self.approval,
                       plan=str(self.root / 'plan.json'), commands=self.commands)
+        if self.activity_epoch:
+            result['activity_epoch'] = self.activity_epoch
+        if self.history_epoch:
+            result['history_epoch'] = self.history_epoch
         write_json(self.root / 'fixture.json', result)
         return result
 
@@ -171,8 +191,275 @@ def branching(count):
                  ['n%d' % n for n in (deps[i] if i < 13 else [i - 1])]) for i in range(count)]
 
 
+def activity_fixture(f, instrument=False):
+    f.raw['nodes'] = [work('rich', '검색 화면 정리'), work('stalled', '배포 안내 확인'),
+                      work('repeating', '검색 검사 수정'), work('blind', '예제 검토'), question()]
+    if instrument:
+        f.raw['title'] = '검색 안내와 배포 준비'
+        f.raw['nodes'].insert(0, work('a', '요구 정리'))
+        for node in ('rich', 'stalled', 'q'):
+            nxt = next(row for row in f.raw['nodes'] if row['id'] == node)
+            nxt['needs'] = [{'from': 'a', 'artifact': '결과'}]
+        f.raw['nodes'].extend([
+            review('release'), work('release', '안내 통합', ['rich', 'q']), work('broken', '예제 검사'),
+        ])
+        f.raw['nodes'][-2]['needs'][-1]['artifact'] = '허가'
+    f.post(True)
+    if instrument:
+        f.submit('a', True)
+        f.assign('broken')
+        f.call('start', 'broken')
+        f.call('submit', 'broken')
+        f.call('gate', 'broken', code=1)
+    f.call('start', 'rich')
+    f.call('submit', 'rich')
+    f.call('gate', 'rich', code=1)
+    f.call('start', 'rich')
+    for node in ('stalled', 'repeating', 'blind'):
+        f.git('worktree', 'add', '--detach', '-q', str(f.root / node))
+        f.call('assign', node, '--executor', 'subagent', '--model', '화면-검증', '--effort', 'high',
+               '--provider', 'fixture', '--family', 'claude', '--isolation', 'worktree')
+        f.call('start', node, '--cwd', str(f.root / node))
+    f.call('check', 'run', 'blind', 'text', '--cwd', str(f.root / 'blind'), code=1)
+    f.decision = f.call('gate', 'q', code=1)['asks'][0]
+    now = datetime.now(timezone.utc)
+
+    def stamp(value):
+        return value.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+    f.activity_epoch = stamp(now)
+
+    rows = []
+    invocations = {}
+
+    def series(node, tools, age, attempt=1, open_last=False):
+        offset = invocations.get((node, attempt), 0)
+        invocations[node, attempt] = offset + len(tools)
+        cursor = now - timedelta(seconds=age)
+        for index, (tool, gap, duration, failed) in enumerate(tools):
+            cursor += timedelta(milliseconds=gap)
+            end = cursor + timedelta(milliseconds=duration)
+            observations = [('PreToolUse', cursor)]
+            if not open_last or index != len(tools) - 1:
+                observations.append(('PostToolUseFailure' if failed else 'PostToolUse', end))
+            for event, at in observations:
+                secret = 'sk-payload-secret-123456789'
+                record = activity.observation(dict(hook_event_name=event, session_id='screens-' + node,
+                    tool_name=tool, tool_use_id=f'{attempt}-{offset + index}', tool_input={'argument': secret},
+                    tool_response={'content': secret}, transcript_path=secret, error=secret), stamp(at))
+                record.update(node=node, attempt=attempt, via='cwd')
+                if record['phase'] == 'end':
+                    record['duration_ms'] = duration
+                rows.append(record)
+            cursor = end
+
+    series('rich', [('Read', 0, 1100, False)], 485)
+    series('rich', [('Read', 0, 900, False), ('Grep', 80, 500, False),
+        ('Skill', 1300, 1700, False), ('mcp__catalog__search', 70, 1400, False),
+        ('Agent', 80, 2400, False), ('mcp__graph-flow__check_run', 0, 800, True),
+        ('Custom', 70, 500, False)], 10, attempt=2)
+    series('stalled', [('mcp__catalog__search', 0, 1200, False)], 400)
+    series('repeating', [('Bash', gap, 700, True) for gap in (0, 90, 90)], 3)
+    if instrument:
+        series('a', [('Skill', 0, 3100, False), ('Read', 70, 1900, False),
+                     ('mcp__graph-flow__check_run', 0, 1400, False)], 425)
+        series('rich', [('Agent', 0, 45000, False)], 1, attempt=2, open_last=True)
+    events_path = f.run / 'events.jsonl'
+    events = [json.loads(line) for line in events_path.read_text().splitlines()]
+    for event in events:
+        if event['type'] == 'node.start' and event['data']['node'] in ('a', 'rich', 'stalled', 'repeating'):
+            age = 500 if event['data']['node'] == 'rich' and event['data']['attempt'] == 1 else 450
+            event['ts'] = (now - timedelta(seconds=age)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        if instrument and event['type'] == 'decision.ask' and event['data'].get('node') == 'q':
+            event['ts'] = (now - timedelta(minutes=6, seconds=15)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    events_path.write_text(''.join(json.dumps(event) + '\n' for event in events))
+    (f.run / 'activity.jsonl').write_bytes(b''.join(activity._encode(row) for row in sorted(rows, key=lambda row: row['ts'])))
+
+
+def spacetime_fixture(f, long_gap, short, english):
+    q = question()
+    q['needs'] = [{'from': 'api', 'artifact': '결과'}]
+    integration = work('release', '통합', ['api', 'screen', 'q'])
+    integration['needs'][-1]['artifact'] = '허가'
+    r = review('api')
+    r['title'] = 'API 검토'
+    f.raw.update(title='검색 API와 배포 안내', nodes=[
+        work('a', '요구 정리'), work('api', '검색 API', ['a']), work('screen', '화면 구성', ['a']),
+        r, q, work('guide', '안내 문서', ['screen']), integration,
+    ])
+    if english:
+        f.raw.update(title='Search API and release notes', goal='Prepare the search API and release notes.')
+        titles = ('Gather requirements', 'Search API', 'Search interface', 'API review',
+                  'Release scope', 'Release notes', 'Integration')
+        artifacts = {'결과': 'Result', '허가': 'Approval'}
+        for node, title in zip(f.raw['nodes'], titles):
+            node.update(title=title, goal=title + ' for the test release.')
+            if 'outputs' in node:
+                node['outputs'] = [artifacts[name] for name in node['outputs']]
+            for need in node.get('needs', []):
+                need['artifact'] = artifacts[need['artifact']]
+            for check in node.get('checks', []):
+                check['title'] = 'The result file has content'
+        r['lens'] = 'Accuracy, accessibility and missing cases'
+        q['question'] = 'Publish the guide to the test environment?'
+        q['context'] = {'why': 'Check the reviewed guide in the test environment.',
+                        'undo': 'The guide can be taken down.'}
+    own = f.raw['nodes'][1]
+    fix = 'Handle empty results' if english else '빈 결과 처리'
+    own['checks'][0]['run'] = 'grep -q "' + fix + '" api.txt'
+    f.post(True)
+    f.submit('a', True)
+    f.submit('screen', True)
+    own_path = f.project / own['owns'][0]
+    f.assign('api')
+    f.assign('r', True)
+    findings = f.root / 'findings.json'
+    for attempt in (1, 2):
+        f.call('start', 'api')
+        content = 'Search results' if english else '검색 결과'
+        own_path.write_text(content + ('\n' + fix if attempt == 2 else '') + '\n', encoding='utf-8')
+        f.call('check', 'run', 'api', 'text', code=1 if attempt == 1 else 0)
+        f.call('submit', 'api')
+        f.call('start', 'r')
+        write_json(findings, [dict(severity='high', file='api.txt', line=1,
+            text='검색어가 비어 있을 때의 응답을 확인해야 해요.')] if attempt == 1 else [])
+        f.call('--role', 'reviewer', '--node', 'r', 'review', 'submit', 'r',
+               '--verdict', 'fail' if attempt == 1 else 'pass', '--findings', str(findings))
+        f.call('gate', 'r')
+        f.call('gate', 'api', code=1 if attempt == 1 else 0)
+    f.call('start', 'guide')
+    f.decision = f.call('gate', 'q', code=1)['asks'][0]
+
+    # Spread real CLI boundaries and ordinary hook observations across a readable axis.
+    ledger = f.run / 'events.jsonl'
+    events = [json.loads(line) for line in ledger.read_text().splitlines()]
+    boundaries = {
+        ('a', 'node.start', 1): 2, ('a', 'node.submit', 1): 9, ('a', 'gate.verdict', 1): 9,
+        ('screen', 'node.start', 1): 10, ('screen', 'node.submit', 1): 24, ('screen', 'gate.verdict', 1): 25,
+        ('api', 'node.start', 1): 25, ('api', 'node.submit', 1): 33, ('api', 'gate.verdict', 1): 41,
+        ('api', 'node.start', 2): 44, ('api', 'node.submit', 2): 69, ('api', 'gate.verdict', 2): 79,
+        ('guide', 'node.start', 1): 83, ('q', 'decision.ask', None): 84,
+    }
+    review_starts = iter((35, 71))
+    review_submits = iter((39, 76))
+    review_verdicts = iter((40, 77))
+    gap = timedelta(days=3) if long_gap else timedelta(0)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    minute_size = 60 / 9 if short else 60
+    floor = now - timedelta(seconds=90 * minute_size) - gap
+
+    def stamp(value, precision='seconds'):
+        return value.isoformat(timespec=precision).replace('+00:00', 'Z')
+    minute = 0
+    for event in events:
+        kind, data = event['type'], event['data']
+        node = data.get('node')
+        key = (node, kind, data.get('attempt'))
+        if node == 'r' and kind in ('node.start', 'review.submit', 'gate.verdict'):
+            minute = next({'node.start':review_starts,'review.submit':review_submits,'gate.verdict':review_verdicts}[kind])
+        elif kind == 'check.result' and data.get('phase') == 'loop':
+            minute = boundaries.get((node,'node.submit',data.get('attempt')), minute) - 1
+        elif key in boundaries:
+            minute = boundaries[key]
+        at = floor + timedelta(seconds=minute * minute_size) + (gap if minute >= 84 else timedelta(0))
+        event['ts'] = stamp(at)
+    ledger.write_text(''.join(json.dumps(event) + '\n' for event in events))
+    calls = {
+        ('a',1): [('Skill',2,4), ('Read',4,7), ('Bash',7,8)],
+        ('screen',1): [('Read',10,16), ('Skill',16,21), ('mcp__figma__inspect',21,23)],
+        ('api',1): [('Read',25,29), ('Bash',29,32)],
+        ('api',2): [('Read',44,51), ('mcp__catalog__search',54,57), ('Bash',58,64), ('Skill',64,68)],
+        ('guide',1): [('Read',83,83.6)],
+        ('r',1): [('Read',35,38), ('Bash',71,75)],
+    }
+    if short:
+        # Each call projects below a line; together they occupy a readable part of the pillar.
+        calls['api', 2][0:1] = [('Read', 44 + i * .55, 44 + (i + 1) * .55) for i in range(12)]
+    rows = []
+    for (node, attempt), entries in calls.items():
+        for i, (tool, start, end) in enumerate(entries):
+            for kind, at in [('PreToolUse', start), ('PostToolUse', end)]:
+                row = activity.observation(dict(hook_event_name=kind,session_id='screens-'+node,tool_name=tool,
+                    tool_use_id='%s-%s' % (attempt,i)), stamp(floor+timedelta(seconds=at * minute_size), 'milliseconds' if short else 'seconds'))
+                row.update(node=node,attempt=attempt,via='session')
+                if short and node == 'api' and attempt == 2 and i < 12 and kind == 'PostToolUse':
+                    row['duration_ms'] = 3650 + i
+                rows.append(row)
+    (f.run / 'activity.jsonl').write_bytes(b''.join(activity._encode(row) for row in sorted(rows,key=lambda row:row['ts'])))
+    f.history_epoch = stamp(now)
+
+
 def build(root, scenario):
     f = Fixture(root, scenario)
+    if scenario.startswith('graph-spacetime'):
+        spacetime_fixture(f, long_gap=scenario.endswith('-long'), short='-short' in scenario,
+                          english=scenario.endswith('-en'))
+        return f.metadata()
+    if scenario == 'graph-flow-states':
+        f.raw['nodes'] = [work('a', '초안 준비'), work('done', '초안 반영', ['a']),
+                          work('next', '배포 준비', ['a']), work('broken', '예제 검사'),
+                          work('retry', '예제 정리', ['broken']), question(),
+                          work('release', '안내 공개', ['q']), work('late', '사용 기록 정리', ['release']),
+                          work('waiting', '추가 자료 수집'), work('use', '추가 자료 정리', ['waiting'])]
+        f.raw['nodes'][6]['needs'][0]['artifact'] = '허가'
+        f.post(True)
+        f.submit('a', True)
+        f.submit('done', True)
+        f.assign('broken')
+        f.call('start', 'broken')
+        f.call('submit', 'broken')
+        f.call('gate', 'broken', code=1)
+        f.decision = f.call('gate', 'q', code=1)['asks'][0]
+        return f.metadata()
+    if scenario in ('graph-activity', 'graph-activity-unreadable', 'graph-instrument'):
+        activity_fixture(f, instrument=scenario == 'graph-instrument')
+        if scenario == 'graph-activity-unreadable':
+            (f.run / 'activity.jsonl').write_text('invalid complete line\n')
+        return f.metadata()
+    if scenario == 'graph-empty':
+        return f.metadata()
+    if scenario in ('graph-chain-60', 'graph-dense'):
+        if scenario == 'graph-chain-60':
+            nodes = [work(f'n{i}', f'안내 단계 {i+1}', [f'n{i-1}'] if i else []) for i in range(60)]
+        else:
+            layers = [('a', 'b', 'c'), ('d', 'e', 'f'), ('g', 'h', 'i')]
+            nodes = [work(node, f'안내 {node.upper()}', list(layers[i-1]) if i else [])
+                     for i, layer in enumerate(layers) for node in layer]
+        f.raw['nodes'] = nodes
+        f.post(True)
+        return f.metadata()
+    if scenario == 'graph-wrap':
+        steps = [work(f's{i}', f'단계 {i}', [f's{i-1}'] if i else []) for i in range(9)]
+        f.raw['nodes'] = list(reversed(steps))
+        f.post(True)
+        return f.metadata()
+    if scenario == 'graph-verification':
+        f.raw['nodes'] = [work('a', '예제 확인'), work('b', '복구 안내'), work('c', '복구 안내'),
+                          work('d', '안내 고치기'), work('p', '자료 정리'), question(),
+                          work('t', '안내 편집', ['b', 'p', 'q']), review('t')]
+        _, b, _, d, _, _, _, reviewer = f.raw['nodes']
+        for node in (b, d):
+            node['checks'].append(dict(id='example', type='cmd', title='예제 파일을 확인할 수 있어요',
+                                       run='test -s missing-example.txt'))
+        f.raw['nodes'][-2]['needs'][-1]['artifact'] = '허가'
+        reviewer['needs'] = [dict(**{'from': 't'}, artifact='결과', label='편집한 안내')]
+        f.raw['integration_checks'] = [dict(id='all', type='cmd', title='전체 안내를 열 수 있어요',
+                                            run='test -s missing-final.txt', requires_passed=['t'])]
+        f.post(True)
+        f.decision = f.call('decide', 'ask', '--kind', 'information', '--question', '이 예제를 따라갈 수 있을까요?', '--node', 'a')['id']
+        for node in ('b', 'd'):
+            f.submit(node)
+            f.call('gate', node, code=1)
+        f.submit('p', True)
+        f.call('start', 'd')
+        f.call('decide', 'ask', '--kind', 'information', '--question', '정리한 자료를 누가 읽을까요?', '--node', 'p')
+        f.call('gate', 'q', code=1)
+        assert f.call('gate', '--final', code=1)['result'] == 'failed'
+        # Exercise the reader of historical events with an unrecognized actor role.
+        with mock.patch.dict(os.environ, f.env, clear=True):
+            Review11Tests.rewrite(f, lambda events: next(e for e in events
+                if e['type'] == 'gate.verdict' and e['data']['node'] == 'b')['actor'].update(role='historical'))
+        return f.metadata()
     if scenario == 'check-lines':
         f.raw['nodes'][0]['checks'] += [
             dict(id='restore', type='cmd', title='문제가 생기면 되돌리는 순서가 있어요', run='test -f restore.txt'),

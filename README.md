@@ -49,6 +49,11 @@ To resume a run from 0.2.1, repost and approve its current plan. Unchanged
 submissions can continue with their recorded results. Set `GF_NO_OPEN=1` to
 suppress automatic browser opening. Plan approval is still required.
 
+Use the time bar under the graph to revisit a run or play back its records.
+Space-time shows how work and handoffs unfolded. Side view makes start,
+end and wait times easier to read. Choose **Live** to answer a current
+question after viewing history.
+
 ## Local records and privacy
 
 Graph Flow writes run plans, session and assignment records, human answers,
@@ -58,8 +63,13 @@ The dashboard listens on loopback. The registry, dashboard token, and approval
 signing key live in `${GF_HOME:-$HOME/.graph-flow}`. See the
 [records reference](skills/graph-flow/references/records.md).
 
-The 0.3.0 release records activity through run events such as attempt start and
-submission. Tool-level activity hooks are part of the development branch.
+Since 0.4.0, asynchronous hooks in Claude Code and local Codex sessions write
+activity metadata for an active run to its local `activity.jsonl`. Codex requires
+you to trust the hooks. The log stores tool names, timestamps, optional timings,
+session IDs, and attempt attribution. It omits prompts, tool arguments and
+responses, command strings, and paths. The dashboard shows recent phases and a
+detailed activity view. Sessions without observations show their recorded
+starts, checks, and submissions. See the [activity record format](skills/graph-flow/references/records.md#local-activity-observations).
 
 ## Development
 
@@ -74,3 +84,9 @@ python3.12 -I -S -B -m unittest discover -s dev/eval/tests -t dev/eval
 The first suite includes headless Chrome tests. Set `CHROME_BIN` to choose a
 Chrome executable. See [screen captures](dev/screens/README.md),
 [eval tasks](dev/eval/README.md), and the [design sources](docs/design-sources.md).
+
+See [third-party notices](docs/third-party-notices.md) for the dashboard's bundled renderer and fonts.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Bundled third-party software keeps its own licences; see [third-party notices](docs/third-party-notices.md).

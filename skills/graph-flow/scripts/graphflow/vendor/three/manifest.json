@@ -1,0 +1,14 @@
+{
+  "package": "three",
+  "version": "0.187.0",
+  "source": "https://registry.npmjs.org/three/-/three-0.187.0.tgz",
+  "license": "MIT",
+  "sha256": {
+    "LICENSE": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc",
+    "build/three.module.js": "104f56145899722094556490d787aae0617cc2fc3382f31df02d724ea1aee341",
+    "build/three.core.js": "613e370f76638fdef83926642bf256dc9615684922de1ce1f63a8583e5d78578",
+    "examples/jsm/lines/LineMaterial.js": "5f4ba22891c54d50a51e8bab6c648399e919e6832c0d03060fbe1ec7c771a93f",
+    "examples/jsm/lines/LineSegments2.js": "fcbc20f576e88343cea12131f49b7003d7ab44ede422fcb694e567456022f7a0",
+    "examples/jsm/lines/LineSegmentsGeometry.js": "471f0a954a0c9c59d3d151392f424142a9164a722802f63b371971378a84a1b1"
+  }
+}

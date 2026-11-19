@@ -20,13 +20,31 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from socketserver import TCPServer
 from urllib.parse import parse_qs, urlencode, urlsplit
 
-from . import core, decisions, graph, learn, state, store, trace
+from . import activity, core, decisions, graph, learn, state, store, trace
 from . import plan as planning
 
 PAGE_PATH = pathlib.Path(__file__).with_name("page.html")
 STATIC_TYPES = {"page.js": "text/javascript; charset=utf-8"}
+for name in ("graph-webgl.js", "activity-webgl.js", "history.js", "spacetime.js"):
+    STATIC_TYPES[name] = STATIC_TYPES["page.js"]
 STATIC_TYPES.update({"assets/frog-%s.png" % pose: "image/png" for pose in
                      ("wave", "walk-a", "walk-b", "report")})
+STATIC_TYPES.update({"vendor/three/" + name: STATIC_TYPES["page.js"] for name in (
+    "build/three.module.js",
+    "build/three.core.js",
+    "examples/jsm/lines/LineMaterial.js",
+    "examples/jsm/lines/LineSegments2.js",
+    "examples/jsm/lines/LineSegmentsGeometry.js",
+)})
+STATIC_TYPES["vendor/three/LICENSE"] = "text/plain; charset=utf-8"
+STATIC_TYPES["vendor/three/manifest.json"] = "application/json; charset=utf-8"
+STATIC_TYPES.update({"vendor/fonts/" + name: "font/ttf" for name in (
+    "IBMPlexSansKR-Regular.ttf", "IBMPlexMono-Regular.ttf", "DoHyeon-Regular.ttf", "ChakraPetch-SemiBold.ttf",
+)})
+STATIC_TYPES.update({"vendor/fonts/" + family + "-OFL.txt": "text/plain; charset=utf-8" for family in (
+    "ibmplexsanskr", "ibmplexmono", "dohyeon", "chakrapetch",
+)})
+STATIC_TYPES["vendor/fonts/manifest.json"] = "application/json; charset=utf-8"
 STATIC_ROOT = pathlib.Path(__file__).parent
 MAX_BODY = 64 * 1024
 MAX_EVIDENCE = 200 * 1024
@@ -470,7 +488,103 @@ def _decision_facts(decision, current, derived, events):
                 reasked=bool(previous), options=_objects(_mapping(decision.get("evidence")).get("options")))
 
 
-def _view(current, derived, events, project):
+def _edge_flows(edges, derived, events, ready):
+    """Project current, replay-validated evidence onto forward relations."""
+    nodes = derived["nodes"]
+    decisions_by_id = derived["decisions"]
+    by_seq = {event["seq"]: event for event in events}
+    latest = {}
+    for event in events:
+        data = _mapping(event.get("data"))
+        node = nodes.get(data.get("node"))
+        if node and event["seq"] > node["basis"] and data.get("attempt", node["attempts"]) == node["attempts"]:
+            latest[data["node"], event["type"]] = event
+
+    def ref(event):
+        if event is None:
+            return None
+        kind, data = event["type"], event["data"]
+        return {"kind": kind, "id": data.get("id", "d%d" % event["seq"]) if kind.startswith("decision.") else event["seq"],
+                "seq": event["seq"], "time": event.get("ts"),
+                **{key: data[key] for key in ("attempt", "check", "verdict", "rule", "outcome") if data.get(key) is not None}}
+
+    def open_ask(nid):
+        active = [decisions_by_id[did]["seq"] for did in nodes[nid]["open_decisions"] if did in decisions_by_id]
+        return by_seq.get(max(active, default=0))
+
+    def related(nid, kind):
+        return latest.get((nid, kind))
+
+    def verdict(nid):
+        event = related(nid, "gate.verdict")
+        return event if event and nodes[nid]["verdict"] == event["data"] else None
+
+    def submission(nid):
+        return by_seq.get(_mapping(nodes[nid]["submission"]).get("id"))
+
+    def answer(nid, outcomes):
+        active = [d["answer_seq"] for d in decisions_by_id.values()
+                  if d.get("node") == nid and d.get("verified") and not d.get("stale")
+                  and d.get("issuer") == "gate" and d.get("outcome") in outcomes and d.get("answer_seq")]
+        return by_seq.get(max(active, default=0))
+
+    def boundary(nid):
+        options = [related(nid, "node.start"), related(nid, "check.red"), related(nid, "check.result"), submission(nid)]
+        return max((event for event in options if event), key=lambda event: event["seq"], default=None)
+
+    result = []
+    for edge in edges:
+        source, target = edge["from"], edge["to"]
+        reviews = edge["relation"] == "reviews"
+        owner = target if reviews else source
+        src_state, gate_state = nodes[source]["status"], nodes[owner]["status"]
+        src_sub, gate_verdict = submission(source), verdict(owner)
+        question = open_ask(owner)
+        gate_event = question if edge["gate"] == "waiting_for_you" else gate_verdict
+        gate_ref = ref(gate_event or boundary(owner))
+        source_return = verdict(source) if src_state in ("rejected", "replan") else None
+        if nodes[source]["kind"] != "decision" and src_state in ("held", "awaiting_approval"):
+            refusal = answer(source, ("rejected", "revision_requested"))
+            review = _mapping(_mapping(submission(target)).get("data")) if reviews else {}
+            if not reviews or src_sub and review.get("target_submission") == src_sub["seq"] and review.get("verdict") == "fail":
+                source_return = refusal
+        delivery = None
+        if source_return:
+            status, evidence = "returned", source_return
+        elif (question and gate_state != "passed") or gate_state in ("held", "awaiting_approval", "replan", "rejected"):
+            status, evidence = "blocked", question or gate_verdict
+        elif reviews and (source_question := open_ask(source)) and not src_sub:
+            status, evidence = "blocked", source_question
+        elif reviews and not src_sub and src_state in ("held", "awaiting_approval"):
+            status, evidence = "blocked", verdict(source)
+        elif reviews and src_sub and (graph.has_current_submission(nodes[source]) or src_state == "passed"):
+            status, evidence = "delivered", src_sub
+            delivery = ref(src_sub)
+        elif not reviews and src_state == "passed":
+            delivery = ref(src_sub or answer(source, ("approved", "answered")) or gate_verdict)
+            status, evidence = "delivered", gate_verdict or src_sub
+        elif source in ready or src_state in ("running", "submitted", "unverified") or boundary(source):
+            status, evidence = "waiting", verdict(source) or boundary(source)
+        else:
+            status, evidence = "unreachable", None
+        frontier = status == "delivered" and src_state == "passed" and target in nodes and (
+            nodes[target]["status"] == "running" or target in ready)
+        result.append({"state": status, "frontier": frontier, "record": ref(evidence),
+                       "delivery": delivery, "gate_record": gate_ref})
+    return result
+
+
+def _view_constraints(project):
+    # A malformed learning record must not make the run itself unreadable.
+    if (pathlib.Path(project) / ".graph-flow" / "constraints.jsonl").is_file():
+        try:
+            return learn.all_constraints(project)
+        except core.GFError:
+            pass
+    return []
+
+
+def _view(current, derived, events, project, activities=None, *, observed_at=None, replay=None):
     current = current or {}
     recorded_title = next((e["data"].get("plan_title") for e in reversed(events)
                            if e["type"] == "plan.set"), "")
@@ -484,7 +598,8 @@ def _view(current, derived, events, project):
             "run": derived["run"]["id"], "project": pathlib.Path(project).name,
             "edges": [], "decisions": [], "answered": [], "lessons": [], "timeline": [],
             "counts": dict.fromkeys(("done", "doing", "waiting", "needs_you", "returned", "returns_total"), 0),
-            "complete": derived["run"]["status"] == "complete"}
+            "complete": derived["run"]["status"] == "complete",
+            "final_result": _mapping(derived["run"].get("current_final")).get("result")}
 
     def title(nid):
         return _text(nodes.get(nid, {}).get("title"), nid)
@@ -503,13 +618,16 @@ def _view(current, derived, events, project):
         return {"role": _text(actor.get("role"), None), "node": _text(actor.get("node"), None),
                 "session": _text(actor.get("session"), None)}
 
+    view["observed_at_ms"] = int(time.time() * 1000) if observed_at is None else observed_at
+    work = activity.summaries(activities or {"status": "ok", "records": []},
+                              events, derived["nodes"], view["observed_at_ms"])
     gates = {}
     for nid, node in nodes.items():
         st = derived["nodes"][nid]
         laps, reasons = _history(node, st, events)
         passed = st["status"] == "passed"
-        gates[nid] = ("open" if passed else "returned" if reasons else
-                      "waiting_for_you" if st["open_decisions"] else "closed")
+        gates[nid] = ("open" if passed else "waiting_for_you" if st["open_decisions"] else
+                      "returned" if st["status"] in ("rejected", "replan") else "closed")
         family = _mapping(st["assignment"]).get("family")
         submission = _mapping(st["submission"]).get("id")
         reviewed = any(isinstance(family, str) and isinstance(r.get("family"), str)
@@ -536,6 +654,8 @@ def _view(current, derived, events, project):
                               "session": actor_of(starts.get(nid))["session"],
                               "started": _text(_mapping(starts.get(nid)).get("ts"), None),
                               "inputs": [], "outputs": []})
+        if nid in work:
+            view["nodes"][-1]["activity"] = work[nid]
         observed = {r["check"]: r.get("result") for r in _attempt_results(nid, st, events)}
         view["nodes"][-1]["check_results"] = observed
         view["nodes"][-1]["planned_checks"] = [
@@ -560,10 +680,21 @@ def _view(current, derived, events, project):
                   "waits_for_decision" if nodes[need["from"]]["kind"] == "decision" else "hands_over")
                  for need in _objects(node.get("needs"))]
         if node["kind"] == "review":
-            edges.append((nid, node["target"], "", "reviews"))
+            edges.append((node["target"], nid, "", "reviews"))
         for producer, receiver, label, relation in edges:
+            gate = gates[receiver if relation == "reviews" else producer]
             view["edges"].append({"from": producer, "to": receiver, "label": label, "relation": relation,
-                                  "delivered": gates[producer] == "open", "gate": gates[producer]})
+                                  "delivered": gate == "open", "gate": gate})
+
+    sources = {edge["from"] for edge in view["edges"]}
+    terminals = [nid for nid in nodes if nid not in sources]
+    terminal_edges = [{"from": nid, "to": "_run_checks", "relation": "hands_over",
+                       "gate": "open" if gates[nid] == "open" else "closed"} for nid in terminals]
+    ready = set(graph.available(current, derived)) if nodes else set()
+    flows = _edge_flows(view["edges"] + terminal_edges, derived, events, ready)
+    for edge, flow in zip(view["edges"], flows):
+        edge["flow"] = flow
+    view["goal_flows"] = dict(zip(terminals, flows[len(view["edges"]):]))
 
     presented = {n["id"]: n for n in view["nodes"]}
     for edge in view["edges"]:
@@ -631,7 +762,7 @@ def _view(current, derived, events, project):
                                   "contract": evidence.get("contract"),
                                   "commit": (decision.get("submission_binding") or {}).get("commit"),
                                   "artifact_hashes": decision.get("artifact_hashes") or {},
-                                  "files": _decision_files(decision, derived, project, _strings(_mapping(nodes.get(decision["node"])).get("owns"))),
+                                  "files": _decision_files(decision, derived, project, _strings(_mapping(nodes.get(decision["node"])).get("owns")), replay=replay),
                                   "free": decision.get("issuer") != "gate" and decision.get("purpose") != "plan_approval",
                                   "replaces_outcome": previous.get("outcome"),
                                   "replaces_refused": previous.get("id") if previous.get("verified") and
@@ -646,7 +777,7 @@ def _view(current, derived, events, project):
             original = derived["decisions"][decision["id"]]
             decision.update(verified=[], unverified=[], failed=[], contract=None, worker_note=None,
                             context=_mapping(original.get("evidence")).get("context", {}), author_context={},
-                            files=_decision_files(dict(original, node=None), derived, project))
+                            files=_decision_files(dict(original, node=None), derived, project, replay=replay))
     view["counts"]["needs_you"] = len(opened)
     for decision in derived["decisions"].values():
         if decision.get("status") == "answered":
@@ -657,30 +788,25 @@ def _view(current, derived, events, project):
                                      "stale": bool(decision.get("stale")), "verified": bool(decision.get("verified"))})
 
     lesson_texts = {}
-    # A malformed learning record must not make the run itself unreadable.
-    if (pathlib.Path(project) / ".graph-flow" / "constraints.jsonl").is_file():
-        try:
-            constraints = learn.all_constraints(project)
-        except core.GFError:
-            constraints = []
-        for constraint in _objects(constraints):
-            if isinstance(constraint.get("id"), str) and _text(constraint.get("text")):
-                lesson_texts[constraint["id"]] = constraint["text"]
-            if constraint.get("status") != "active" or not _text(constraint.get("text")):
-                continue
-            source = _mapping(constraint.get("derived_from"))
-            node_title = None
-            if (source.get("run") == derived["run"]["id"]
-                    and isinstance(source.get("node"), str) and source["node"] in nodes):
-                node_title = title(source["node"])
-            view["lessons"].append({"text": constraint["text"], "node_title": node_title})
+    constraints = replay["constraints"] if replay is not None else _view_constraints(project)
+    for constraint in _objects(constraints):
+        if isinstance(constraint.get("id"), str) and _text(constraint.get("text")):
+            lesson_texts[constraint["id"]] = constraint["text"]
+        if constraint.get("status") != "active" or not _text(constraint.get("text")):
+            continue
+        source = _mapping(constraint.get("derived_from"))
+        node_title = None
+        if (source.get("run") == derived["run"]["id"]
+                and isinstance(source.get("node"), str) and source["node"] in nodes):
+            node_title = title(source["node"])
+        view["lessons"].append({"text": constraint["text"], "node_title": node_title})
     view["timeline"] = _timeline(nodes, events, lesson_texts, derived["decisions"], derived["run"].get("repin_seq", 0))
     view["integrity"] = derived["run"].get("integrity", [])
     view["plan_error"] = derived["run"].get("plan_error", False)
     view["key_mismatch"] = derived["run"].get("key_mismatch", False)
     view["location_mismatch"] = derived["run"].get("location_mismatch", False)
     view["has_work"] = any(e.get("type") in ("node.start", "node.submit", "review.submit", "check.result") for e in events)
-    view["recovery_identity"] = decisions.recovery_identity(derived)
+    view["recovery_identity"] = decisions.recovery_identity(derived, key_reader=None if replay is None else lambda: replay["fingerprint"])
     view["key_recovery"] = "GF_ROLE=human GF_HUMAN_TERMINAL=1 graph-flow --run .graph-flow/runs/%s key repin" % shlex.quote(pathlib.Path((derived["run"].get("location") or {}).get("run_directory") or derived["run"]["id"] or "run").name)
     view["legacy"] = derived["run"].get("legacy", False)
     view["replaced_unverifiable"] = bool(next((e["data"].get("replaced_unverifiable") for e in reversed(events) if e["type"] == "plan.set"), False))
@@ -695,7 +821,8 @@ def _view(current, derived, events, project):
         if len(revisions) > 1:
             try:
                 previous = pathlib.Path(project) / ".graph-flow" / "runs" / derived["run"]["id"] / "plans" / ("%04d.json" % revisions[-2])
-                view["previous_plan"] = json.loads(previous.read_text(encoding="utf-8"))
+                view["previous_plan"] = (json.loads(previous.read_text(encoding="utf-8")) if replay is None
+                                         else replay["previous_plans"][revisions[-2]])
                 view["current_plan"] = current
                 old_nodes = planning.node_index(view["previous_plan"])
                 changes = []
@@ -709,7 +836,7 @@ def _view(current, derived, events, project):
                     if view["previous_plan"].get(key) != current.get(key):
                         changes.append(dict(title=current.get("title", ""), kind="changed", fields=[key]))
                 view["plan_changes"] = changes
-            except (OSError, ValueError, TypeError):
+            except (OSError, ValueError, TypeError, KeyError):
                 pass
     view["stale_decisions"] = [{"id": d["id"], "reason": d.get("stale_reason"), "purpose": d.get("purpose")} for d in derived["decisions"].values() if d.get("stale_reason")]
     for node in view["nodes"]:
@@ -737,6 +864,201 @@ def _view(current, derived, events, project):
     return view
 
 
+def _history_evidence(run, events):
+    """Freeze filesystem facts used by the existing derivation for this read."""
+    project = store.project_of(run)
+    key = core._read_human_key()
+    plans, previous, asks, submissions = {}, {}, {}, {}
+    for event in events:
+        seq, kind, data = event["seq"], event["type"], event["data"]
+        if kind == "plan.set":
+            revision = int(data["revision"])
+            try:
+                plans[seq] = store._load_plan(run, revision, data)
+                previous[revision] = plans[seq]
+            except core.GFError:
+                plans[seq] = None
+                try:
+                    previous[revision] = json.loads(store._plan_path(run, revision).read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    pass
+        elif kind == "decision.ask":
+            asks[seq] = data
+        elif kind in ("node.submit", "review.submit"):
+            submissions[seq] = data
+    paths, artifacts = set(), {}
+    for seq, ask in asks.items():
+        binding = ask.get("submission")
+        submission = submissions.get(binding) if ask.get("node") and type(binding) is int else None
+        context = _mapping(ask.get("evidence"))
+        if all(k in ask for k in ("location", "submission_binding", "artifact_hashes")):
+            artifacts[seq] = state.artifact_hashes(run, context, submission)
+        paths.update(_strings(context.get("files")))
+    commits = {submission.get("commit") for submission in submissions.values()
+               if isinstance(submission.get("commit"), str) and submission["commit"]}
+    ancestors = {commit for commit in commits if state._is_ancestor(run, commit)}
+    for submission in submissions.values():
+        paths.update(_strings(submission.get("changed_files")))
+    files = set()
+    for path in paths:
+        for committed in (False, True):
+            try:
+                _file_path(project, path, committed=committed)
+            except _HTTPError:
+                continue
+            files.add((path, committed))
+    return {"project": project, "location": store.location(run), "plans": plans, "previous_plans": previous,
+            "fingerprint": hashlib.sha256(key).hexdigest() if key else None,
+            "sign": lambda *args: core._human_sig(key, *args), "ancestors": ancestors,
+            "files": files, "artifacts": artifacts, "constraints": _view_constraints(project)}
+
+
+def _prefix_view(events, activities, evidence, observed_at, derived=None, plan_set=None):
+    """Project truncated ledgers, using only the supplied clock and frozen evidence."""
+    plan_set = plan_set or store._last_plan_set(events)
+    current = evidence["plans"][plan_set["seq"]] if plan_set else None
+    if derived is None:
+        derived = state.derive(current, events, evidence)
+        if plan_set and current is None:
+            derived["run"]["plan_error"] = True
+        store.describe_integrity(derived)
+    return _view(current, derived, events, evidence["project"], activities, observed_at=observed_at, replay=evidence)
+
+
+def _view_patch(before, after):
+    """A singleton list replaces a value. An empty list removes an object key."""
+    if before == after:
+        return None
+    if isinstance(before, dict) and isinstance(after, dict):
+        patch = {key: [] for key in before.keys() - after.keys()}
+        for key, value in after.items():
+            change = _view_patch(before[key], value) if key in before else [value]
+            if change is not None:
+                patch[key] = change
+        return patch
+    if isinstance(before, list) and isinstance(after, list):
+        patch = {":": [len(after)]} if len(before) != len(after) else {}
+        for index, value in enumerate(after):
+            change = _view_patch(before[index], value) if index < len(before) else [value]
+            if change is not None:
+                patch[str(index)] = change
+        return patch
+    return [after]
+
+
+def _history_index(events, activities, observed_at, complete):
+    """Tie event timestamps in ledger order and merge activity by observation time."""
+    rows, busy, decisions_by_id = [], [], {}
+    cursor = None
+    for event in events:
+        stamp = activity._boundary_time(event)
+        cursor = max(cursor, stamp) if cursor is not None and stamp is not None else (
+            cursor if cursor is not None else stamp if stamp is not None else observed_at)
+        kind, seq, data = event["type"], event["seq"], event["data"]
+        node = data.get("node")
+        decision_id = data.get("id")
+        if kind == "decision.ask":
+            decisions_by_id[decision_id if isinstance(decision_id, str) else "d%d" % seq] = node
+        elif kind in ("decision.answer", "decision.superseded"):
+            node = decisions_by_id.get(decision_id) if isinstance(decision_id, str) else None
+        if kind in ("gate.final", "check.result") and (kind == "gate.final" or node == "_run"):
+            node = "_run_checks"
+        fields = {key: data[key] for key in ("attempt", "id", "revision", "verdict", "outcome", "result", "duration_ms") if key in data}
+        duration = data.get("duration_ms")
+        if kind in ("check.red", "check.result") and stamp is not None and type(duration) is int and duration > 0:
+            busy.append((stamp - duration, stamp))
+        rows.append((cursor, 0, {"kind": kind, "seq": seq, "node": node, "time": stamp, **fields}))
+    for i, row in enumerate(activities["records"]):
+        rows.append((activity._milliseconds(row["ts"]), 1, {"activity": i,
+                    **{key: row[key] for key in ("node", "attempt", "call", "phase", "category")}}))
+    for call in activity._calls(activities["records"]):
+        if call["recorded_start"] is not None and call["recorded_end"] is not None:
+            busy.append((call["recorded_start"], call["recorded_end"]))
+    rows.sort(key=lambda row: row[:2])
+    start = (activity._boundary_time(events[0]) if events else None) or (rows[0][0] if rows else observed_at)
+    last = rows[-1][0] if rows else start
+    return {"start": start, "end": last if complete else max(last, observed_at),
+            "last": last, "version": [events[-1]["seq"] if events else 0, len(activities["records"]),
+                                       activities["status"], last],
+            "records": [dict(row, at=at) for at, _, row in rows], "busy": sorted(busy)}
+
+
+def _dashboard_history(run, current, derived, events, activities, observed_at):
+    index = _history_index(events, activities, observed_at, derived["run"]["status"] == "complete")
+    records = index["records"]
+    live = _view(current, derived, events, store.project_of(run), activities, observed_at=observed_at)
+    if not records:
+        return {**index, "base": live, "steps": [], "transfers": [], "wait_ends": {}, "resets": {}, "live": live}
+    evidence = _history_evidence(run, events)
+    prefix, observations = [], dict(activities, records=[])
+    included_activity = set()
+    before = _prefix_view(prefix, observations, evidence, index["start"])
+    base, steps, transfers, wait_ends, resets = before, [], {}, {}, {}
+    prefix_state = None
+    plan_set = None
+
+    def add(at, record_index):
+        nonlocal before
+        after = _prefix_view(prefix, observations, evidence, at, prefix_state, plan_set)
+        if record_index is not None and "seq" in records[record_index]:
+            open_ids = {decision["id"] for decision in after["decisions"]}
+            for decision in before["decisions"]:
+                if decision["id"] not in open_ids:
+                    wait_ends.setdefault(decision["id"], at)
+            edges = after["edges"] + [{"from": source, "to": "_run_checks", "relation": "hands_over",
+                                      "flow": flow} for source, flow in after["goal_flows"].items()]
+            for edge in edges:
+                relation = [edge["from"], edge["to"], edge["relation"], edge.get("label", "")]
+                flow = edge["flow"]
+                refs = [(False, flow["delivery"])]
+                if flow["state"] == "returned":
+                    refs.append((True, flow["record"]))
+                for reverse, ref in refs:
+                    if ref and ref.get("time"):
+                        key = (*relation, reverse, ref["seq"])
+                        transfers.setdefault(key, {"relation": relation, "reverse": reverse, "visible": at, **ref})
+        patch = _view_patch(before, after) or {}
+        patch.pop("observed_at_ms", None)
+        if patch or record_index is not None:
+            steps.append([at, record_index, patch])
+        before = after
+
+    def stalls_until(at):
+        stalls = {attempt["last_ms"] + activity.STALL_MS
+                  for node in before["nodes"] if node["status"] == "running"
+                  for attempt in node.get("activity", [])[-1:]
+                  if attempt["last_ms"] is not None and not attempt["stalled"]}
+        for stall in sorted(stalls):
+            if before["observed_at_ms"] < stall < at:
+                add(stall, None)
+
+    for record_index, record in enumerate(records):
+        at = record["at"]
+        stalls_until(at)
+        if "activity" in record:
+            included_activity.add(record["activity"])
+            observations["records"] = [activities["records"][i] for i in sorted(included_activity)]
+        else:
+            event = events[len(prefix)]
+            prefix.append(event)
+            if event["type"] == "plan.set":
+                plan_set = event
+            current_plan = evidence["plans"][plan_set["seq"]] if plan_set else None
+            prefix_state = state.derive(current_plan, prefix, evidence)
+            if plan_set and current_plan is None:
+                prefix_state["run"]["plan_error"] = True
+            store.describe_integrity(prefix_state)
+            if event["type"] in ("plan.set", "node.reopen", "node.start"):
+                current_nodes = prefix_state["nodes"]
+                reset_nodes = {node["id"] for node in before["nodes"] if node["id"] not in current_nodes}
+                reset_nodes.update(node for node, status in current_nodes.items() if status["basis"] == event["seq"])
+                if reset_nodes:
+                    resets[event["seq"]] = sorted(reset_nodes)
+        add(at, record_index)
+    stalls_until(index["end"] + 1)
+    return {**index, "base": base, "steps": steps, "transfers": list(transfers.values()), "wait_ends": wait_ends, "resets": resets, "live": live}
+
+
 def _file_path(project, relative, committed=False):
     # Validate the recorded spelling as well as the resolved destination.
     path = pathlib.PurePosixPath(relative)
@@ -760,7 +1082,7 @@ def _file_path(project, relative, committed=False):
     return target
 
 
-def _decision_files(decision, derived, project, owns=()):
+def _decision_files(decision, derived, project, owns=(), *, replay=None):
     st = derived["nodes"].get(decision.get("node")) or {}
     # Only the node's own files: in a shared tree its diff can include other nodes' edits.
     paths = [path for path in _strings(_mapping(st.get("submission")).get("changed_files"))
@@ -769,7 +1091,11 @@ def _decision_files(decision, derived, project, owns=()):
     files = []
     for path in dict.fromkeys(paths):
         try:
-            _file_path(project, path, committed=bool((decision.get("submission_binding") or {}).get("commit")))
+            committed = bool((decision.get("submission_binding") or {}).get("commit"))
+            if replay is None:
+                _file_path(project, path, committed=committed)
+            elif (path, committed) not in replay["files"]:
+                continue
         except _HTTPError:
             continue
         files.append({"name": pathlib.PurePosixPath(path).name, "path": path})
@@ -889,7 +1215,7 @@ def _handler(token):
                                  ("default-src 'none'; script-src 'nonce-%s'; base-uri 'none'; form-action 'none'" % nonce)
                                  if recovery else
                                  "default-src 'none'; script-src 'nonce-%s' 'self'; style-src 'nonce-%s'; "
-                                 "connect-src 'self'; img-src 'self' data: blob:; base-uri 'none'; form-action 'none'"
+                                 "connect-src 'self'; font-src 'self'; img-src 'self' data: blob:; base-uri 'none'; form-action 'none'"
                                  % (nonce, nonce))
             self.end_headers()
             if self.command != "HEAD":
@@ -1007,7 +1333,7 @@ try {
                 return self._json(200, _project_list())
             if path == "/api/queue":
                 return self._json(200, _queue())
-            if path in ("/api/run", "/api/evidence", "/api/file"):
+            if path in ("/api/run", "/api/history", "/api/evidence", "/api/file"):
                 run = _run(query.get("project", [None])[0], query.get("run", [None])[0])
                 if path == "/api/file":
                     return self._send(200, _file(run, query.get("decision", [""])[0],
@@ -1015,9 +1341,16 @@ try {
                 if path == "/api/evidence":
                     return self._send(200, _evidence(run, query.get("path", [""])[0]), "text/plain; charset=utf-8")
                 current, events, derived = _snapshot(run)
+                project = store.project_of(run)
+                activities = activity.read(run)
+                observed_at = int(time.time() * 1000)
+                if path == "/api/history":
+                    return self._json(200, _dashboard_history(run, current, derived, events, activities, observed_at))
                 result = {"plan": current, "state": derived,
                           "ready": graph.available(current or {}, derived), "trace": trace.trace(run),
-                          "view": _view(current, derived, events, store.project_of(run))}
+                          "view": _view(current, derived, events, project, activities, observed_at=observed_at)}
+                if query.get("history") == ["index"]:
+                    result["history"] = _history_index(events, activities, observed_at, result["view"]["complete"])
                 return self._json(200, result)
             raise _HTTPError(404, "not_found", "unknown route")
 

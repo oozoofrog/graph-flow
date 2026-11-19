@@ -5,6 +5,10 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+if sys.argv[1:] in (["_observe-activity"], ["_observe-activity", "codex"]):
+    from graphflow.activity import hook
+    sys.exit(hook("codex" if len(sys.argv) == 3 else "claude"))
+
 try:
     import graphflow.cli as cli
 except ModuleNotFoundError as exc:

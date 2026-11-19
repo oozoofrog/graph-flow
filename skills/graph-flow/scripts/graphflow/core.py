@@ -59,20 +59,24 @@ def gf_home():
     return pathlib.Path.home() / ".graph-flow"
 
 
-def key_fingerprint():
+def _read_human_key():
     try:
-        key = (gf_home() / "human.key").read_bytes()
+        return (gf_home() / "human.key").read_bytes()
     except OSError:
         return None
+
+
+def key_fingerprint():
+    key = _read_human_key()
     return hashlib.sha256(key).hexdigest() if key else None
 
 
 def human_sig(run_id, decision_id, outcome, answer_text, decision=None):
     """HMAC-SHA256 hex over the answer, keyed with $GF_HOME/human.key; None when unreadable."""
-    try:
-        key = (gf_home() / "human.key").read_bytes()
-    except OSError:
-        return None
+    return _human_sig(_read_human_key(), run_id, decision_id, outcome, answer_text, decision)
+
+
+def _human_sig(key, run_id, decision_id, outcome, answer_text, decision=None):
     if not key:
         return None
     message = "\n".join([str(run_id), str(decision_id), str(outcome), answer_text or ""])

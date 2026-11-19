@@ -51,6 +51,7 @@ try {
       if(width===390&&mode==='plan')assert(await evaluate("document.querySelector('.plan-actions').getBoundingClientRect().height<=innerHeight*.45"),'Q3 choices and consequences leave room for the question');
       for(const id of ['n0','n1','n2','_run_checks']) {
         await evaluate(`document.querySelector(${JSON.stringify((width<761?'#phone-flow':'#map')+' [data-node="'+id+'"] .node-header')}).click()`);
+        await evaluate(`Promise.all(document.querySelector('#panel').getAnimations().map(a=>a.finished))`);
         const audit=await evaluate(`(()=>{const e=document.querySelector('.panel-intro .node-sentence'),r=e.getBoundingClientRect(),intro=e.parentElement;return {text:e.textContent,first:intro.children[1]===e,inside:r.top>=0&&r.left>=0&&r.bottom<=innerHeight&&r.right<=innerWidth,rect:r.toJSON()}})()`);
         assert(audit.first&&audit.inside,JSON.stringify({width,height,mode,id,audit}));
         if(id!=='_run_checks')assert.equal(audit.text.length,300);

@@ -19,7 +19,7 @@ from urllib.parse import urlencode
 
 SCRIPTS = pathlib.Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
-from graphflow import assign, checks, core, decisions, gate, learn, plan, server, state, store
+from graphflow import activity, assign, checks, core, decisions, gate, learn, plan, server, state, store
 
 from human_support import recorded_question, legacy_run, approve_current_plan
 
@@ -133,7 +133,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual((body["ok"], body["code"]), (False, code))
 
     def test_host_and_token_for_every_route(self):
-        routes = ["/", "/api/projects", "/api/queue", self.api("/api/run"),
+        routes = ["/", "/api/projects", "/api/queue", self.api("/api/run"), self.api("/api/history"),
                   self.api("/api/evidence", path="evidence/missing"),
                   self.api("/api/file", decision=self.asks[0], path="built.txt"), "/not-found"]
         for path in routes:
@@ -166,7 +166,12 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.httpd.server_address[0], "127.0.0.1")
 
     def test_static_allowlist_and_host_without_token(self):
-        self.assertEqual(set(server.STATIC_TYPES), {"page.js", *("assets/frog-%s.png" % p for p in ("wave", "walk-a", "walk-b", "report"))})
+        vendor = server.STATIC_ROOT / "vendor"
+        self.assertEqual(set(server.STATIC_TYPES), {
+            "page.js", "graph-webgl.js", "activity-webgl.js", "history.js", "spacetime.js",
+            *("assets/frog-%s.png" % p for p in ("wave", "walk-a", "walk-b", "report")),
+            *(str(p.relative_to(server.STATIC_ROOT)) for p in vendor.rglob("*") if p.is_file()),
+        })
         for name, content_type in server.STATIC_TYPES.items():
             status, headers, body = self.request("GET", "/static/" + name, token=False)
             self.assertEqual(status, 200, name)
@@ -196,6 +201,41 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(connection.getresponse().status, 403)
         finally:
             connection.close()
+
+    def test_three_manifest_and_nonce_import_map(self):
+        vendor = server.STATIC_ROOT / "vendor/three"
+        manifest = json.loads((vendor / "manifest.json").read_text())
+        self.assertEqual(manifest["version"], "0.187.0")
+        self.assertEqual(manifest["license"], "MIT")
+        self.assertEqual(manifest["source"], "https://registry.npmjs.org/three/-/three-0.187.0.tgz")
+        self.assertEqual(set(manifest["sha256"]), {
+            str(p.relative_to(vendor)) for p in vendor.rglob("*") if p.is_file() and p.name != "manifest.json"
+        })
+        for name, digest in manifest["sha256"].items():
+            self.assertIn("vendor/three/" + name, server.STATIC_TYPES)
+            self.assertEqual(hashlib.sha256((vendor / name).read_bytes()).hexdigest(), digest, name)
+        status, headers, body = self.request("GET", "/")
+        self.assertEqual(status, 200)
+        csp = headers["Content-Security-Policy"]
+        nonce = csp.split("'nonce-")[1].split("'")[0]
+        opening = f'<script type="importmap" nonce="{nonce}">'.encode()
+        imports = json.loads(body.split(opening)[1].split(b"</script>")[0])["imports"]
+        self.assertEqual(imports, {
+            "three": "/static/vendor/three/build/three.module.js",
+        })
+        self.assertLess(body.index(opening), body.index(b'<script type="module"'))
+        self.assertNotIn("unsafe-", csp)
+        self.assertIn("font-src 'self'", csp)
+        fonts = server.STATIC_ROOT / "vendor/fonts"
+        font_manifest = json.loads((fonts / "manifest.json").read_text())
+        self.assertEqual(font_manifest["license"], "OFL-1.1")
+        self.assertEqual(set(font_manifest["upstream"]), set(font_manifest["sha256"]))
+        self.assertEqual(len([name for name in font_manifest["sha256"] if name.endswith("-OFL.txt")]), 4)
+        for name, digest in font_manifest["sha256"].items():
+            self.assertEqual(hashlib.sha256((fonts / name).read_bytes()).hexdigest(), digest)
+            if name.endswith(".ttf"):
+                self.assertEqual(server.STATIC_TYPES["vendor/fonts/" + name], "font/ttf")
+                self.assertIn(("/static/vendor/fonts/" + name).encode(), body)
 
     def test_authentication_regressions(self):
         status, headers, body = self.request("HEAD", "/static/page.js", token=False)
@@ -446,6 +486,91 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(item["node_state"]["attempts"], 2)
         self.assertEqual(item["checks"], [])
 
+    @unittest.skipUnless(shutil.which("node"), "requires Node.js")
+    def test_t1_history_at_every_ledger_boundary(self):
+        run = self.runs[0]
+        with store.transaction(run) as tx:
+            # Include a returned attempt and a structural change while the other
+            # fixture keeps its open decision and its unobserved activity.
+            tx.append("gate.verdict", {"node": "build", "attempt": 1, "verdict": "reject",
+                      "rejection": {"reason": "Check the input."}}, ACTOR)
+            tx.append("node.start", {"node": "build", "attempt": 2}, ACTOR)
+            extra = {"id": "audit", "kind": "work", "goal": "check wording", "owns": ["audit.txt"],
+                     "lane": 1, "grade": "daily", "checks": [dict(CMD)]}
+            changed, _ = plan.normalize({**tx.plan, "nodes": tx.plan["nodes"] + [extra]})
+            self.assertEqual(plan.validate(changed), [])
+            revision, sha = tx.write_plan(changed)
+            tx.append("plan.set", {"revision": revision, "plan_sha256": sha,
+                      "plan_identity": state.plan_identity(changed)}, ACTOR)
+        unseen = legacy_run(self.projects[0], "unobserved", ACTOR)
+        with store.transaction(unseen) as tx:
+            unobserved_plan = store.read_plan(self.runs[0])
+            revision, sha = tx.write_plan(unobserved_plan)
+            tx.append("plan.set", {"revision": revision, "plan_sha256": sha,
+                                    "plan_identity": state.plan_identity(unobserved_plan)}, ACTOR)
+        approve_current_plan(unseen)
+        checks.start(unseen, "audit", None, ACTOR)
+        for index, run in enumerate([*self.runs, unseen]):
+            with self.subTest(run=run.name):
+                project = store.project_of(run)
+                current, events, derived = store.snapshot(run)
+                observed = activity.read(run)
+                # Include activity between execution record boundaries.
+                started = next(e for e in events if e["type"] == "node.start")
+                for j, phase in enumerate(("PreToolUse", "PostToolUse") if index == 0 else ()):
+                    row = activity.observation({"hook_event_name": phase, "session_id": "work",
+                                               "tool_name": "Read", "tool_use_id": "one"},
+                                               started["ts"].replace("Z", ".%03dZ" % (100+j)))
+                    row.update(node="build", attempt=1, via="session")
+                    observed["records"].append(row)
+                observed_at = max(activity._boundary_time(e) for e in events) + activity.STALL_MS + 1000
+                history = server._dashboard_history(run, current, derived, events, observed, observed_at)
+                evidence = server._history_evidence(run, events)
+                self.assertEqual(history["live"], server._view(current, derived, events, project,
+                                                               observed, observed_at=observed_at))
+                self.assertEqual(history["live"], server._prefix_view(events, observed, evidence, observed_at))
+                expected = []
+                sequence, activity_indices = 0, set()
+                for at, record_index, _ in history["steps"]:
+                    if record_index is not None:
+                        row = history["records"][record_index]
+                        if "activity" in row:
+                            activity_indices.add(row["activity"])
+                        else:
+                            sequence = row["seq"]
+                    prefix = store.EventLog([e for e in events if e["seq"] <= sequence], run)
+                    prefix_activity = dict(observed, records=[observed["records"][i] for i in sorted(activity_indices)])
+                    plan_set = store._last_plan_set(prefix)
+                    prefix_plan = store._load_plan(run, plan_set["data"]["revision"], plan_set["data"]) if plan_set else None
+                    prefix_state = state.derive(prefix_plan, prefix)
+                    store.describe_integrity(prefix_state)
+                    expected.append(server._view(prefix_plan, prefix_state, prefix, project,
+                                                 prefix_activity, observed_at=at))
+                self.assertEqual(sum(step[1] is not None for step in history["steps"]),
+                                 len(events) + len(observed["records"]))
+                source = SCRIPTS / "graphflow" / "history.js"
+                subprocess.run(["node", "--input-type=module", "-e", """
+                    import assert from 'node:assert/strict';
+                    import {readFileSync} from 'node:fs';
+                    const js=readFileSync(process.argv[1]);
+                    const {historyView,historyStep}=await import('data:text/javascript;base64,'+js.toString('base64'));
+                    const {history,expected}=JSON.parse(readFileSync(0));
+                    let previous;
+                    for(const [step,[at]] of history.steps.entries()){
+                      const view=historyView(history,step,at,previous);
+                      assert.deepEqual(view,expected[step], 'forward boundary '+step);
+                      assert.deepEqual(historyView(history,step,at),expected[step], 'random boundary '+step);
+                      assert(historyStep(history.steps,at)>=step);
+                      previous={step,view};
+                    }
+                    assert.deepEqual(historyView(history,historyStep(history.steps,history.live.observed_at_ms),
+                      history.live.observed_at_ms),history.live);
+                    """, str(source)], input=json.dumps({"history": history, "expected": expected}),
+                    text=True, check=True)
+                status, served = self.json_request("GET", "/api/history?" + urlencode({"project": str(project), "run": run.name}))
+                self.assertEqual(status, 200)
+                self.assertEqual(served["version"][0], events[-1]["seq"])
+
     def test_run_shape_and_unknown_id_validation(self):
         status, data = self.json_request("GET", self.api("/api/run"))
         self.assertEqual(status, 200)
@@ -518,8 +643,10 @@ class ServerTests(unittest.TestCase):
         data["view"].pop("recovery_identity")
         self.assertEqual(data["view"].pop("run_contract"), {})
         self.assertEqual(data["view"].pop("integrity"), [])
+        self.assertIsInstance(data["view"].pop("observed_at_ms"), int)
         self.assertEqual(data["view"], {"title": "", "summary": "", "context": {}, "requirements": [], "language": "en", "nodes": [], "edges": [], "decisions": [], "answered": [],
-                                      "lessons": [], "notices": [], "stale_decisions": [], "complete": False, "run": "empty",
+                                      "goal_flows": {},
+                                      "lessons": [], "notices": [], "stale_decisions": [], "complete": False, "final_result": None, "run": "empty",
                                       "plan_counts": {"work": 0, "review": 0, "decision": 0, "checks": 0, "decisions": 0},
                                   "plan_error": False, "key_mismatch": False, "location_mismatch":False, "has_work":False, "goal": "", "planned_questions": [],
                                   "integration_checks": [], "promoted_checks": [], "superseded": [], "constraints": [],
@@ -594,9 +721,9 @@ class ServerTests(unittest.TestCase):
         status, data = self.json_request("GET", "/api/run?" + urlencode({"project": str(project.resolve()), "run": run.name}))
         self.assertEqual(status, 200)
         view = data["view"]
-        self.assertEqual(set(view), {"title", "summary", "context", "requirements", "language", "nodes", "edges", "decisions", "answered", "lessons", "counts", "complete",
-                                     "run", "project", "timeline", "plan_approval", "plan_counts", "plan_error", "key_mismatch", "location_mismatch", "has_work",
-                                 "goal", "planned_questions", "integration_checks", "promoted_checks", "superseded", "constraints", "key_recovery", "legacy", "replaced_unverifiable", "stale_decisions", "recovery_identity", "run_contract", "integrity", "notices"})
+        self.assertEqual(set(view), {"title", "summary", "context", "requirements", "language", "nodes", "edges", "decisions", "answered", "lessons", "counts", "complete", "final_result",
+                                     "run", "project", "timeline", "plan_approval", "plan_counts", "plan_error", "key_mismatch", "location_mismatch", "has_work", "goal_flows",
+                                 "goal", "planned_questions", "integration_checks", "promoted_checks", "superseded", "constraints", "key_recovery", "legacy", "replaced_unverifiable", "stale_decisions", "recovery_identity", "run_contract", "integrity", "notices", "observed_at_ms"})
         self.assertEqual(view["title"], raw["title"])
         self.assertFalse(view["complete"])
         self.assertEqual([n["id"] for n in view["nodes"]], [n["id"] for n in current["nodes"]])
@@ -609,11 +736,16 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(human["laps"], ["waiting_for_you"])
         self.assertEqual(waiting["laps"], [])
         self.assertEqual(review["laps"], [])
-        self.assertEqual(view["edges"], [
-            {"from": "retry", "to": "waiting", "label": "Draft", "relation": "hands_over", "delivered": False, "gate": "returned"},
+        self.assertEqual([{key: value for key, value in edge.items() if key != "flow"} for edge in view["edges"]], [
+            {"from": "retry", "to": "waiting", "label": "Draft", "relation": "hands_over", "delivered": False, "gate": "closed"},
             {"from": "human", "to": "waiting", "label": "Chosen wording", "relation": "hands_over", "delivered": False, "gate": "waiting_for_you"},
             {"from": "done", "to": "waiting", "label": "Finished result", "relation": "hands_over", "delivered": True, "gate": "open"},
-            {"from": "review-retry", "to": "retry", "label": "", "relation": "reviews", "delivered": False, "gate": "closed"}])
+            {"from": "retry", "to": "review-retry", "label": "", "relation": "reviews", "delivered": False, "gate": "closed"}])
+        self.assertEqual([edge["flow"]["state"] for edge in view["edges"]],
+                         ["waiting", "blocked", "delivered", "waiting"])
+        self.assertEqual(view["edges"][1]["flow"]["record"]["seq"], ask)
+        self.assertEqual(view["edges"][2]["flow"]["delivery"]["kind"], "node.submit")
+        self.assertNotIn("SECRET_", json.dumps([edge["flow"] for edge in view["edges"]]))
         asked = view["decisions"][0].pop("asked")
         self.assertRegex(asked, r"^\d{4}-\d\d-\d\dT")
         self.assertEqual(view["decisions"][0].pop("asked_by")["role"], "leader")
@@ -668,7 +800,7 @@ class ServerTests(unittest.TestCase):
         view = server._view(current, state.derive(current, []), [], self.projects[0])
         self.assertEqual([(e["from"], e["to"], e["relation"]) for e in view["edges"]],
                          [("choice", "work", "waits_for_decision"), ("work", "review", "hands_over"),
-                          ("review", "work", "reviews")])
+                          ("work", "review", "reviews")])
 
     def test_view_decision_node_context_free_decisions_and_completion(self):
         raw = {"schema_version": 1, "goal": "Choose a direction", "nodes": [
@@ -964,7 +1096,7 @@ class ServerTests(unittest.TestCase):
             csp = headers["Content-Security-Policy"]
             nonce = csp.split("'nonce-")[1].split("'")[0]
             self.assertEqual(csp, "default-src 'none'; script-src 'nonce-%s' 'self'; style-src 'nonce-%s'; "
-                             "connect-src 'self'; img-src 'self' data: blob:; base-uri 'none'; form-action 'none'" % (nonce, nonce))
+                             "connect-src 'self'; font-src 'self'; img-src 'self' data: blob:; base-uri 'none'; form-action 'none'" % (nonce, nonce))
             path.parent.mkdir()
             path.write_text('<style nonce="__NONCE__"></style><script nonce="__NONCE__"></script>', encoding="utf-8")
             status, headers, body = self.request("GET", "/")

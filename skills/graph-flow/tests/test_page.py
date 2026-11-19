@@ -116,37 +116,59 @@ class PageTests(unittest.TestCase):
     def test_local_assets_safe_dom_and_nonce(self):
         html = (S / 'scripts/graphflow/page.html').read_text(encoding='utf-8')
         js = (S / 'scripts/graphflow/page.js').read_text(encoding='utf-8')
-        for source in (html, js):
+        webgl = (S / 'scripts/graphflow/graph-webgl.js').read_text(encoding='utf-8')
+        for source in (html, js, webgl):
             for forbidden in ('http://', 'https://', 'innerHTML', 'insertAdjacentHTML', 'document.write', 'eval(', 'new Function'):
                 self.assertNotIn(forbidden, source)
             self.assertNotRegex(source, r'\bstyle\s*=\s*[\"\']')
         self.assertIn('<style nonce="__NONCE__">', html)
         self.assertIn('<script type="module" nonce="__NONCE__" src="/static/page.js">', html)
-        self.assertEqual(html.count('<script'), 1)
+        self.assertIn('<script type="importmap" nonce="__NONCE__">', html)
+        self.assertEqual(html.count('<script'), 2)
         self.assertNotIn('unsafe-inline', html)
         self.assertNotIn('unsafe-eval', html)
-        for removed in ('three.module', 'CSS2DRenderer', 'WebGL', 'canvas'):
-            self.assertNotIn(removed, html + js)
+        self.assertNotIn('CSS2DRenderer', html + js + webgl)
+        self.assertIn("import('./graph-webgl.js')", js)
         self.assertIn('createElementNS', js)
-        self.assertFalse((S / 'scripts/graphflow/vendor').exists())
+        self.assertTrue((S / 'scripts/graphflow/vendor/three/manifest.json').is_file())
 
-    def test_motion_is_declared_in_css_and_stops_for_reduced_motion(self):
+    def test_graph_motion_uses_one_demand_driven_frame_callback(self):
         html = (S / 'scripts/graphflow/page.html').read_text(encoding='utf-8')
         js = (S / 'scripts/graphflow/page.js').read_text(encoding='utf-8')
         style = html[html.index('<style'):html.index('</style>')]
         declared = set(re.findall(r'@keyframes ([a-z]+)', style))
-        self.assertEqual(declared, {'step', 'flow', 'arrive'})
+        self.assertEqual(declared, set())
         used = {name for rule in re.findall(r'animation:([^;}]+)', style)
                 for name in re.findall(r'(?:^|,)([a-z]+) ', rule)}
         self.assertEqual(used, declared)
         reduced = '@media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important'
-        self.assertGreater(style.index(reduced), max(style.rindex('@keyframes'), style.rindex('animation:flow')))
+        self.assertIn(reduced, style)
+        self.assertNotIn('infinite', style)
         # The native play mark remains visible when animation is disabled.
         self.assertIn("el('span','▶','walker')", js)
-        for used_class in ('working', 'changed', 'flowing', 'walker'):
+        for used_class in ('working', 'walker'):
             self.assertIn("'" + used_class, js.replace("' " + used_class, "'" + used_class))
         self.assertNotIn('frog-walk', js)
-        self.assertNotIn('requestAnimationFrame', js)
+        self.assertEqual(js.count('requestAnimationFrame('), 2)  # WebGL invalidation and the event clock.
+        self.assertIn('!document.hidden && !reduced.matches', js)
+        self.assertIn('!motionPaused && viewport.clientWidth', js)
+        self.assertIn('if(motionAllowed()&&fx.active()', js)
+        self.assertNotIn('GRAPH_PERIOD_MS', js)
+
+    def test_a7_activity_cues_are_optional_and_quieter_than_answers(self):
+        self.run_controller("""
+const {activityCues} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+for (const latest of ['tool','skill','mcp','session','gf','other','thinking']) {
+  const activity = [{latest, stalled:true, repeating:true}];
+  assert.deepEqual(activityCues({status:'running',activity}), [latest,'stalled','repeating']);
+  assert.deepEqual(activityCues({status:'submitted',activity}), []);
+}
+assert.deepEqual(activityCues({status:'running',activity:[{latest:null,stalled:true}]}), ['stalled']);
+assert.equal(statusGlyph('awaiting'), '◆');
+""")
+        html = (S / 'scripts/graphflow/page.html').read_text()
+        self.assertIn('data-state="stalled"', html)
+        self.assertIn('data-hazard="answer"', html)
 
     def test_translation_keys_match(self):
         js = (S / 'scripts/graphflow/page.js').read_text(encoding='utf-8')
@@ -173,7 +195,7 @@ import assert from 'node:assert/strict';
 process.on('uncaughtException', error=>{console.error(error.stack.replace(/data:text[^: ]+/g,'page.js'));process.exit(1);});
 import {readFileSync} from 'node:fs';
 const source = readFileSync(process.argv[2], 'utf8');
-const {createDecisionController, decisionQuestion, purposeWording, purposeAction, viewLanguage, edgeRelationLabel, fitScale, MIN_FIT_SCALE, edgeChipText, cometCount, layeredLayout, crossingCount, displayState, statusGlyph, checkWording, checkTitle, offscreenDirection, planFlow,fitStart, planCounts, fitGraph, zoomLevel, mapAnchor, intersectsViewport, commandTitle, overviewMarkText} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+const {createDecisionController, decisionQuestion, purposeWording, purposeAction, viewLanguage, edgeRelationLabel, fitScale, MIN_FIT_SCALE, edgeChipText, cometCount, layeredLayout, crossingCount, displayState, statusGlyph, checkWording, checkTitle, offscreenDirection, planFlow,fitStart, planCounts, fitGraph, zoomLevel, mapAnchor, intersectsViewport, commandTitle, overviewMarkText, createGraphScene, STATE_VOCABULARY} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 const first = {project:'/project', run:'first'}, second = {project:'/project', run:'second'};
 const decision = {id:'d7', purpose:'lane3', kind:'authorization', failed:[], files:[{name:'Result',path:'result.txt'}]};
 const controller = createDecisionController();
@@ -229,7 +251,7 @@ assert.equal(fitScale({width:900,height:400},855,500,true),.95);
 
     def test_plan_flow_ends_with_recorded_run_contract_and_keeps_counts(self):
         self.run_controller(r"""
-const original={nodes:[{id:'a',kind:'work'},{id:'b',kind:'work'},{id:'r',kind:'review'}],edges:[{from:'a',to:'b',relation:'hands_over'},{from:'r',to:'b',relation:'reviews'}],goal:'Whole goal',integration_checks:[{id:'all',command:'test -f result'}],promoted_checks:[{id:'fixed',command:'true'}],plan_counts:{work:2,review:1,decision:0}};
+const original={nodes:[{id:'a',kind:'work'},{id:'b',kind:'work'},{id:'r',kind:'review'}],edges:[{from:'a',to:'b',relation:'hands_over'},{from:'b',to:'r',relation:'reviews'}],goal:'Whole goal',integration_checks:[{id:'all',command:'test -f result'}],promoted_checks:[{id:'fixed',command:'true'}],plan_counts:{work:2,review:1,decision:0}};
 const before=JSON.stringify(original), flow=planFlow(original,'en');
 assert.equal(JSON.stringify(original),before);
 assert.equal(flow.nodes.at(-1).runLevel,true);
@@ -280,7 +302,7 @@ assert.equal(checkTitle({type:'cmd',command:'test -s a.txt',title:'검사 명령
 
     def test_relation_labels_and_loop_states(self):
         self.run_controller(r"""
-for(const [lang,labels] of [['ko',['넘겨줌','검토를 맡겼어요','결정을 기다림']],['en',['hands over','reviewed by','waits for a decision']]]) {
+for(const [lang,labels] of [['ko',['넘겨줌','검토 담당','결정을 기다림']],['en',['hands over','reviewed by','waits for a decision']]]) {
   ['hands_over','reviews','waits_for_decision'].forEach((relation,i)=>assert.equal(edgeRelationLabel({relation,label:''},lang),labels[i]));
   assert.equal(edgeRelationLabel({relation:'hands_over',label:'Readable result'},lang),labels[0]+': Readable result');
 }
@@ -514,12 +536,12 @@ live.nodes[0].attempts=2;live.nodes[0].laps=['returned','current'];live.nodes[0]
 docEvents.visibilitychange();await settle();
 assert.match(get('map').textContent,/Attempt 2/);
 assert.doesNotMatch(get('map').textContent,/✕|Unit passes/,'earlier failure cannot dominate the current card');
-assert.match(get('map').textContent,/Work awaiting my answer/);
+assert.match(get('map').textContent,/Needs your answer/);
 live.nodes[0]=originalNode;docEvents.visibilitychange();await settle();
 
 live.nodes.push({id:'choice',kind:'decision',title:'Pick a direction',status:'pending',answered:true,inputs:[],outputs:[],laps:[],returned_reasons:[]});
 docEvents.visibilitychange();await settle();
-assert.match(get('map').textContent,/Finished/,'answered decisions use finished words as well as colour');
+assert.match(get('map').textContent,/Done/,'answered decisions use finished words as well as colour');
 live.nodes.pop();docEvents.visibilitychange();await settle();
 // The other view is the inbox and the record, newest entry first, with the real check of a returned attempt.
 get('home-tab').click(); assert.equal(get('home').hidden,false); assert.equal(get('flow').hidden,true);
@@ -691,10 +713,14 @@ for(const lang of ['ko','en'])for(const [name,status,attempts] of cases){
   live={...live,language:lang,nodes:[node],plan_counts:{work:1},plan_approval:null,decisions:name==='awaiting'?[{...d,node:'work'}]:[],timeline:[row]};
   api.applyView(structuredClone(live));
   const expected=api.stateWords(name,lang).name;
-  assert(api.nodeCard(node,false,'detail').textContent.includes(expected),name+' detail');
-  assert(api.nodeCard(node,false,'overview').querySelector('.node-header')['aria-label'].includes(expected),name+' overview accessible state');
-  assert(get('map').querySelector('.state-legend').textContent.includes(expected),name+' legend');
-  assert(get('phone-flow').textContent.includes(expected),name+' phone');
+  const compact=({ko:{notStarted:'시작 전',running:'진행 중',retrying:'다시 진행 중',submitted:'확인 대기',
+     passed:'끝남',awaiting:'답이 필요함',returned:'되돌아옴'},
+     en:{notStarted:'Not started',running:'Running',retrying:'Retrying',submitted:'Awaiting check',
+     passed:'Done',awaiting:'Needs your answer',returned:'Returned'}}[lang])[name]||expected;
+  assert.equal(api.nodeCard(node,false,'detail').querySelector('.state-word').textContent,compact,name+' detail');
+  assert(api.nodeCard(node,false,'overview').querySelector('.node-header')['aria-label'].includes(compact),name+' overview accessible state');
+  assert(!get('map').querySelector('.state-legend'),name+' no page legend');
+  assert.equal(get('phone-flow').querySelector('.state-word').textContent,compact,name+' phone');
   assert(get('node-list').textContent.includes(expected),name+' list');
   api.selectNode('work');if(get('panel').hidden)api.selectNode('work');
   assert(get('panel').querySelector('.panel-status').textContent.includes(expected),name+' panel');
@@ -709,7 +735,8 @@ for(const lang of ['ko','en'])for(const [name,status,attempts] of cases){
         self.assertIn('details[open]>summary:before{transform:rotate(45deg)',html)
         self.assertNotIn('content:"▶"',html)
         self.assertNotIn('if(chosenNode && layout.bounds',js)
-        self.assertIn('#flow.has-selection{grid-template-columns:minmax(0,1fr) 320px}',html)
+        self.assertIn('#flow.has-selection{grid-template-columns:minmax(0,1fr)}',html)
+        self.assertIn('position:absolute;grid-area:auto;',html)
         self.run_controller(r"""
 const nodes=['a','b','c'].map(id=>({id,title:id,kind:'work'})), edges=[{from:'a',to:'b'},{from:'b',to:'c'}];
 const before=layeredLayout(nodes,edges);
@@ -720,11 +747,11 @@ assert.equal(statusGlyph('running'),'▶');
     def test_card_history_never_competes_with_current_status(self):
         js=(S / 'scripts/graphflow/page.js').read_text()
         card=js.split('function nodeCard(',1)[1].split('function createMap()',1)[0]
-        self.assertIn("t('returnedActor'",card)
+        self.assertIn("returnActor(n)",card)
         self.assertIn('returnedLine(n)',card)
         self.assertNotIn('checkWording',card)
         self.assertNotIn('failure-mark',card)
-        self.assertLess(card.index('statusLine'),card.index('returnedLine(n)'))
+        self.assertLess(card.index('stateLine'),card.index('returnedLine(n)'))
 
     def test_real_demo_and_decision_view(self):
         with tempfile.TemporaryDirectory() as directory, mock.patch.dict(os.environ):

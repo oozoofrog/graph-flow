@@ -1,0 +1,25 @@
+{
+  "source": "https://github.com/google/fonts",
+  "revision": "5bd87dfc525c8a0d1d8529d3684716e00c3fc59a",
+  "license": "OFL-1.1",
+  "upstream": {
+    "IBMPlexSansKR-Regular.ttf": "ofl/ibmplexsanskr/IBMPlexSansKR-Regular.ttf",
+    "ibmplexsanskr-OFL.txt": "ofl/ibmplexsanskr/OFL.txt",
+    "IBMPlexMono-Regular.ttf": "ofl/ibmplexmono/IBMPlexMono-Regular.ttf",
+    "ibmplexmono-OFL.txt": "ofl/ibmplexmono/OFL.txt",
+    "DoHyeon-Regular.ttf": "ofl/dohyeon/DoHyeon-Regular.ttf",
+    "dohyeon-OFL.txt": "ofl/dohyeon/OFL.txt",
+    "ChakraPetch-SemiBold.ttf": "ofl/chakrapetch/ChakraPetch-SemiBold.ttf",
+    "chakrapetch-OFL.txt": "ofl/chakrapetch/OFL.txt"
+  },
+  "sha256": {
+    "ChakraPetch-SemiBold.ttf": "45264de3204ddbd5fb3e14a2402acd5c630d16650ae5fc221d2c52da46a6734b",
+    "DoHyeon-Regular.ttf": "35644be7f28e0a68a447b1f7af351dcde5674b870f24f7b5f43e26d00b4ab653",
+    "IBMPlexMono-Regular.ttf": "6a3412f058c7d8dfd9170c41e85ade48e5156ecb89356110ca57a0a27734af46",
+    "IBMPlexSansKR-Regular.ttf": "53750379270312368cf7641901f43a98dd892e3d9d5798cf25cdc245c85c71c0",
+    "chakrapetch-OFL.txt": "13831d02389d917d22fcfa6c79f98f8acbf61d230add0e73a4d4dc5f3bfb9e56",
+    "dohyeon-OFL.txt": "de5ff32211a4340b01477af39ee339d639438955e409f79b666d4b9207f3c92c",
+    "ibmplexmono-OFL.txt": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+    "ibmplexsanskr-OFL.txt": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da"
+  }
+}

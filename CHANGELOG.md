@@ -2,7 +2,23 @@
 
 ## Unreleased
 
+## Graph Flow [0.4.0] — 2026-11-19
+
+- The space-time and side views use shaped marks for instantaneous records and fit words around the cards and time ticks. Adjacent short calls can share a measured total, converging transfers can share their longest wait, and every drawn record remains readable in the detail drawer.
+
+- Replay and scrub the dashboard's recorded history in the flat graph, space-time and side views. The shared time cut preserves historical plan revisions, card state and relation details. The time bar names waits, returns, revisions and shortened gaps. Past views are read-only, and SVG retains the flat graph and static side view.
+
 - Concurrent dashboard opens share one detached server and wait for an authenticated response. The server binds directly to its numeric loopback address.
+
+- Graph Flow uses a dark-only dashboard and retires the light presentation. Graph cards identify work, state, risk and recent recorded activity in words and patterns. Relations name their live flow state on their own branches. The graph adds record-triggered motion with one pause and a static SVG path, an overlay detail drawer, a phone bottom sheet, and locally bundled OFL fonts.
+
+- Graph Flow relation details show the relevant records, and work details link the full-width 3D scene to phase records and aligned category totals.
+
+- Graph Flow records local activity metadata through Claude Code hooks and trusted, asynchronous Codex tool hooks. Sessions without tool observations retain their recorded attempt boundaries.
+
+- Graph Flow adds a bundled three.js graph renderer with SVG fallback, dependency focus above dimmed edges, shared orthogonal routes, three zoom levels and a navigable minimap below the graph. Screen captures verify renderer parity, pixel ink, routing regressions, interaction geometry, fallback and motion.
+- Graph Flow dashboard cards now distinguish kind and state without color across both map levels and the phone list. Review arrows follow target-to-reviewer order, line patterns distinguish gate states, and whole-result failures reflect the current recorded verdict.
+- Graph Flow now verifies the shared renderer scene, stored relations, dependency order, grayscale cues, contrast, and phone action sizes in its tests and screen capture suite.
 
 - Publish Graph Flow as its own Claude Code and Codex marketplace.
 

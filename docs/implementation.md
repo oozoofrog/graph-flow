@@ -19,9 +19,12 @@ These module signatures and dashboard view shapes are for plugin maintainers.
 | `decisions.py` | Decisions and signatures |
 | `learn.py` | Constraints and fixed checks |
 | `trace.py` | Aggregation |
+| `activity.py` | Activity capture, role-filterable reads and deterministic per-attempt summaries |
 | `cli.py` | Argument parsing, role checks, output |
 | `mcp.py` | stdio MCP server |
 | `server.py` | Dashboard server; `page.html` is its single page |
+| `page.js`, `graph-webgl.js` | Shared graph scene, DOM and SVG rendering, and the lazy WebGL2 backend |
+| `activity-webgl.js` | Lazy three.js renderer for the selected attempt summaries |
 | `launcher.py` | The `graph-flow` and `gf` commands on PATH written by `gf setup` |
 
 Public surface. Other modules may rely only on what is listed here. Functions raise `GFError`; "appends" means inside one transaction. `actor` is the dict from `core.actor_from_env`.
@@ -187,14 +190,15 @@ Integration check `requires_passed` is validated by `plan.validate` and kept in 
 - `timeline` lists what happened in event order, built from every event of the run. Each row has `id` (`e` plus the `seq` of the event that created it, stable for the row's life), `seq` and `ts` of its latest event, `kind`, and `by` (`role` and `session` of the actor of the event that created the row; for an attempt, whoever started it). Kinds: `started` (`run.init`); `planned` (`plan.set`, with `revision` and node `count`); `attempt` (one per `node.start`); `reopened` (`node.reopen`, with `node`, `node_title`, `reason`); `asked` (`decision.ask`, with `decision`, `node`, `node_title`, `question`); `answered` (`decision.answer`, with `decision`, the asked `node`, `node_title`, `question`, and `outcome`, `answer`); `final` (`gate.final`, with `result` and `failed` check ids); `learned` (`constraint.add`, with the constraint `text`; omitted when the text cannot be read). An `attempt` row gathers that attempt's later `check.result`, `node.submit`, `review.submit` and `gate.verdict` events and moves to the position of the latest one. Its `state` is `running`, `submitted`, or from the gate verdict `passed` (pass), `returned` (reject), `replan`, `needs_you` (needs_approval) or `held` (hold). `checks` holds the latest result per check id, a gate-phase run replacing the worker's loop-phase run, each with `id`, plan `title` (empty when the plan gives none), `result`, `phase`, `command`, `exit_code`, `timed_out`, `duration_ms`, `log` (a path for `/api/evidence`, or null) and scope `violations`. `worker` is the latest `node.assign` before the start; `notes`, `files` and `unsure` come from `node.submit`; `reason` is the rejection's reason; `findings` are the finding texts of a `review.submit` by this review node, which also makes the row `submitted`. The dashboard also uses these attempt rows in the decision reading view, with the recorded checks, notes and files visible before an answer. A current open decision takes precedence over running/submitted words in presentation; it does not rewrite an attempt row or earlier outcomes. Failed check titles are expectations and must be explicitly labelled as not met. A verdict without a rejection keeps an earlier reason. `learned` uses the constraint's text whatever its current status. `node.assign`, `host.set`, `constraint.apply` and `check.red` create no row.
 - `title` falls back to the plan's `goal` (empty string without a plan). `nodes` follows plan order; each title falls back to its id and each summary to its goal. Node `kind`, `status`, `attempts`, and `max_attempts` come from the plan/state; `lane` is the effective lane.
 - `language` is `"ko"` when the plan title or any node title/summary contains Hangul (Jamo, compatibility Jamo or syllables), else `"en"`. This is independent of browser language; the page uses the browser only when there is no run.
-- Node `target` is the recorded review target id for review nodes, otherwise `null`. It binds a full review card to its target; it is never display copy. Review cards occupy the dependency layer immediately after their target, with a `reviews` arrow from the review card back to its target. They participate in the graph and the HTML list.
+- Node `target` is the recorded review target id for review nodes, otherwise `null`. It binds a full review card to its target; it is never display copy. The `reviews` arrow points from the target to the reviewer and reads “reviewed by.” The reviewer is one layer after its deepest prerequisite, including its target. It can be more than one layer beyond the target when another prerequisite is deeper.
 - Node `answered` is true only for a decision node with a current, non-stale answered decision in derived state. Its card can receive the finished treatment immediately after an answer, before a later gate accepts it. Work and review styles otherwise reflect their own status; an open decision gives its bound node an amber border and explicit waiting words. It is false on work and review nodes.
 - Decision `files` is the deduplicated list of `{name, path}` from the node’s current submission `changed_files`, then decision evidence `files`, preserving order. `name` is the basename, `path` the exact project-relative request parameter. Unsafe paths and destinations escaping the project or entering `.git`/`.graph-flow` or private dashboard records are omitted. File existence and UTF-8 readability are checked when opened through `/api/file`; a listed file may have disappeared. Only this explicitly requested reader shows filenames and a small secondary path.
 - `laps` has one entry for every `node.start` after the node's current basis. A rejection (`reject` or budget-exhausted `replan`) makes that attempt `returned`; a pass makes it `passed`; otherwise it is `current`. A current submitted attempt with an open, non-stale decision is `waiting_for_you`. Decision nodes normally have no attempts and an empty list.
 - `returned_reasons` has one list per rejection after the current basis, in event order, including earlier attempts while a retry runs. Strings come only from failed gate-phase node checks' current plan titles (untitled checks are omitted) and matching reviewer finding `text` for the rejected submission. It never copies a rejection's technical reason, command, exit code, log, file or line. Duplicate strings within one rejection are collapsed. When no such human-readable evidence is recorded (for example a merge rejection), that rejection's list is empty. Run-level `_run` check results have no rejecting-node/submission binding, so the view does not attribute them to a particular rejection.
-- Node `inputs` and `outputs` contain `{label, other_title, delivered}` entries copied from incoming/outgoing `edges`, in edge order. `other_title` is the title (legacy fallback: id) of the producer/receiver respectively. No matching edges means `[]`; labels follow the edge fallback below, and implicit review-edge labels remain empty.
+- Node `inputs` and `outputs` contain `{label, other_title, delivered}` entries for incoming and outgoing needs, in edge order. `other_title` is the title (legacy fallback: id) of the producer/receiver respectively. No matching needs gives `[]`. The dashboard panel uses the full relation list.
 - `reviewed_by_other_family` is true only when a passed review is bound to the node's current submission and both assignment families are known and different. A review's fail verdict still counts as review evidence; it does not mean the work passed.
-- `edges` contains each node's `needs` entries in order, then its implicit review-target edge if any. Needs edges point from producer to receiver; the implicit review edge points from the review node to its target. Every edge has `relation`: `"waits_for_decision"` for a needs entry whose producer has kind `decision`, `"reviews"` for an implicit review-target entry, and `"hands_over"` for other needs entries. Recorded handoff labels are visible on the map in the presentation language; review and decision relations remain in accessible descriptions rather than adding label chips. A needs label falls back to `artifact`; an implicit review-target edge has no recorded artifact or label, so its label is the empty string. These are separate entries even when they have the same endpoints. `delivered` means the producer is passed. `gate` is `open` for a passed producer, else `returned` if it has any current-basis rejection, else `waiting_for_you` if it has an open, non-stale decision, else `closed`.
+- `edges` contains each node's `needs` entries in order, then its implicit review relation when present. Every edge points forward. A need has relation `waits_for_decision` when the producer is a decision or `hands_over` otherwise. A review has relation `reviews` and an empty label. The needs label falls back to `artifact`. Distinct relations can share endpoints. The gate belongs to the producer on a need and to the reviewer on a review. `delivered` and `open` mean that node passed. Otherwise, an open decision gives `waiting_for_you`, a current rejection or exhausted attempt gives `returned`, and other states give `closed`. An earlier rejection remains in history during a retry.
+- `final_result` reflects the latest current `gate.final` result. Posting a plan, reopening a node, starting an attempt or recording a node verdict invalidates an earlier final result. Historical verdicts remain in the timeline. The dashboard synthesizes exactly one whole-result card when the plan has nodes, with an unlabeled handoff from each terminal of the forward graph. A terminal handoff opens when that terminal passes.
 - `decisions` contains only open, non-stale decisions in ask order. A decision node supplies its `context`; a decision bound to a human check uses that check's context; otherwise context is `{}`. `has_evidence` means at least one recorded `command`, `files`, or `checks` evidence slot is non-empty; evidence contents are not copied. An unbound decision has `node: null`, `node_title: null`, and empty context.
 - Decision `purpose` preserves a specific record purpose (`human_check`, `lane3`, `trajectory`, `hold`). For record purpose `node`, `free`, or absent, the view uses the decision's kind (`direction`, `information`, `review`, `authorization`). These eight values are the normal presentation purposes; unknown record values are preserved for forward compatibility and must receive neutral wording, never an assumed approval request. Korean/English meanings are: `human_check`/`review`: “사람이 직접 살펴봐야 하는 결과를 받아들일지 정해 주세요.” / “Decide whether to accept a result that needs a human look.”; `lane3`/`authorization`: “되돌리기 어려운 일을 허락할지 정해 주세요.” / “Decide whether to allow work that is hard to undo.”; `trajectory`: “평소와 다르게 진행된 일을 받아들일지 정해 주세요.” / “Decide whether to accept work with an unclean path.”; `hold`: “멈춰 둔 일을 어떻게 이어 갈지 정해 주세요.” / “Decide how to continue work that was put on hold.”; `direction`: “다음에 어느 방향으로 갈지 알려 주세요.” / “Tell us which direction to take next.”; `information`: “계속하는 데 필요한 정보를 알려 주세요.” / “Provide the information needed to continue.” The fallback is “내용을 읽고 어떻게 할지 정해 주세요.” / “Read the details and decide what to do.”
 - Each decision also has `verified`: titles of non-human checks whose latest current-attempt result passed (event order across loop and gate phases; omit untitled checks). `unverified` lists human check titles, falling back to their prompts and omitting checks with neither, followed by the current submission’s nonempty low-confidence strings. Human checks remain in this list because no machine confirmed them. `worker_note` is the current submission’s notes text or `null` when absent. An unbound decision has `verified: []`, `unverified: []`, and `worker_note: null`. These are derived read-only from the same records; no outcomes are guessed.
@@ -205,6 +209,170 @@ Integration check `requires_passed` is validated by `plan.validate` and kept in 
 - `lessons` contains all project learning constraints whose healed status is `active`, in store order (not promoted or retired constraints). Each entry has `text` and `node_title`. A source recorded in `derived_from` gets its current title (fallback: id) only when its source run matches this run and its node exists in this plan. No title snapshot is stored for other runs or removed nodes: their `node_title` is `null`. No learning store means `[]`.
 - `counts.done` counts passed nodes. Among non-passed nodes without open decisions, `doing` counts running, submitted, or unverified nodes and `waiting` counts the rest. `needs_you` counts open, non-stale decisions, including unbound questions. `returned` counts non-passed nodes with at least one current-basis rejection, including retries; it can overlap `doing` or `waiting`. `returns_total` sums the number of `"returned"` laps across all current-plan nodes, including nodes that subsequently passed (current-basis history, like `laps`). The UI uses this total and says “times”; the existing `returned` key retains its meaning. These counters are integers, not an exclusive partition. `complete` is exactly whether derived `run.status` is `complete`.
 - Without a plan, `nodes` and `edges` are empty and node counters are zero; unbound decisions and project lessons can still be present. Existing fallback ids and artifact names may themselves be technical, so leaders should provide presentation fields for person-facing flows.
+
+
+### Graph renderer input
+
+`createGraphScene(nodes, layout, decisions, level, now, language)` projects measured layout into a pure scene in stage CSS pixels. Each card has an ID, kind, presentation state, effective lane, level, rectangle, layer and dependency order. Each edge has an ID, ordered endpoints, direction, relation, recorded gate and label, style tokens, optional label-chip geometry and routed polyline points. The scene includes graph bounds, an ID lookup for cards, and the physical shaft and marker geometry with the IDs of all relations each portion serves. Each card carries its current words, strip and recorded attempt history. Edges retain the current transfer and its timestamp, and the scene anchors collision-tested tags on single-member branch parts. Both orthographic backends consume those portions. Longest-path ranks and the reading order continue to carry dependency direction. Within ranks, neighbor sweeps and adjacent swaps improve ordering. In each channel, fixed ports and ordered tracks preserve perpendicular crossings. Direct fans can share a source or target track when every branch has the same relation, gate and recorded label and a distinct opposite endpoint. The scene retains the full polyline and a branch marker for every relation. Fan-in also marks the common destination. The `#map.graphScene` getter returns a detached copy of the active scene for checks.
+
+The SVG backend uses the DOM stage transform. The WebGL2 backend uses the same scale, origin and scroll offsets for an orthographic camera. It loads from the same origin on demand and draws on invalidation. SVG remains available for unsupported WebGL2, renderer failure, context loss and `renderer=svg`. The active backend exposes a detached `#map.graphDrawing` snapshot with the viewport transform, projected shafts and marker directions in viewport-relative CSS pixels, and their draw order. Its visibility flag describes submitted geometry, including portions clipped by the viewport. The capture harness alone uses `graphTest=1` to preserve the WebGL framebuffer for pixel readback.
+
+Node focus derives from recorded dependencies and review targets. Edge focus shows the two endpoints and the selected relation. Pointer picking searches the same physical shafts in both renderers with a 12 CSS px radius. A shared shaft exposes its member IDs to the chooser and takes the emphasis of its most prominent branch. Both renderers draw context first, then the focus underlays, then focused ink and markers. Recorded attempt counts remain in the card captions and history. The minimap sits in a reserved strip below the scrolling viewport. The cut size increases with effective lane and the card names the level. Detail uses an overlay drawer on desktop and a bottom sheet on phone. This presentation serves principles P1, P3 and P6 and preserves the P10 human-stop baseline.
+
+The layout and capture checks use one routing ratchet for fixture-specific crossing and bend limits. They validate shaft membership, drawn segments, branch markers, renderer registration, framebuffer ink, focus order, and minimap clearance.
+
+### Prefix history and the space-time scene
+
+`server._prefix_view` receives truncated execution and activity lists, a
+clock, and captured read inputs. It runs `state.derive` and the regular
+`server._view` projection with the applicable frozen plan. A fresh sample
+captures plan revisions, the key and location, evidence hashes, ancestry
+and allowlisted paths. These present-day filesystem checks supply integrity
+context. The ledgers define the historical execution sequence. History
+cannot reconstruct prior unrecorded bytes or the filesystem state before
+a movement or a key change.
+
+`/api/history` stores a base view and forward patches for the dual ledger.
+An object patch subscripts keys, with `:` specifying array length. A
+singleton array supplies a replacement and an empty array removes a key.
+The server omits its changing observation clock from patches and adds a
+step if a recorded attempt reaches the stall threshold between boundaries.
+On the client, `historyStep` binary-searches the boundary times and
+`historyView` applies patches to a previous view or the base. These functions
+carry state without copying execution logic to JavaScript. A run with many
+records costs a prefix replay per execution event and a dashboard projection
+per event or activity boundary at initial load. Polling the live graph
+reads the lightweight time index. Moving the playhead is local. Last-prefix
+equality uses the same observation clock, including clock-derived stalls.
+
+`spacetime.js` places the current graph on a shared plane at the viewed
+time. World coordinates are the existing flat scene's x and y plus the
+mapped time. An affine orthographic projection maps the relation plane into
+the existing WebGL renderer or SVG. The same projection places the card
+wrappers, tags and hit corridors. SVG carries the floor, frames, time
+segments, polyhedral faces, drop lines and transfer lines. The clocks on
+the plane and interval labels are screen-aligned DOM. The side pose
+repositions the cards onto ordered lanes while rotating toward an exact
+vertical time axis. A 650–900 ms smoothstep pose change starts at the
+currently sampled pose and becomes immediate with reduced motion or a
+static backend.
+
+The time scale is linear between breaks. Every wholly inactive gap longer
+than 30 minutes shares one compression rate, the smaller of 1/60 and
+90 seconds divided by the longest compressed gap. Time geometry and the
+scrubber share the same forward and inverse mappings. Receipt and transfer
+times use recorded boundaries. An interval or transfer with no later
+boundary ends at the cut. A reset in the replay-derived basis closes any
+active attempt at its recorded reset boundary. Plan revisions change the structure at the record
+boundary. All of this serves the recorded trajectory (P12) and keeps the
+existing human-stop baseline (P10).
+
+`spaceHistory` derives the cut's boundary markers, positive-length spans
+and transfers. Drawing and the ordered drawer share execution sequence
+IDs and activity index IDs from the loaded history version. The drawer
+lists the recorded members even when the scene combines them. The
+activity view adds each normalized call's duration and failed flag from
+the same call pairing used by `condense`. The geometry uses observed
+endpoints. Measured durations add across overlapping calls and retain
+millisecond precision in the time views.
+
+`spaceProjection` anchors typed boundary marks, span feet, transfer
+endpoints and card centers. The 5 CSS px work minimum extends only the
+top of observed work and adds a two-slash mark. The real scaled height
+controls the 15 CSS px inline label minimum and grouping. The SVG stage
+and its screen-aligned DOM use one measured fit pass for axis, interval,
+boundary, transfer and relation labels. Card rectangles are reserved
+before placement. Priority is human waits, failures and returns, the
+selected path, other spans and active relation tags, then quiet tags.
+Within a class the pass considers longer recorded durations first and
+uses scene order for ties. A transfer wait must reach 10% of the indexed
+run range for its default label. Converging waits can use a selectable
+summary for the receiving boundary or cut. Side lanes reserve at least
+158 CSS px and scroll under stationary axis labels. Its card chips remain
+on the time cut. Tilted cards use a smaller title layout if projected
+neighbors need room. See the [time view grammar and T1–T9 and L1–L6
+checks](../skills/graph-flow/references/dashboard.md#time-and-view-grammar).
+
+### Activity presentation input
+
+The graph shares a time-based DOM strip between WebGL and SVG. The active
+card carries the attempt's boundary and phase timestamps, call dots and
+three duration-ranked rows. Pattern tokens match between the strip and
+bars. Calls with only an end observation appear at that recorded end.
+The served view includes a server sample time, attempt start and last
+record timestamps, and allowlisted call IDs, categories and endpoints.
+These fields are derived from the existing ledgers.
+
+The live motion registry observes successive scene models. Its baseline,
+clock and enabled flag are inputs. Fresh records add bounded one-shot
+effects and can activate the answer halo or running-target drift.
+Handoff overlays share the route coordinates, and the core trace stays
+dashed during a forward token. The test-only `#map.graphTest.step(time, wall)`
+drives the same registry and paint path used by requestAnimationFrame.
+Reduced motion and the global pause settle finite effects, and switching
+runs resets the baseline. The SVG backend uses the same fixed state and
+the same card DOM. Forced colors uses system-colored SVG and removes
+the stage textures and trace halos.
+
+`server._edge_flows` takes relations, replay-derived node and decision state,
+the event ledger, and record-derived readiness. It uses event sequence numbers
+to find current submissions, gate verdicts, open asks and attempt boundaries.
+A returned producer has a current rejection or a verified refusal tied to the
+current work. A review return through a refusal additionally requires a
+matching failed review. Open decisions and held gates block relevant
+undelivered relations. A review receives the producer's current submission
+before the producer's gate passes. Other relations deliver after the producer
+passes. A passed producer and ready or running receiver mark the frontier.
+A started or startable producer otherwise leaves a relation waiting. The
+remaining producers are unreachable. Synthetic whole-result edges use the
+same projection. Flow records supply sequence, timestamp and type-specific
+identifiers without copying evidence payloads. Gate and flow marks use
+separate channels (P2), and the projection adds no human stops (P10).
+
+`activity.summaries` groups the event and optional activity ledgers by node
+and attempt. The pure `activity.condense(records, events, now_ms, running,
+unreadable)` produces both card state and the compact work summary; the web
+client directly consumes that result. A phase carries its id, category,
+timestamp, call count, tool-name counts, total and longest duration in
+milliseconds, unknown-duration count, error count, recorded start and end,
+attribution rules, origin, inferred/repeating/stalled flags, step count and
+fixed label token. Each attempt carries totals by original phase category
+and the ID of its current condensed phase. The dashboard projects call IDs and endpoints, while the original observation rows remain in the CLI and MCP reads. See the [activity record contract](../skills/graph-flow/references/records.md#local-activity-observations).
+
+Calls are ordered by their start observations with stable call-key ties.
+Adjacent calls of the same category coalesce across gaps shorter than
+1 second. A gap of at least 1 second between observed calls appears as
+inferred thinking when bounded by an end and a later start, with no calls
+still open in the gap. An unpaired start suppresses future gap inference
+for that attempt. Durations sum known call durations, including overlap,
+and inferred phases carry their bounded gaps. The 12-phase cap replaces the
+adjacent pair with the shortest total duration until the summary fits.
+Merged phases retain call totals, per-tool counts, total and longest
+duration, flags and the number of original steps. Earlier adjacent pairs
+win duration ties. The category totals use the same phases before the cap.
+
+Five minutes without an activity observation or event marks a running node
+stalled, an engineering default that leaves space for several normal tool
+round trips. Three consecutive errors from the same tool or three
+consecutive failures of the same check mark repetition, an engineering
+default that allows a first retry while surfacing a persistent pattern.
+These are display heuristics. Unobserved or unreadable attempts use
+`node.start`, `check.red`, `check.result` and the submit events only.
+
+The panel lazily imports `activity-webgl.js` and reuses the already-vendored
+three.js core and renderer. No additional addon is needed. `describeActivity`
+maps each phase to one solid and freezes the projected input exposed through
+`.work-summary.activityScene.solids`. The 18-unit length budget gives each
+solid a 0.52-unit extrusion minimum, reduced as attempts fill the budget.
+Unclamped lengths use a common scale of up to one unit per second. The
+orthographic scene has three columns of 84 CSS px rows. Fixed cross-sections
+give readable final silhouettes independently of duration. Screen-aligned
+DOM labels mirror the scene and share a selection ID with the list.
+Requested playback advances through the displayed order once over 3.6 seconds and
+keeps its sequence across polling. `graphTest=1` enables framebuffer
+readback and raster silhouette diagnostics.
+
+The dashboard bundles full IBM Plex Sans KR, IBM Plex Mono, Do Hyeon and Chakra Petch faces. The [font manifest](../skills/graph-flow/scripts/graphflow/vendor/fonts/manifest.json) pins the Google Fonts source revision, paths and SHA-256 digests, including all four OFL-1.1 licence texts.
 
 The dashboard HTTP contract and fixed public static allowlist are in [dashboard.md](../skills/graph-flow/references/dashboard.md#get-staticname). Only those GET static requests skip token authentication; every request still needs the loopback Host check, and all APIs still require the token.
 

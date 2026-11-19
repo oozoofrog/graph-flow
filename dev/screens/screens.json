@@ -600,8 +600,7 @@
       {
         "action": "scroll",
         "selector": "#panel .panel-body",
-        "x": 0,
-        "y": 340
+        "anchor": "#panel .panel-body > details:last-of-type > summary"
       }
     ],
     "group": "OCCASIONAL"
@@ -620,8 +619,8 @@
       {
         "action": "scroll",
         "selector": "#panel .panel-body",
-        "x": 0,
-        "y": 300
+        "anchor": "#panel .panel-body > .fact-section",
+        "heading": "지켜야 할 조건"
       }
     ],
     "group": "OCCASIONAL"
@@ -1677,5 +1676,455 @@
       }
     ],
     "group": "DECISIONS"
+  },
+  {
+    "number": 102,
+    "name": "graph-record-cues",
+    "scenario": "graph-verification",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "button",
+        "text": "간략 보기"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "gray_cues": {
+      "a": "awaiting",
+      "b": "returned",
+      "c": "notStarted"
+    }
+  },
+  {
+    "number": 103,
+    "name": "graph-record-panel",
+    "scenario": "graph-verification",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "button",
+        "text": "상세 보기"
+      },
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"r\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION"
+  },
+  {
+    "number": 104,
+    "name": "graph-record-phone",
+    "scenario": "graph-verification",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "phone",
+      "width": 390,
+      "height": 844
+    },
+    "interactions": [],
+    "group": "GRAPH-VERIFICATION"
+  },
+  {
+    "number": 105,
+    "name": "graph-wrapped-order",
+    "scenario": "graph-wrap",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "button",
+        "text": "간략 보기"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "tab_chain": true
+  },
+  {
+    "number": 106,
+    "name": "graph-empty",
+    "scenario": "graph-empty",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [],
+    "group": "GRAPH-VERIFICATION",
+    "language": "en"
+  },
+  {
+    "number": 107,
+    "name": "graph-long-detail-phone",
+    "scenario": "long-text",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "phone",
+      "width": 390,
+      "height": 844
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#phone-view-toggle"
+      },
+      {
+        "action": "button",
+        "text": "상세 보기"
+      },
+      {
+        "action": "into",
+        "selector": "#map"
+      },
+      {
+        "action": "scroll",
+        "selector": ".map-viewport",
+        "x": 0,
+        "y": 48
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "show_card": "a"
+  },
+  {
+    "number": 108,
+    "name": "graph-minimum-zoom-phone",
+    "scenario": "graph-verification",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "phone",
+      "width": 390,
+      "height": 844
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#phone-view-toggle"
+      },
+      {
+        "action": "button",
+        "text": "간략 보기"
+      },
+      {
+        "action": "button",
+        "text": "−"
+      },
+      {
+        "action": "button",
+        "text": "−"
+      },
+      {
+        "action": "button",
+        "text": "−"
+      },
+      {
+        "action": "into",
+        "selector": "#map"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "minimum_zoom": true
+  },
+  {
+    "number": 110,
+    "name": "graph-chain-sixty",
+    "scenario": "graph-chain-60",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "desktop", "width": 1440, "height": 900},
+    "interactions": [{"action": "button", "text": "상세 보기"}],
+    "group": "GRAPH-VERIFICATION",
+    "diagnostics": true
+  },
+  {
+    "number": 111,
+    "name": "graph-dense-minimap",
+    "scenario": "graph-dense",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "desktop", "width": 1440, "height": 900},
+    "interactions": [
+      {"action": "button", "text": "상세 보기"},
+      {"action": "button", "text": "+"},
+      {"action": "button", "text": "+"}
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "diagnostics": true
+  },
+  {
+    "number": 112,
+    "name": "graph-dense-selected",
+    "scenario": "graph-dense",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "desktop", "width": 1440, "height": 900},
+    "interactions": [
+      {"action": "button", "text": "상세 보기"},
+      {"action": "click", "selector": "#map [data-node=\"e\"] .node-header"}
+    ],
+    "group": "GRAPH-VERIFICATION"
+  },
+  {
+    "number": 113,
+    "name": "graph-lanes-mid",
+    "scenario": "real",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "desktop", "width": 1440, "height": 900},
+    "interactions": [{"action": "button", "text": "간략 보기"}],
+    "lane_crops": "mid",
+    "group": "GRAPH-VERIFICATION"
+  },
+  {
+    "number": 114,
+    "name": "graph-lanes-near",
+    "scenario": "real",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "desktop", "width": 1440, "height": 900},
+    "interactions": [{"action": "button", "text": "상세 보기"}],
+    "lane_crops": "near",
+    "group": "GRAPH-VERIFICATION"
   }
+,
+  {
+    "number": 115,
+    "name": "activity-mixed-graph",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "activity-desktop", "width": 1440, "height": 1020},
+    "interactions": [{"action": "button", "text": "간략 보기"}],
+    "group": "GRAPH-VERIFICATION",
+    "activity_macro": true
+  },
+  {
+    "number": 116,
+    "name": "activity-summary-final",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"rich\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "playing"
+  },
+  {
+    "number": 117,
+    "name": "activity-summary-svg",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"rich\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "fallback"
+  },
+  {
+    "number": 118,
+    "name": "activity-summary-reduced",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"rich\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "reduced"
+  },
+  {
+    "number": 119,
+    "name": "activity-stalled",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"stalled\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "reduced"
+  },
+  {
+    "number": 120,
+    "name": "activity-repeating",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"repeating\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "reduced"
+  },
+  {
+    "number": 121,
+    "name": "activity-boundary-only",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"blind\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "reduced"
+  },
+  {
+    "number": 122,
+    "name": "activity-phone",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "phone",
+      "width": 390,
+      "height": 844
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#phone-flow [data-node=\"rich\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "phone"
+  },
+  {
+    "number": 123,
+    "name": "activity-unreadable",
+    "scenario": "graph-activity-unreadable",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    "interactions": [
+      {
+        "action": "click",
+        "selector": "#map [data-node=\"rich\"] .node-header"
+      }
+    ],
+    "group": "GRAPH-VERIFICATION",
+    "activity_view": "unreadable"
+  },
+  {
+    "number": 124,
+    "name": "graph-activity-motion",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "activity-desktop", "width": 1440, "height": 1020},
+    "interactions": [{"action": "button", "text": "간략 보기"}],
+    "group": "GRAPH-VERIFICATION",
+    "graph_progress": true
+  },
+  {
+    "number": 125,
+    "name": "graph-flow-states",
+    "scenario": "graph-flow-states",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "tall-desktop", "width": 1440, "height": 1080},
+    "interactions": [{"action": "button", "text": "간략 보기"}],
+    "group": "GRAPH-VERIFICATION",
+    "graph_flow": true
+  },
+  {
+    "number": 126,
+    "name": "graph-edge-selected",
+    "scenario": "graph-flow-states",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "tall-desktop", "width": 1440, "height": 1080},
+    "interactions": [{"action": "button", "text": "간략 보기"}],
+    "group": "GRAPH-VERIFICATION",
+    "edge_detail": "edge"
+  },
+  {
+    "number": 127,
+    "name": "graph-trunk-chooser",
+    "scenario": "graph-activity",
+    "url": "/?t={token}#project={project}&run={run}",
+    "viewport": {"name": "tall-desktop", "width": 1440, "height": 1080},
+    "interactions": [{"action": "button", "text": "간략 보기"}],
+    "group": "GRAPH-VERIFICATION",
+    "edge_detail": "trunk"
+  },
+  {"number": 128, "name": "instrument-mixed-running", "scenario": "graph-instrument", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [{"action": "button", "text": "간략 보기"}], "group": "GRAPH-VERIFICATION", "instrument": true},
+  {"number": 129, "name": "instrument-needs-answer", "scenario": "graph-instrument", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [{"action": "button", "text": "간략 보기"}, {"action": "click", "selector": "#map [data-node=\"q\"] .node-header"}], "group": "GRAPH-VERIFICATION", "instrument": true},
+  {"number": 130, "name": "instrument-stalled", "scenario": "graph-instrument", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [{"action": "button", "text": "간략 보기"}, {"action": "click", "selector": "#map [data-node=\"stalled\"] .node-header"}], "group": "GRAPH-VERIFICATION", "instrument": true},
+  {"number": 131, "name": "instrument-returned", "scenario": "graph-instrument", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [{"action": "button", "text": "간략 보기"}, {"action": "click", "selector": "#map [data-node=\"broken\"] .node-header"}], "group": "GRAPH-VERIFICATION", "instrument": true},
+  {"number": 132, "name": "instrument-dense-tags", "scenario": "graph-dense", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [{"action": "button", "text": "간략 보기"}], "group": "GRAPH-VERIFICATION", "instrument": true},
+  {"number": 133, "name": "instrument-phone", "scenario": "graph-instrument", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "phone", "width": 390, "height": 844}, "interactions": [], "group": "GRAPH-VERIFICATION", "instrument": true},
+  {"number": 134, "name": "instrument-forced-colors", "scenario": "graph-instrument", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [{"action": "button", "text": "간략 보기"}], "group": "GRAPH-VERIFICATION", "instrument": true, "forced_colors": true},
+  {"number": 135, "name": "instrument-reduced-motion", "scenario": "graph-instrument", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [{"action": "button", "text": "간략 보기"}], "group": "GRAPH-VERIFICATION", "instrument": true, "reduced_graph": true},
+  {"number": 136, "name": "instrument-answer-halo", "scenario": "graph-flow-states", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [{"action": "button", "text": "간략 보기"}], "group": "GRAPH-VERIFICATION", "instrument": true, "answer_motion": true},
+  {"number": 137, "name": "spacetime-before-return", "scenario": "graph-spacetime", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "early"},
+  {"number": 138, "name": "spacetime-return", "scenario": "graph-spacetime", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "return"},
+  {"number": 139, "name": "spacetime-decision", "scenario": "graph-spacetime", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "decision"},
+  {"number": 140, "name": "spacetime-side", "scenario": "graph-spacetime", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "side"},
+  {"number": 141, "name": "spacetime-node", "scenario": "graph-spacetime", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "node"},
+  {"number": 142, "name": "spacetime-relation", "scenario": "graph-spacetime", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "relation"},
+  {"number": 143, "name": "spacetime-compressed", "scenario": "graph-spacetime-long", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "compressed"},
+  {"number": 144, "name": "spacetime-past", "scenario": "graph-spacetime", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "past"},
+  {"number": 145, "name": "spacetime-transition", "scenario": "graph-spacetime", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "transition"},
+  {"number": 146, "name": "spacetime-side-transition", "scenario": "graph-spacetime", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "side-motion"},
+  {"number": 147, "name": "spacetime-phone", "scenario": "graph-spacetime", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "phone", "width": 390, "height": 844}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "phone"},
+  {"number": 148, "name": "spacetime-replay", "scenario": "graph-spacetime", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "replay"},
+  {"number": 149, "name": "spacetime-side-selected", "scenario": "graph-spacetime", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "side-node"},
+  {"number": 150, "name": "spacetime-ten-minute", "scenario": "graph-spacetime-short", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "short"},
+  {"number": 151, "name": "spacetime-side-ten-minute", "scenario": "graph-spacetime-short", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "short-side"},
+  {"number": 152, "name": "spacetime-side-three-day", "scenario": "graph-spacetime-long", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "long-side"},
+  {"number": 153, "name": "spacetime-side-true-scale", "scenario": "graph-spacetime-long", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "true-scale"},
+  {"number": 154, "name": "spacetime-side-scrolled", "scenario": "graph-spacetime", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "compact-desktop", "width": 1280, "height": 900}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "side-scroll"},
+  {"number": 155, "name": "spacetime-ten-minute-en", "scenario": "graph-spacetime-short-en", "url": "/?t={token}#project={project}&run={run}", "viewport": {"name": "instrument-desktop", "width": 1440, "height": 1020}, "interactions": [], "group": "GRAPH-VERIFICATION", "space_scene": "short", "language": "en"}
 ]

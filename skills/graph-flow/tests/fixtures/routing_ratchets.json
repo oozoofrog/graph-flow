@@ -1,0 +1,162 @@
+{
+  "layout": {
+    "chain/detail/0": [
+      0,
+      0
+    ],
+    "chain/overview/0": [
+      0,
+      0
+    ],
+    "dense_layers/detail/0": [
+      12,
+      24
+    ],
+    "dense_layers/overview/0": [
+      12,
+      24
+    ],
+    "diamond/detail/0": [
+      0,
+      0
+    ],
+    "diamond/overview/0": [
+      0,
+      0
+    ],
+    "fan_in_five/detail/0": [
+      0,
+      8
+    ],
+    "fan_in_five/overview/0": [
+      0,
+      8
+    ],
+    "fan_out_five/detail/0": [
+      0,
+      8
+    ],
+    "fan_out_five/overview/0": [
+      0,
+      8
+    ],
+    "large_fan_out/detail/0": [
+      0,
+      56
+    ],
+    "large_fan_out/overview/0": [
+      0,
+      56
+    ],
+    "large_fan_in/detail/0": [
+      0,
+      56
+    ],
+    "large_fan_in/overview/0": [
+      0,
+      56
+    ],
+    "long_chain_reuses_ports_in_unrelated_channels/detail/0": [
+      0,
+      0
+    ],
+    "long_chain_reuses_ports_in_unrelated_channels/overview/0": [
+      0,
+      0
+    ],
+    "mixed_fan_uses_separate_gates_kinds_and_labels/detail/0": [
+      0,
+      8
+    ],
+    "mixed_fan_uses_separate_gates_kinds_and_labels/overview/0": [
+      0,
+      6
+    ],
+    "real_ro_plan/detail/0": [
+      0,
+      4
+    ],
+    "real_ro_plan/overview/0": [
+      0,
+      2
+    ],
+    "span_three_layers/detail/0": [
+      0,
+      6
+    ],
+    "span_three_layers/overview/0": [
+      0,
+      6
+    ],
+    "thirty_piece_overview_wraps_without_collisions/detail/0": [
+      0,
+      0
+    ],
+    "thirty_piece_overview_wraps_without_collisions/overview/0": [
+      0,
+      16
+    ],
+    "thirty_piece_overview_wraps_without_collisions/overview/1000": [
+      0,
+      20
+    ],
+    "thirty_piece_overview_wraps_without_collisions/overview/319": [
+      0,
+      120
+    ],
+    "two_relations_one_pair/detail/0": [
+      0,
+      0
+    ],
+    "two_relations_one_pair/overview/0": [
+      0,
+      0
+    ]
+  },
+  "screens": {
+    "102": [
+      0,
+      16
+    ],
+    "103": [
+      0,
+      18
+    ],
+    "104": [
+      0,
+      18
+    ],
+    "105": [
+      0,
+      4
+    ],
+    "107": [
+      0,
+      4
+    ],
+    "108": [
+      0,
+      16
+    ],
+    "110": [
+      0,
+      0
+    ],
+    "111": [
+      12,
+      28
+    ],
+    "112": [
+      12,
+      28
+    ],
+    "113": [
+      0,
+      4
+    ],
+    "114": [
+      0,
+      2
+    ]
+  }
+}

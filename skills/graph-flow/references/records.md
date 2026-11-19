@@ -21,6 +21,7 @@ This file is the contract between every part of graph-flow: the `gf` tool, the s
   runs/<run-id>/
     plans/0001.json          immutable plan revisions, zero-padded revision number
     events.jsonl             append-only event log, the only source of state
+    activity.jsonl           optional local tool metadata for the work summary
     .lock                    lock file for this run
     evidence/<node>/<check>/ check output, one file per execution
     brief/<node>.md          briefs handed to sub-sessions
@@ -38,11 +39,12 @@ $GF_HOME/                    default ~/.graph-flow
 | File | Rule |
 | --- | --- |
 | `events.jsonl` | Append only, under the run lock (section 5) |
+| `activity.jsonl` | Append and fsync under the run lock, with bounded compaction |
 | `plans/NNNN.json` | Written once to a temporary name in the same directory, `fsync`, then `os.replace`. Never modified afterwards |
 | `constraints.jsonl`, `checks.json` | Read-modify-write under the project `.lock`; each file is written to a temporary name and installed with `os.replace` |
 | `registry.json`, `server.json`, `human.key` | Read-modify-write under `$GF_HOME/.lock`, installed with `os.replace` |
 
-All locks are exclusive `fcntl.flock` locks on the named `.lock` file, blocking with a 30 second timeout (exit code 5, code `lock_timeout`).
+All locks are exclusive `fcntl.flock` locks on the named `.lock` file. Ordinary commands wait up to 30 seconds (exit code 5, code `lock_timeout`). The asynchronous activity observer gives up silently after 500 ms of lock contention.
 
 ## 2. Identity and roles
 
@@ -62,6 +64,7 @@ Roles prevent accidents; they are not a security boundary (P5, P10). An agent th
 | `init`, `plan set`, `host set`, `ready`, `route`, `assign`, `brief`, `merge`, `gate`, `reopen`, `learn add`, `learn promote`, `learn retire` | yes | no | no | no |
 | `plan validate`, `learn list` | yes | yes | yes | yes |
 | `trace` | yes | no | no | yes |
+| `activity [node]` | yes | own node only | no | yes |
 | `status` | yes | own node only | own node and its target only | yes |
 | `submit --commit` | yes | own node | no | no |
 | `start` | yes | own node | own node | no |
@@ -146,7 +149,7 @@ Incomplete tail: readers ignore a final line that does not end in a newline or d
 | `review.submit` | `node` (the review node), `attempt`, `target`, `target_submission`, `verdict` (`pass`, `fail`), `findings` (list of `{severity, file, line, text}` with optional free-form `evidence`; `text` is one plain sentence a person will read on the dashboard, with paths, commands, ids and exit codes in `evidence`) |
 | `merge.result` | `merged` (list of `{node, commit, head}`), `conflicted` (list of `{node, commit, files}`) |
 | `gate.verdict` | `node`, `attempt`, `submission` (or `null`), `verdict`, `rule`, `rejection` (or `null`), `tested_head`; optional `skipped_checks` entries with `check`, `title`, `pending_nodes`, and optional advisory `notices` |
-| `gate.final` | `result` (`passed`, `failed`), `failed_checks`, `tested_head` |
+| `gate.final` | `result` (`passed`, `failed`, `unverified`), `failed_checks`, `tested_head` |
 | `node.reopen` | `node`, `reason` |
 | `decision.ask` | `id`, `node` (or `null`), `submission` (or `null`), `check` (or `null`), `purpose` (`node`, `human_check`, `lane3`, `trajectory`, `hold`, `free`), `kind`, `question`, `evidence` `{command, files, checks}` |
 | `decision.answer` | `id`, `outcome`, `answer`, `source` (`dashboard`, `terminal`), `sig` (section 7) |
@@ -177,7 +180,7 @@ Decisions are bound, not counted: a decision is **stale** when its node's `basis
 
 ```json
 {
-  "run": {"id": "notes_export", "plan_revision": 1, "status": "open", "host": ["t3_delegate"], "final": null},
+  "run": {"id": "notes_export", "plan_revision": 1, "status": "open", "host": ["t3_delegate"], "final": null, "current_final": null},
   "nodes": {
     "export": {
       "status": "submitted",
@@ -250,7 +253,7 @@ Decisions are bound, not counted: a decision is **stale** when its node's `basis
 - `checks[<id>]` has `loop` and `gate`, each the latest `check.result` data of the **current attempt** for that phase, or `null`. `verdict` is the latest `gate.verdict` data for the current submission (for a decision node: since its basis), or `null`. `rejections` lists the rejection objects of this node's `reject` and `replan` verdicts since its basis, in order. `merged_head` is the `head` of the latest `merge.result` entry for the current submission's commit, or `null`; `submission`, `verdict`, and `merged_head` are cleared by `node.start`.
 - `reviews` (work nodes only) lists every review node that targets the node and has submitted since its own basis (its status is `submitted`, `unverified`, `held`, `awaiting_approval`, or `passed`), with that review node's `status`, its `target_submission`, verdict, findings, and its assignment `family` (or `null`). The gate, not the list, decides which entries match the current submission.
 - `open_decisions` holds the ids of open, non-stale decisions bound to the node. `decisions` holds every decision; `status` is `open`, `answered`, or `superseded`.
-- `run.final` is the last `gate.final` data plus its `seq`, or `null`. `run.status` is `complete` only when the plan has at least one node, every node is `passed`, the last `gate.final` has result `passed`, and its `seq` is greater than the `seq` of every `plan.set`, `node.reopen`, and `gate.verdict` event; otherwise `open`.
+- `run.final` is the last `gate.final` data plus its `seq`, or `null`. `run.current_final` contains that verdict only if it is newer than every plan post, node reopen, valid attempt start, and node verdict. `run.status` is `complete` when the plan has at least one node, every node is `passed`, submitted commits meet the merge requirements, and `run.current_final.result` is `passed`. Otherwise it is `open`.
 
 | Node status | Reached by |
 | --- | --- |
@@ -394,6 +397,83 @@ Who can answer (P10):
 - P1 reports work-node cmd coverage and planned commands with no observed failure, including unexecuted commands. Its passed subset requires a recorded pass. Skips contribute no pass or failure evidence. P2 reports the highest recorded attempt number (not the sum across reopened budgets) and replan; P3–P7 report recorded dependencies, scope declarations, assignments/reviews, deterministic results/merges and gate counts. P8/P9 report "not measurable from records": the log lacks the historical state snapshots needed to measure cross-node rejection effects or independently verify approval at each historical lane-3 pass. P10 reports answers and waits; P11 constraints; P12 trajectory and stuck counts. Corrupt event logs produce unavailable conformance observations, not a zero-activity conclusion.
 
 `rollbacks` for a node is the number of nodes in **other** runs of the same project that own a path overlapping this node's `owns` and that were `passed` and later reopened, rejected, or replanned. It is grade 3 evidence used by gate rule R5.
+
+### Local activity observations
+
+Claude Code discovers the plugin's `hooks/hooks.json`. The asynchronous
+`PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `SubagentStart` and
+`SubagentStop` command hooks pass metadata to the bundled `gf` entry point.
+They run without the dashboard and return no tool feedback. Payloads over
+8 MiB and I/O failures are silently skipped. See the [Claude Code plugin
+manifest](https://code.claude.com/docs/en/plugins-reference) and [hooks
+reference](https://code.claude.com/docs/en/hooks).
+
+Activity applies to an open, approved run in the current Git project or its
+linked worktree. An eligible `GF_RUN` resolves multiple runs explicitly.
+Otherwise an exact identity or directory can select a unique run when several
+are open. The observer skips ambiguous runs. Within a run it binds an
+observation to a currently running attempt in this order.
+
+1. Exact `session_id`, or Claude's `agent_id` when supplied, compared with
+   the start event's `actor.session` (plain or prefixed with the observing
+   host's `claude:` or `codex:`). An unrelated thread ID or a human label
+   requires the existing fallbacks.
+2. Exactly one running attempt has the hook's canonical `cwd` as its recorded
+   start directory.
+3. Exactly one attempt is running in the selected run.
+
+A tie at the highest matching rule, or no candidate, stays unattributed at
+run level. Later phases of a known call inherit its first recorded attribution.
+The two fallback rules are directory and concurrency heuristics. The collector
+does not look inside prompts or messages to guess a node.
+
+`activity.jsonl` stores one UTF-8 JSON object per observed start or end.
+
+| Field | Meaning |
+| --- | --- |
+| `ts`, `phase` | UTC observation time (milliseconds) and `start` or `end` |
+| `duration_ms` | Optional on end. Host execution duration when provided, otherwise elapsed hook time if paired |
+| `category`, `tool` | `tool`, `skill`, `mcp`, `session`, `gf` or `other`, and the tool name. `Subagent` denotes a lifecycle observation |
+| `server` | Optional MCP server name from documented metadata or the tool-name namespace |
+| `outcome` | Optional `ok` or `error` on end when the event identifies its outcome. A Claude subagent stop records the observed stop |
+| `session`, `agent` | Hook session ID and optional subagent/teammate ID |
+| `call` | Opaque digest of the identity and invocation key, used to pair observations |
+| `node`, `attempt`, `via` | Node ID and attempt number, both null at run level. Rule is `session`, `cwd`, `single`, or `unattributed` |
+
+Tool arguments, command strings, working directories and other file paths,
+transcript paths, file contents, prompts, messages, tool outputs and error text
+never enter this activity log or its read surfaces. The collector uses the
+shell executable prefix only to recognize direct Graph Flow commands. Names
+and timing stay local. The lifecycle payload also carries `agent_type`,
+which identifies a profile and is not persisted.
+
+New logs use mode 0600. Complete lines append and fsync under the existing run
+lock. At 4 MiB, atomic replacement preserves approximately the newest 2 MiB
+of complete records before appending. Readers ignore a torn final line and
+report `unreadable` for complete malformed records or read errors. The
+observer repairs a torn tail before appending. Missing hooks, teardown,
+retention and dropped observations can all leave gaps. Start-only and
+end-only calls remain readable. The activity log does not enter replay,
+approval identity, signatures, gates or trace conformance.
+
+`gf activity [node]` returns `{status, records}`. Leader and human CLI reads
+may omit the node to include run-level observations. Workers always read
+their bound node. The MCP adapter exposes `run_activity` to leaders and
+workers, following its existing role policy. Dashboard responses carry the
+condensed phases and exact current phase id. Each phase adds allowed tool
+names with call counts, recorded first start and latest end where available,
+longest known call, attribution rules, and observed, inferred, mixed or
+boundary origin. Boundary check entries label the recorded checks. Attempt
+totals by category come from the phases before applying the display cap.
+The activity ledger is unsigned display evidence.
+
+The Codex manifest selects `hooks/codex.json`. Its background tool hooks
+pair `PreToolUse` and `PostToolUse` by session, turn and invocation ID.
+`PostToolUse` can include nonzero Bash exits and has tool-specific response
+shapes. Codex end records leave outcome unspecified and elapsed timings
+come from paired hook observations. Codex loads the bundled commands after
+hook review and trust. Sessions without observations show their boundary
+events. [Codex plugin packaging](https://developers.openai.com/plugins/build/plugins#bundled-mcp-servers-and-lifecycle-hooks) · [Codex hook schemas](https://learn.chatgpt.com/docs/hooks)
 
 ## 10. Command line conventions
 

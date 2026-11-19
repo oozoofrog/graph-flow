@@ -9,6 +9,7 @@ from . import core
 MARKER = "# graph-flow launcher, written by `gf setup`"
 # `gf` is short but often taken (oh-my-zsh aliases it to `git fetch`); `graph-flow` is the name to rely on.
 NAMES = ("graph-flow", "gf")
+VERSION_PATTERN = r"\d+(?:\.\d+)*(?:-dev)?"
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "gf"
 TEMPLATE = '''#!/usr/bin/env python3
 %(marker)s
@@ -23,7 +24,10 @@ SIBLINGS = %(siblings)r
 
 def version(path):
     name = path[len(SIBLINGS.split("*")[0]):].split(os.sep)[0]
-    return [int(part) for part in name.split(".")] if re.fullmatch(r"\\d+(\\.\\d+)*", name) else None
+    if re.fullmatch(%(version_pattern)r, name):
+        number, separator, _ = name.partition("-")
+        return ([int(part) for part in number.split(".")], not separator)
+    return None
 
 
 found = sorted((p for p in glob.glob(SIBLINGS) if version(p) is not None), key=version) if SIBLINGS else []
@@ -43,7 +47,7 @@ def default_bin_dir():
 def _siblings(script):
     """Glob matching every installed version beside this one, or "" outside a versioned install."""
     version_dir = script.parents[3]
-    if not re.fullmatch(r"\d+(\.\d+)*", version_dir.name):
+    if not re.fullmatch(VERSION_PATTERN, version_dir.name):
         return ""
     return str(version_dir.parent / "*" / script.relative_to(version_dir))
 
@@ -73,7 +77,8 @@ def install(bin_dir=None, script=None):
         raise core.GFError("exists", "%s exists and was not written by gf setup; "
                            "move it or choose --bin-dir" % (directory / NAMES[0]), core.EXIT_STATE)
     directory.mkdir(parents=True, exist_ok=True)
-    text = TEMPLATE % {"marker": MARKER, "target": str(script), "siblings": _siblings(script)}
+    text = TEMPLATE % {"marker": MARKER, "target": str(script), "siblings": _siblings(script),
+                       "version_pattern": VERSION_PATTERN}
     commands = [name for name in NAMES if name not in taken]
     for name in commands:
         temporary = directory / (".%s.%d.tmp" % (name, os.getpid()))

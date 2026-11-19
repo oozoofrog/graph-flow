@@ -1,11 +1,154 @@
 // UI_STRINGS_START
 const STRINGS = {
   "ko": {
+    "cardKind_work": "일",
+    "cardKind_review": "검토",
+    "cardKind_decision": "결정",
+    "cardKind_goal": "전체 결과",
+    "cardState_notStarted": "시작 전",
+    "cardState_running": "진행 중",
+    "cardState_reviewing": "검토 중",
+    "cardState_retrying": "다시 진행 중",
+    "cardState_submitted": "확인 대기",
+    "cardState_passed": "끝남",
+    "cardState_awaiting": "답이 필요함",
+    "cardState_returned": "되돌아옴",
+    "cardState_stalled": "활동 없음",
+    "tag_delivered": "넘어감",
+    "tag_frontier": "쓰이는 중",
+    "tag_waiting": "기다리는 중",
+    "tag_unreachable": "차례 전",
+    "tag_blocked": "답 대기",
+    "tag_returned": "되돌아옴",
+    "cardSession": "세션 소통",
+    "cardChecks": "검사·제출",
+    "cardThinking": "생각(추정)",
+    "cardMinute": "{n}분",
+    "cardMinutes": "{n}분",
+    "cardSeconds": "{n}초",
+    "cardAttempt": "{n}번째",
+    "cardLane": "단계 {n}",
+    "cardWaiting": "· {age}째",
+    "cardNow": "지금 {category}",
+    "cardUnobserved": "세부 활동 관측 안 됨",
+    "cardUnreadable": "활동 기록을 읽을 수 없음",
+    "activityNameTool": "도구",
+    "activityNameSkill": "스킬",
+    "activityNameMcp": "MCP",
+    "activityNameSession": "세션 간 소통",
+    "activityNameGf": "Graph Flow",
+    "activityNameOther": "기타 작업",
+    "activityNameStalled": "최근 활동 없음",
+    "activityNameRepeating": "실패 반복",
+    "activityBoundedGap": "직전 공백(생각한 시간으로 추정)",
+    "workActivity": "작업 요약",
+    "activityAttempt": "{n}번째 시도",
+    "activityEmpty": "아직 기록된 작업이 없어요.",
+    "activityUnobserved": "이 세션에서 세부 활동이 관측되지 않았어요.",
+    "activityUnreadable": "활동 기록을 읽을 수 없어요.",
+    "activityCount": "{n}회",
+    "activityKnown": "도구 {d}종",
+    "activityDurationUnknown": "걸린 시간 미확인",
+    "activitySomeUnknown": "일부 시간 미확인",
+    "activityErrors": "관측된 오류 {n}회",
+    "activityReplay": "다시 재생",
+    "activityPause": "일시 정지",
+    "activityResume": "이어서 재생",
+    "graphPause": "그래프 움직임 멈추기",
+    "graphResume": "그래프 움직임 재개",
+    "activityAttentionCount": "활동 확인 필요 {n}개",
+    "activityTime": "시간",
+    "activityCalls": "호출",
+    "activityTotals": "활동별 합계",
+    "activityTotalDuration": "합계 {time}",
+    "activityLongest": "최장 {time}",
+    "activityStarted": "시작 {time}",
+    "activityEnded": "종료 {time}",
+    "activityVia_session": "세션 일치",
+    "activityVia_cwd": "작업 디렉터리 일치",
+    "activityVia_single": "실행 중인 시도가 하나",
+    "activityVia_unattributed": "작업에 연결되지 않음",
+    "activityOrigin_observed": "관측됨",
+    "activityOrigin_inferred": "추정",
+    "activityOrigin_mixed": "관측과 추정",
+    "activityOrigin_boundary": "실행 기록",
+    "flowDelivered": "전달됨",
+    "flowProgress": "진행 중",
+    "flowWaiting": "전달 대기",
+    "flowBlocked": "막힘",
+    "flowUnreachable": "선행 작업 대기",
+    "flowReturned": "수정 요청으로 돌아감",
+    "flowCounts": "전달 {delivered} · 진행 중 {progress} · 대기 {waiting} · 막힘 {blocked}",
+    "edgeChoose": "관계 선택",
+    "edgeGate": "게이트",
+    "edgeFlow": "흐름",
+    "edgeArtifact": "전달 항목",
+    "edgeGateRecord": "게이트 근거",
+    "edgeFlowRecord": "흐름 근거",
+    "edgeDeliveryRecord": "전달 기록",
+    "edgeReturnRecord": "수정 요청 기록",
+    "edgeGateFlowRecord": "게이트·흐름 근거",
+    "edgeGateReturnRecord": "게이트·수정 요청 근거",
+    "edgeRecordSubmission": "제출",
+    "edgeRecordReview": "검토 제출",
+    "edgeRecordCheck": "검사",
+    "edgeRecordVerdict": "게이트 판정",
+    "edgeRecordDecision": "결정",
+    "edgeRecordStart": "작업 시작",
+    "edgeVerdictHold": "보류",
+    "edgeVerdictReplan": "계획 수정 필요",
+    "edgeVerdictUnverified": "확인 대기",
+    "activityRead": "읽기 및 검색 {n}회",
+    "activityTool": "도구 사용 {n}회",
+    "activitySkill": "스킬 실행 {n}회",
+    "activityMcp": "MCP 호출 {n}회",
+    "activitySession": "다른 세션과 소통 {n}회",
+    "activityGf": "Graph Flow 명령 {n}회",
+    "activityOther": "기타 작업 {n}회",
+    "activityThinking": "생각한 시간(추정)",
+    "activityIncludesInferred": "추정 구간 포함",
+    "activityStart": "시도 시작",
+    "activityCheck": "검사 {n}회",
+    "activitySubmit": "결과 제출",
+    "activityMore": "그 외 {n}단계",
     "flow": "전체 흐름",
     "chooseRun": "흐름 고르기",
     "skip": "내용으로 건너뛰기",
     "listView": "그래프를 목록으로 보기",
     "nodes": "하는 일",
+    "relationList": "관계 목록",
+    "timePlay": "▶ 재생",
+    "timePause": "Ⅱ 일시 정지",
+    "timeSpeed": "재생 속도",
+    "timeLive": "지금",
+    "timePast": "과거 기록을 보고 있어요",
+    "timeLinear": "실제 시간 간격",
+    "timeScrub": "실행 시점",
+    "timeUnits": "일,시간,분,초,밀리초",
+    "timeZero": "0초",
+    "timeReturned": "되돌려 보냄",
+    "timeRevision": "계획 개정 {n}",
+    "timeHuman": "사람의 답을 기다림 · {duration}",
+    "timeBreak": "줄인 시간 간격 · {duration}",
+    "timeFailed": "과거 기록을 불러오지 못했어요",
+    "spaceView": "시공간",
+    "spaceSide": "옆에서",
+    "spaceViews": "그래프 보기 방식",
+    "spaceWebGL": "시공간 뷰를 보려면 WebGL 2가 필요해요",
+    "spaceViewed": "보고 있는 시점",
+    "spaceVerify": "확인 대기",
+    "spaceHuman": "사람의 답을 기다림",
+    "spaceUnobserved": "작업 중 관측 없음",
+    "spaceHandoff": "전달",
+    "spaceVerdict": "판정",
+    "spaceCheck": "검사",
+    "spaceTransferWait": "{duration} 기다림",
+    "spaceTransferGroup": "전달 {n}건 · 최대 {duration} 기다림",
+    "spaceActivityCount": "{name} {n}회",
+    "spaceAsked": "질문을 올림",
+    "spaceAnswered": "답변을 받음",
+    "spaceNotToScale": "높이를 실제보다 크게 표시",
+    "spaceRecords": "시간순 기록",
     "handoffs": "주고받는 것",
     "yourTurn": "내가 할 일",
     "choiceEffects": "고르면 생기는 일",
@@ -16,7 +159,6 @@ const STRINGS = {
     "waiting": "앞 일을 기다림",
     "needs_you": "내가 할 일",
     "returned": "고치러 돌아옴",
-    "legend": "기호 안내",
     "received": "받는 것",
     "outputs": "넘기는 것",
     "noHandoffs": "기록된 주고받기가 없어요.",
@@ -31,6 +173,8 @@ const STRINGS = {
     "running": "만들고 있어요",
     "retrying": "고치고 있어요",
     "submitted": "검토를 기다려요",
+    "verificationPending": "확인이 더 필요해요",
+    "failedFinal": "전체 검사 실패",
     "awaiting": "내 답을 기다리는 일",
     "held": "다음 방향을 기다려요",
     "exhausted": "다음 계획이 필요해요",
@@ -117,7 +261,7 @@ const STRINGS = {
     "review": "검토",
     "decision": "결정",
     "handsOver": "넘겨줌",
-    "reviews": "검토를 맡겼어요",
+    "reviews": "검토 담당",
     "waitsForDecision": "결정을 기다림",
     "towardGoal": "목표로",
     "reviewSentence": "{target}을(를) {lens}의 눈으로 검토해요",
@@ -237,9 +381,10 @@ const STRINGS = {
     "answeredApproval": "결과를 받아들이기로 답했어요",
     "answeredRevision": "고쳐 달라고 답했어요",
     "answeredRejection": "받아들이지 않기로 답했어요",
-    "lineSampleOpen": "결과 전달",
-    "lineSampleClosed": "전달 대기",
-    "lineSampleReview": "검토 관계",
+    "lineSampleOpen": "전달 완료",
+    "lineSampleClosed": "전달 전",
+    "lineSampleWaiting": "답변 대기",
+    "lineSampleReturned": "반려됨",
     "attemptShort": "{n}번째 시도",
     "earlierHistory": "이전 시도 기록",
     "failureUnknownAttempt": "✕ 기록된 시도에서 “{names}” 확인이 통과하지 못했어요",
@@ -254,7 +399,7 @@ const STRINGS = {
     "confirmBlind": "파일과 검사 결과 없이 받아들일게요",
     "blindHint": "자료 없이 받아들이려면 확인 상자를 선택해 주세요.",
     "acceptBlind": "자료 없이 받아들이기",
-    "minZoom": "글자를 읽을 수 있는 최소 크기예요",
+    "minZoom": "최소 배율이에요",
     "readGateHint": "파일이나 근거를 먼저 열어 주세요",
     "approveEffect": "받아들이기로 한 답이 진행 담당자에게 전달돼요",
     "revisionEffect": "고칠 곳이 진행 담당자에게 전달돼요",
@@ -363,7 +508,12 @@ const STRINGS = {
     "noWorkRecorded": "아직 실행한 작업 기록이 없어요. 승인 전에는 시작하지 않아요.",
     "planOpen": "계획 읽기",
     "futureDelivery": "{who}에서 받아요",
-    "visiblePlan": "계획 카드 {total}개 + 전체 결과 확인 1개 · {n}개 제목이 보여요",
+    "visiblePlan": "계획 카드 {total}개{result} · {n}개 제목이 보여요",
+    "visibleFarCards": "계획 카드 {total}개{result} · 카드 {n}개가 보여요",
+    "minimap": "그래프 미니맵",
+    "riskLane": "위험 단계 {n}",
+    "riskLegend": "위험 단계",
+    "visibleResult": " + 전체 결과 확인 {n}개",
     "listAll": "목록으로 모두 읽기",
     "questionsForNode": "내게 물을 내용",
     "findingsOutput": "검토 의견",
@@ -463,6 +613,8 @@ const STRINGS = {
     "whos_running": "작업 담당자가 만들고 있어요",
     "whos_retrying": "작업 담당자가 고치고 있어요",
     "whos_submitted": "진행 담당자가 검사와 검토를 확인해요",
+    "whos_verificationPending": "진행 담당자가 남은 검사를 확인해요",
+    "whos_failedFinal": "진행 담당자가 실패한 전체 검사를 확인해요",
     "whos_passed": "이 일은 끝났어요",
     "whos_awaiting": "내 답을 기다려요",
     "whos_returned": "작업 담당자가 고쳐요",
@@ -678,11 +830,154 @@ const STRINGS = {
     "qBeforeWorkCount": "작업 전에 이미 통과한 검사 {n}개가 있어요."
   },
   "en": {
+    "cardKind_work": "Work",
+    "cardKind_review": "Review",
+    "cardKind_decision": "Decision",
+    "cardKind_goal": "Overall result",
+    "cardState_notStarted": "Not started",
+    "cardState_running": "Running",
+    "cardState_reviewing": "Reviewing",
+    "cardState_retrying": "Retrying",
+    "cardState_submitted": "Awaiting check",
+    "cardState_passed": "Done",
+    "cardState_awaiting": "Needs your answer",
+    "cardState_returned": "Returned",
+    "cardState_stalled": "No activity",
+    "tag_delivered": "Delivered",
+    "tag_frontier": "In use",
+    "tag_waiting": "Waiting",
+    "tag_unreachable": "Not yet",
+    "tag_blocked": "Answer pending",
+    "tag_returned": "Returned",
+    "cardSession": "Session messages",
+    "cardChecks": "Checks and submission",
+    "cardThinking": "Thinking (inferred)",
+    "cardMinute": "{n} min",
+    "cardMinutes": "{n} mins",
+    "cardSeconds": "{n} s",
+    "cardAttempt": "Attempt {n}",
+    "cardLane": "Level {n}",
+    "cardWaiting": "· {age} waiting",
+    "cardNow": "Now: {category}",
+    "cardUnobserved": "Activity not observed",
+    "cardUnreadable": "Activity unreadable",
+    "activityNameTool": "Tools",
+    "activityNameSkill": "Skills",
+    "activityNameMcp": "MCP",
+    "activityNameSession": "Session communication",
+    "activityNameGf": "Graph Flow",
+    "activityNameOther": "Other work",
+    "activityNameStalled": "No recent activity",
+    "activityNameRepeating": "Repeated failures",
+    "activityBoundedGap": "Previous gap (thinking inferred)",
+    "workActivity": "Work summary",
+    "activityAttempt": "Attempt {n}",
+    "activityEmpty": "No recorded work yet.",
+    "activityUnobserved": "No fine-grained activity observed for this session.",
+    "activityUnreadable": "Activity log unreadable.",
+    "activityCount": "Calls: {n}",
+    "activityKnown": "Distinct tools: {d}",
+    "activityDurationUnknown": "Duration unknown",
+    "activitySomeUnknown": "Some durations unknown",
+    "activityErrors": "Observed errors: {n}",
+    "activityReplay": "Replay",
+    "activityPause": "Pause",
+    "activityResume": "Resume",
+    "graphPause": "Pause graph motion",
+    "graphResume": "Resume graph motion",
+    "activityAttentionCount": "{n} need activity attention",
+    "activityTime": "Time",
+    "activityCalls": "Calls",
+    "activityTotals": "Totals by activity",
+    "activityTotalDuration": "Total {time}",
+    "activityLongest": "Longest {time}",
+    "activityStarted": "Started {time}",
+    "activityEnded": "Ended {time}",
+    "activityVia_session": "Session match",
+    "activityVia_cwd": "Working-directory match",
+    "activityVia_single": "Only running attempt",
+    "activityVia_unattributed": "Unattributed",
+    "activityOrigin_observed": "Observed",
+    "activityOrigin_inferred": "Inferred",
+    "activityOrigin_mixed": "Observed and inferred",
+    "activityOrigin_boundary": "Run record",
+    "flowDelivered": "Delivered",
+    "flowProgress": "In progress",
+    "flowWaiting": "Waiting for source",
+    "flowBlocked": "Blocked",
+    "flowUnreachable": "Not yet reachable",
+    "flowReturned": "Returned for rework",
+    "flowCounts": "Delivered {delivered} · In progress {progress} · Waiting {waiting} · Blocked {blocked}",
+    "edgeChoose": "Choose a relation",
+    "edgeGate": "Gate",
+    "edgeFlow": "Flow",
+    "edgeArtifact": "Handoff item",
+    "edgeGateRecord": "Gate record",
+    "edgeFlowRecord": "Flow record",
+    "edgeDeliveryRecord": "Delivery record",
+    "edgeReturnRecord": "Return record",
+    "edgeGateFlowRecord": "Gate and flow record",
+    "edgeGateReturnRecord": "Gate and return record",
+    "edgeRecordSubmission": "Submission",
+    "edgeRecordReview": "Review submission",
+    "edgeRecordCheck": "Check",
+    "edgeRecordVerdict": "Gate verdict",
+    "edgeRecordDecision": "Decision",
+    "edgeRecordStart": "Work started",
+    "edgeVerdictHold": "Held",
+    "edgeVerdictReplan": "Plan revision needed",
+    "edgeVerdictUnverified": "Awaiting verification",
+    "activityRead": "Reads and searches: {n}",
+    "activityTool": "Tool calls: {n}",
+    "activitySkill": "Skill calls: {n}",
+    "activityMcp": "MCP calls: {n}",
+    "activitySession": "Session exchanges: {n}",
+    "activityGf": "Graph Flow commands: {n}",
+    "activityOther": "Other calls: {n}",
+    "activityThinking": "Thinking (inferred)",
+    "activityIncludesInferred": "Includes inferred time",
+    "activityStart": "Attempt started",
+    "activityCheck": "Checks run: {n}",
+    "activitySubmit": "Work submitted",
+    "activityMore": "{n} more steps",
     "flow": "Whole flow",
     "chooseRun": "Choose a flow",
     "skip": "Skip to content",
     "listView": "Read the graph as a list",
     "nodes": "The work",
+    "relationList": "Relations",
+    "timePlay": "▶ Play",
+    "timePause": "Ⅱ Pause",
+    "timeSpeed": "Playback speed",
+    "timeLive": "Live",
+    "timePast": "Viewing past records",
+    "timeLinear": "True time scale",
+    "timeScrub": "Time in the run",
+    "timeUnits": " d, h, min, s, ms",
+    "timeZero": "0 s",
+    "timeReturned": "Sent back",
+    "timeRevision": "Plan revised · {n}",
+    "timeHuman": "Wait for a human answer · {duration}",
+    "timeBreak": "Shortened time gap · {duration}",
+    "timeFailed": "Past records could not be loaded",
+    "spaceView": "Space-time",
+    "spaceSide": "Side view",
+    "spaceViews": "Graph views",
+    "spaceWebGL": "The space-time view requires WebGL 2",
+    "spaceViewed": "Viewed time",
+    "spaceVerify": "Awaiting verification",
+    "spaceHuman": "Waiting for a human answer",
+    "spaceUnobserved": "Unobserved work",
+    "spaceHandoff": "Handoff",
+    "spaceVerdict": "Verdict",
+    "spaceCheck": "Check",
+    "spaceTransferWait": "Waited {duration}",
+    "spaceTransferGroup": "{n} transfers · up to {duration} waiting",
+    "spaceActivityCount": "{name} ×{n}",
+    "spaceAsked": "Question asked",
+    "spaceAnswered": "Answer recorded",
+    "spaceNotToScale": "Height exaggerated",
+    "spaceRecords": "Records in time order",
     "handoffs": "What is handed over",
     "yourTurn": "Your turn",
     "choiceEffects": "What each choice does",
@@ -693,7 +988,6 @@ const STRINGS = {
     "waiting": "Waiting to begin",
     "needs_you": "Your turn",
     "returned": "Returned for changes",
-    "legend": "Legend",
     "received": "Receives",
     "outputs": "Hands over",
     "noHandoffs": "No handoff is recorded.",
@@ -708,6 +1002,8 @@ const STRINGS = {
     "running": "Making it",
     "retrying": "Redoing work that came back",
     "submitted": "Waiting for review",
+    "verificationPending": "Verification pending",
+    "failedFinal": "Final check failed",
     "awaiting": "Work awaiting my answer",
     "held": "Waiting for the next direction",
     "exhausted": "Needs a new plan",
@@ -914,9 +1210,10 @@ const STRINGS = {
     "answeredApproval": "Answered: accept the result",
     "answeredRevision": "Answered: request changes",
     "answeredRejection": "Answered: reject the result",
-    "lineSampleOpen": "Handoff",
-    "lineSampleClosed": "Handoff pending",
-    "lineSampleReview": "Review",
+    "lineSampleOpen": "Delivered",
+    "lineSampleClosed": "Pending",
+    "lineSampleWaiting": "Awaiting answer",
+    "lineSampleReturned": "Returned",
     "attemptShort": "Attempt {n}",
     "earlierHistory": "Earlier attempt history",
     "failureUnknownAttempt": "✕ In the recorded attempt, “{names}” did not pass",
@@ -931,7 +1228,7 @@ const STRINGS = {
     "confirmBlind": "I choose to accept without a file or check result",
     "blindHint": "Tick the confirmation box to accept without evidence.",
     "acceptBlind": "Accept without evidence",
-    "minZoom": "Minimum zoom for readable text",
+    "minZoom": "Minimum zoom",
     "readGateHint": "Open a file or the evidence first",
     "approveEffect": "Your acceptance is sent to the leader session",
     "revisionEffect": "Your requested changes are sent to the leader session",
@@ -1040,7 +1337,12 @@ const STRINGS = {
     "noWorkRecorded": "No work has been recorded. Execution waits for approval.",
     "planOpen": "Read plan",
     "futureDelivery": "To be received by {who}",
-    "visiblePlan": "{total} plan cards + 1 whole-result card · {n} titles visible",
+    "visiblePlan": "{total} plan cards{result} · {n} titles visible",
+    "visibleFarCards": "{total} plan cards{result} · {n} cards visible",
+    "minimap": "Graph minimap",
+    "riskLane": "Risk level {n}",
+    "riskLegend": "Risk level",
+    "visibleResult": " + {n} whole-result card",
     "listAll": "Read the complete list",
     "questionsForNode": "For your response",
     "findingsOutput": "Review notes",
@@ -1140,6 +1442,8 @@ const STRINGS = {
     "whos_running": "The worker is producing the result",
     "whos_retrying": "The worker is correcting the result",
     "whos_submitted": "The coordinator checks results and reviews",
+    "whos_verificationPending": "The coordinator checks what is still unverified",
+    "whos_failedFinal": "The coordinator checks the failed final checks",
     "whos_passed": "This piece is finished",
     "whos_awaiting": "Waiting for your answer",
     "whos_returned": "The worker corrects it next",
@@ -1530,18 +1834,76 @@ export function viewLanguage(view, browser = 'en') {
 export function cometCount(node) { return (node.laps || []).filter(lap => lap === 'returned').length; }
 // Both levels use at least 14px text; 6/7 keeps it at least 12px on screen.
 export const MIN_FIT_SCALE = 6 / 7;
+const MIN_MAP_SCALE = .7;
+const graphDetail = (level,scale) => level==='detail'?'near':scale<MIN_FIT_SCALE?'far':'mid';
 export function edgeRelationLabel(edge, language = 'en') {
   const words = STRINGS[language];
   if (edge.relation === 'toward_goal') return words.towardGoal;
-  if (edge.relation === 'reviews') return words.reviews;
-  if (edge.relation === 'waits_for_decision') return words.waitsForDecision;
-  return words.handsOver + (edge.label ? ': ' + edge.label : '');
+  const name=({reviews:words.reviews,waits_for_decision:words.waitsForDecision})[edge.relation] || words.handsOver;
+  return name + (edge.label ? ': ' + edge.label : '');
 }
-// Text on a line has one meaning: the name of what is handed over. Reviews and decisions are shown by the line itself.
+const GATE_LABELS = {open:'lineSampleOpen', closed:'lineSampleClosed', waiting_for_you:'lineSampleWaiting', returned:'lineSampleReturned'};
+const FLOW_LABELS = {delivered:'flowDelivered',frontier:'flowProgress',waiting:'flowWaiting',blocked:'flowBlocked',
+  unreachable:'flowUnreachable',returned:'flowReturned'};
+export const FLOW_MARKS = {
+  unreachable: [[[-3,0],[0,-3],[3,0],[0,3],[-3,0]]],
+  waiting: [[[-7,0],[-2,0]],[[2,0],[7,0]]],
+  delivered: [[[-9,0],[9,0]]],
+  frontier: [[[-10,-2],[10,-2]],[[-10,2],[10,2]]],
+  blocked: [[[-3,-4],[-3,4]],[[3,-4],[3,4]]],
+  returned: [[[-1,-4],[-7,0],[-1,4]],[[7,-4],[1,0],[7,4]]],
+};
+const toneForFlow = (cue) => cue==='returned'?'failure':cue==='frontier'?'live':
+  cue==='unreachable'||cue==='waiting'?'quiet':'structure';
+export const cardStateWord = (state, language) => STRINGS[language]['cardState_'+state] || stateWords(state,language).name;
+const runningCard = state => ['running','reviewing','retrying'].includes(state);
+const clamp = n => Math.max(0,Math.min(1,n));
+
+export function edgeTag(edge, language = 'en') {
+  const cue = flowCue(edge.flow) || (edge.gate==='open'?'delivered':'unreachable');
+  const kind = {reviews:'review',waits_for_decision:'decision'}[edge.relation];
+  return {cue, text:[kind && STRINGS[language]['cardKind_'+kind], STRINGS[language]['tag_'+cue]].filter(Boolean).join(' '),
+    tone:toneForFlow(cue)};
+}
+
+function graphAttempt(node) {
+  return node.activity?.findLast(attempt => attempt.attempt == null || attempt.attempt===node.attempts);
+}
+
+export function cardFacts(node, decisions, now, language = 'en') {
+  const kind=node.kind || 'work';
+  const attempt=graphAttempt(node);
+  const recordedState=displayState(node,decisions);
+  const state=runningCard(recordedState)&&attempt?.stalled?'stalled':recordedState;
+  const observed=attempt?.status==='observed';
+  const ask=decisions.filter(d=>d.node===node.id).map(d=>Date.parse(d.asked))
+    .filter(at=>Number.isFinite(at)&&at<=now).sort((a,b)=>b-a)[0];
+  const stamp=call=>call.start_ms??call.end_ms;
+  const calls=observed ? (attempt.calls||[]).filter(call=>stamp(call)<=now)
+    .sort((a,b)=>stamp(a)-stamp(b)||a.id.localeCompare(b.id)) : [];
+  const active=runningCard(state) ? calls.findLast(c=>c.start_ms!=null && (c.end_ms==null||c.end_ms>now)) : null;
+  const totals=Object.entries(attempt?.totals||{}).filter(([,total])=>total.count||total.duration_ms)
+    .sort(([a,x],[b,y])=>y.duration_ms-x.duration_ms||a.localeCompare(b)).slice(0,3)
+    .map(([category,total])=>({category,duration:total.duration_ms}));
+  return {kind,state,word:cardStateWord(state,language),kindWord:STRINGS[language]['cardKind_'+kind],
+    attempt:node.attempts>1?node.attempts:null,lane:(node.effective_lane??node.lane)||null,
+    now:active?.category||null,activeCall:active?.id||null,calls,totals,ask,
+    unread:attempt&&!observed?attempt.status:null,
+    age:state==='awaiting'&&ask!=null?Math.floor((now-ask)/60000):
+      state==='stalled'&&attempt?.last_ms!=null?Math.max(0,Math.floor((now-attempt.last_ms)/60000)):null};
+}
+const flowCue = flow => flow?.frontier ? 'frontier' : flow?.state;
+const edgeKey = edge => JSON.stringify([edge.from,edge.to,edge.relation,edge.label||'']);
+const RELATION_MARKS = {
+  hands_over:{paths:[[[0,0],[10,5],[0,10]]], fill:true},
+  waits_for_decision:{paths:[[[1,1],[9,5],[1,9]]], fill:false},
+  reviews:{paths:[[[1,1],[5,5],[1,9]],[[5,1],[9,5],[5,9]]], fill:false},
+};
+// A handoff chip names the delivered item.
 export function edgeChipText(edge) {
   return (edge.relation || 'hands_over') === 'hands_over' && edge.label ? edge.label : '';
 }
-export const STATE_VOCABULARY = Object.fromEntries(['notStarted','running','reviewing','retrying','submitted','passed','awaiting','returned','exhausted','held','preapprovalSubmitted','planRevisionState'].map(state=>[state,{name:state,whoseMove:'whos_'+state}]));
+export const STATE_VOCABULARY = Object.fromEntries(['notStarted','running','reviewing','retrying','submitted','passed','awaiting','returned','exhausted','held','preapprovalSubmitted','planRevisionState','verificationPending','failedFinal'].map(state=>[state,{name:state,whoseMove:'whos_'+state}]));
 export function stateWords(state, language='en') {
   const entry=STATE_VOCABULARY[state] || STATE_VOCABULARY.notStarted;
   return {name:STRINGS[language][entry.name],whoseMove:STRINGS[language][entry.whoseMove]};
@@ -1581,14 +1943,16 @@ export function displayState(node, decisions = []) {
   if (decisions.some(d => d.node === node.id)) return 'awaiting';
   if (node.status === 'passed' || node.answered) return 'passed';
   if (node.status === 'running') return node.kind==='review'?'reviewing':node.attempts > 1 ? 'retrying' : 'running';
-  if (['submitted','unverified'].includes(node.status)) return 'submitted';
+  if (node.runLevel && node.status === 'failed') return 'failedFinal';
+  if (node.status === 'submitted') return 'submitted';
+  if (node.status === 'unverified') return 'verificationPending';
   if (['replan','exhausted'].includes(node.status)) return 'exhausted';
   if (node.status === 'rejected') return 'returned';
   if (['held','awaiting_approval'].includes(node.status)) return 'held';
   return 'notStarted';
 }
 export function statusGlyph(state) {
-  return {planRevisionState:'Ⅱ',preapprovalSubmitted:'⇥', passed:'✓', reviewing:'▶', running:'▶', retrying:'↪', submitted:'◷', awaiting:'◆', returned:'↩', notStarted:'○', exhausted:'!', held:'Ⅱ'}[state];
+  return {planRevisionState:'↻',preapprovalSubmitted:'⇥', passed:'✓', reviewing:'⌕', running:'▶', retrying:'↪', submitted:'↥', awaiting:'◆', returned:'↩', stalled:'◴', notStarted:'○', exhausted:'!', held:'Ⅱ', verificationPending:'…', failedFinal:'✕'}[state];
 }
 export function commandTitle(check) {
   const command = check.command || check.run;
@@ -1641,11 +2005,12 @@ export function zoomLevel(level, scale, amount) {
   const next = scale + amount;
   if (level === 'overview' && next > 1) return {level:'detail', scale:1};
   if (level === 'detail' && next < MIN_FIT_SCALE) return {level:'overview', scale:1};
-  return {level, scale:Math.max(MIN_FIT_SCALE, Math.min(level === 'overview' ? 1 : 1.6, next))};
+  const minimum = level === 'overview' ? MIN_MAP_SCALE : MIN_FIT_SCALE;
+  return {level, scale:Math.max(minimum, Math.min(level === 'overview' ? 1 : 1.6, next))};
 }
 // Preserve the nearest card's local point when its layout changes size.
 export function mapAnchor(before, after, point) {
-  const rects = before.cardRects;
+  const rects = before.cards || before.cardRects;
   const distance = r => Math.hypot(Math.max(r.x-point.x,0,point.x-r.x-r.width), Math.max(r.y-point.y,0,point.y-r.y-r.height));
   const rect = [...rects].sort((a,b)=>distance(a)-distance(b))[0];
   if (!rect || !after.positions[rect.id]) return point;
@@ -1668,14 +2033,15 @@ export function planFlow(data, language = 'en') {
   const id = '_run_checks', strings = STRINGS[language];
   const checks = [...(data.integration_checks || []), ...(data.promoted_checks || [])];
   const node = {id, kind:'goal', title:strings.runChecksTitle, summary:strings.runChecksAfter,
-    goal:data.goal, runLevel:true, plan_revision_wait:data.nodes.some(n=>n.plan_revision_wait), status:data.complete?'passed':'pending', attempts:0,
+    goal:data.goal, runLevel:true, plan_revision_wait:data.nodes.some(n=>n.plan_revision_wait), status:data.complete?'passed':data.final_result==='failed'?'failed':data.final_result==='unverified'?'unverified':'pending', attempts:0,
     owns:[], needs:[], reads:[], declared_outputs:[], inputs:[], outputs:[], deliverables:[],
     planned_checks:checks, returned_reasons:[], laps:[]};
-  const forward = forwardEdges(data.edges), terminal = data.nodes.filter(n => !forward.some(e => e.from === n.id));
+  const terminal = data.nodes.filter(n => !data.edges.some(e => e.from === n.id));
   const edges=[...data.edges,...terminal.map(n=>({
-    from:n.id,to:id,relation:'hands_over',label:'',gate:n.status==='passed'?'open':'closed',delivered:n.status==='passed',runLevel:true}))];
+    from:n.id,to:id,relation:'hands_over',label:'',gate:n.status==='passed'?'open':'closed',delivered:n.status==='passed',
+    ...(data.goal_flows?.[n.id] ? {flow:data.goal_flows[n.id]} : {}),runLevel:true}))];
   const nodes=[...data.nodes,node].map(n=>({...n,inputs:[],outputs:[]})),byId=new Map(nodes.map(n=>[n.id,n]));
-  for(const edge of forwardEdges(edges)) {
+  for(const edge of edges) {
     const from=byId.get(edge.from),to=byId.get(edge.to);if(!from||!to)continue;
     to.inputs.push({...edge,other_id:from.id,other_title:from.title});
     from.outputs.push({...edge,other_id:to.id,other_title:to.title});
@@ -1699,19 +2065,138 @@ export function crossingCount(routes, positions) {
   }));
   return count;
 }
-export function forwardEdges(edges) {
-  return edges.map(e => e.relation === 'reviews' ? {...e, from:e.to, to:e.from} : e);
-}
 export function detailCardHeight(node) {
   const facts=(node.deliverables?.length?1:0)+(node.planned_checks?.length?1:0)+(node.runLevel?1:0);
   return 112+facts*27+(node.planned_checks?.some(c=>c.runs_own_files)?32:0)+(node.kind==='decision'?32:0)+(node.kind==='review'||node.reviewers?.length?28:0)+(node.planned_checks?.some(c=>c.type==='human')||node.kind==='decision'?27:0);
 }
+function simplifyRoute(points) {
+  const distinct=points.filter((p,i)=>!i||p.x!==points[i-1].x||p.y!==points[i-1].y);
+  return distinct.filter((p,i,a)=>!i||i===a.length-1||
+    !((a[i-1].x===p.x&&p.x===a[i+1].x)||(a[i-1].y===p.y&&p.y===a[i+1].y)));
+}
+
+// Assign one track to each eligible fan or individual relation in this channel.
+function routeChannel(channel,vertices,routes,right,next,inset,shared) {
+  const pieces=channel.map(link=>{
+    const {from,to,route}=link;
+    return {route,a:{v:vertices.get(from)},b:{v:vertices.get(to)}};
+  });
+  const grouped=new Map(), tracks=[];
+  const far=shared==='a'?'b':'a';
+  for(const piece of pieces) {
+    const r=routes[piece.route];
+    let track;
+    if(shared&&!piece.a.v.dummy&&!piece.b.v.dummy) {
+      const key=JSON.stringify([piece[shared].v.id,r.relation||'hands_over',r.gateState,r.label||'']);
+      track=grouped.get(key);
+      if(track?.pieces.some(other=>other[far].v===piece[far].v))track=null;
+      if(!grouped.has(key))grouped.set(key,track={pieces:[],shared});
+    }
+    if(!track)track={pieces:[],shared:null};
+    if(!track.pieces.length)tracks.push(track);
+    track.pieces.push(piece);
+    piece.track=track;
+  }
+
+  const center=v=>v.y+v.height/2;
+  const ports={a:new Map(),b:new Map()};
+  for(const side of ['a','b']) {
+    const other=side==='a'?'b':'a';
+    for(const p of pieces){
+      const end=p[side], cardPorts=ports[side].get(end.v)||[];
+      ports[side].set(end.v,cardPorts);
+      let port=side===p.track.shared?cardPorts.find(port=>port.track===p.track):null;
+      if(!port){port={track:p.track,v:end.v,side,count:0,toward:0};cardPorts.push(port);}
+      port.count++;
+      port.toward+=center(p[other].v);
+      end.port=port;
+    }
+    for(const [v,list] of ports[side]){
+      list.sort((a,b)=>a.toward/a.count-b.toward/b.count);
+      list.forEach((port,i)=>{
+        port.y=v.port??(v.y+v.height*(i+1)/(list.length+1));
+      });
+    }
+  }
+  // Leads may share an ordinate only for a straight connection or a common port.
+  const all=['a','b'].flatMap(side=>[...ports[side].values()].flat());
+  const limits=port=>{
+    if(port.v.dummy)return [port.y,port.y];
+    const list=ports[port.side].get(port.v),i=list.indexOf(port);
+    const low=i?list[i-1].y+14:port.v.y+12;
+    const high=i+1<list.length?list[i+1].y-14:port.v.y+port.v.height-12;
+    return [low,high];
+  };
+  const available=(ideal,low,high,occupied)=>{
+    for(let d=0;d<=Math.ceil(high-low)*2;d++){
+      const y=ideal+(d%2?1:-1)*Math.ceil(d/2);
+      if(y>=low&&y<=high&&occupied.every(port=>Math.abs(port.y-y)>=1))return y;
+    }
+  };
+  // Fixed dummy leads take precedence. Move a colliding real port locally without changing port order.
+  const placed=all.filter(p=>p.v.dummy);
+  for(const port of all.filter(p=>!p.v.dummy)){
+    port.y=available(port.y,...limits(port),placed)??port.y;
+    placed.push(port);
+  }
+  for(const track of tracks){
+    const aligned=[...track.pieces].sort((p,q)=>Math.abs(p.a.port.y-p.b.port.y)-Math.abs(q.a.port.y-q.b.port.y));
+    for(const {a,b} of aligned){
+      const [al,ah]=limits(a.port),[bl,bh]=limits(b.port);
+      const low=Math.max(al,bl),high=Math.min(ah,bh);
+      const ideal=Math.max(low,Math.min(high,(a.port.y+b.port.y)/2));
+      const y=available(ideal,low,high,all.filter(p=>p!==a.port&&p!==b.port));
+      if(y===undefined)continue;
+      a.port.y=b.port.y=y;
+      break;
+    }
+  }
+  const ordered=(a,b)=>a.y-b.y;
+  for(const track of tracks) {
+    track.a=[...new Set(track.pieces.map(p=>p.a.port))].sort(ordered);
+    track.b=[...new Set(track.pieces.map(p=>p.b.port))].sort(ordered);
+    const ys=[...track.a,...track.b].map(p=>p.y);
+    track.low=Math.min(...ys);track.high=Math.max(...ys);
+  }
+  // For fixed ports, a pair's crossing cost depends only on which track is on the left.
+  const inside=(track,port)=>port.y>track.low&&port.y<track.high;
+  const costs=new Map(tracks.map(a=>[a,new Map(tracks.map(b=>[b,
+    b.a.filter(p=>inside(a,p)).length+a.b.filter(p=>inside(b,p)).length]))]));
+  tracks.sort((a,b)=>(a.b[0].y-a.a[0].y)-(b.b[0].y-b.a[0].y)||a.pieces[0].route-b.pieces[0].route);
+  for(let sweep=0;sweep<4;sweep++)for(const track of [...tracks]) {
+    const index=tracks.indexOf(track);
+    let best=index,delta=0,bestDelta=0;
+    for(let j=index-1;j>=0;j--){
+      const other=tracks[j];delta+=costs.get(track).get(other)-costs.get(other).get(track);
+      if(delta<bestDelta){best=j;bestDelta=delta;}
+    }
+    delta=0;
+    for(let j=index+1;j<tracks.length;j++){
+      const other=tracks[j];delta+=costs.get(other).get(track)-costs.get(track).get(other);
+      if(delta<bestDelta){best=j;bestDelta=delta;}
+    }
+    if(best!==index){tracks.splice(index,1);tracks.splice(best,0,track);}
+  }
+  let crossings=0,bends=0,runs=0,length=0;
+  tracks.forEach((track,i)=>{
+    track.x=right+inset+(next-right-inset*2)*(i+1)/(tracks.length+1);
+    for(const other of tracks.slice(i+1))crossings+=costs.get(track).get(other);
+    runs+=track.a.length+track.b.length+(track.high!==track.low?1:-1);
+    for(const p of track.pieces) {
+      const a={x:right,y:p.a.port.y},b={x:next,y:p.b.port.y};
+      p.points=simplifyRoute([a,{x:track.x,y:a.y},{x:track.x,y:b.y},b]);
+      if(a.y!==b.y)bends+=2;
+      length+=next-right+Math.abs(a.y-b.y);
+    }
+  });
+  return {tracks:tracks.map(({x,shared,pieces})=>({x,shared,pieces:pieces.map(({route,points})=>({route,points}))})),crossings,bends,runs,length};
+}
+
 export function layeredLayout(nodes, edges, decisions = [], sort = true, options = {}) {
   const overview = options.level === 'overview', portGap = 20, inset = overview ? 12 : 26;
   const byId = new Map(nodes.map(n => [n.id, n])), vertices = new Map(), links = [];
-  const routes = forwardEdges(edges).filter(e => byId.has(e.from) && byId.has(e.to)).map((e,index) => {
-    const waiting = decisions.find(d => d.node === e.from);
-    return {...e,index,bundle:index,text:overview?'':edgeChipText(e),chip:null,gateState:waiting?'waiting_for_you':e.gate==='returned'?'closed':e.gate||'closed',decision:waiting?.id};
+  const routes = edges.filter(e => byId.has(e.from) && byId.has(e.to)).map((e,index) => {
+    return {...e,index,text:overview||options.instrument?'':edgeChipText({...e,label:e.displayLabel ?? e.label}),chip:null,gateState:e.gate || 'closed'};
   });
   const parents = id => routes.filter(e => e.to === id).map(e => e.from);
   const depths = new Map();
@@ -1755,11 +2240,19 @@ export function layeredLayout(nodes, edges, decisions = [], sort = true, options
     const cost=crossings();if(cost<bestCost){bestCost=cost;best=layers.map(ids=>[...ids]);}
   }
   layers.splice(0,layers.length,...best);
-  const widths=layers.map(ids=>overview?156:Math.max(264,...ids.filter(id=>byId.has(id)).map(id=>Math.max((byId.get(id).summary||byId.get(id).goal||'').length>180?480:0,Math.min(280,Math.ceil(textWidth(byId.get(id).title,18,9))+40)))));
+  if(sort)for(let sweep=0;sweep<4;sweep++) {
+    for(const ids of layers)for(let i=1;i<ids.length;i++) {
+      [ids[i-1],ids[i]]=[ids[i],ids[i-1]];
+      const cost=crossings();
+      if(cost<bestCost)bestCost=cost;
+      else [ids[i-1],ids[i]]=[ids[i],ids[i-1]];
+    }
+  }
+  const widths=layers.map(ids=>overview?Math.min(options.maxCardWidth ?? Infinity,options.instrument?208:156):Math.min(options.maxCardWidth ?? Infinity,Math.max(264,...ids.filter(id=>byId.has(id)).map(id=>Math.max((byId.get(id).summary||byId.get(id).goal||'').length>180?480:0,Math.min(280,Math.ceil(textWidth(byId.get(id).title,18,9))+40))))));
   for(const v of vertices.values()) {
     v.width=widths[v.layer];
     const degree=Math.max(links.filter(e=>e.from===v.id).length,links.filter(e=>e.to===v.id).length);
-    const portHeight=(options.clearance||0)+40+portGap*(degree+2*Math.max(0,degree-3));
+    const portHeight=40+portGap*(degree+2*Math.max(0,degree-3));
     v.height=overview ? (v.dummy ? 28 : Math.max(v.node?.planned_checks?.some(c=>c.runs_own_files)?104:80,portHeight)) : v.dummy?44:Math.max(detailCardHeight(v.node),portHeight)+Math.max(0,Math.ceil(textWidth(v.node.title,18,9)/(v.width-40))-1)*26;
   }
   for(const v of vertices.values())if(!v.dummy && options.measure)v.height=Math.max(v.height,options.measure(v.node,v.width));
@@ -1773,7 +2266,10 @@ export function layeredLayout(nodes, edges, decisions = [], sort = true, options
     for(const d of order) {
       const ids=layers[d];let floor=margin;
       for(const id of ids){const v=vertices.get(id),near=links.filter(e=>sweep%2?e.from===id:e.to===id).map(e=>vertices.get(sweep%2?e.to:e.from));
-        const centre=near.length?near.reduce((s,n)=>s+n.y+n.height/2,0)/near.length:v.y+v.height/2;
+        // The whole-result card can align to direct predecessors while long routes use the dummy slots.
+        const direct=overview&&options.instrument&&v.node?.runLevel&&near.length===2?near.filter(n=>!n.dummy):[];
+        const anchors=direct.length?direct:near;
+        const centre=anchors.length?anchors.reduce((s,n)=>s+n.y+n.height/2,0)/anchors.length:v.y+v.height/2;
         v.y=Math.max(floor,centre-v.height/2);floor=v.y+v.height+gap;
       }
       let ceiling=margin+tallest;
@@ -1783,47 +2279,34 @@ export function layeredLayout(nodes, edges, decisions = [], sort = true, options
   const channels=layers.slice(1).map((_,d)=>links.filter(e=>vertices.get(e.from).layer===d));
   let x=margin;
   layers.forEach((ids,d)=>{for(const id of ids)vertices.get(id).x=x;x+=widths[d]+Math.max(overview?56:108,inset*2+((channels[d]?.length||0)+1)*20);});
-  // Distinct horizontal ordinates prevent a target lead from joining an unrelated source lead.
-  const usedY=[];
-  const ordinate=(ideal,low,high,edge,channels)=>{
-    for(let step=0;step<10000;step++){
-      const y=ideal+(step%2?1:-1)*Math.ceil(step/2)*portGap;
-      if(y>=low && y<=high && usedY.every(n=>n.edge===edge||!n.channels.some(c=>channels.includes(c))||Math.abs(n.y-y)>=portGap)){usedY.push({y,edge,channels});return y;}
-    }
-    // Dense fans can leave free ports between the regular spacing grid.
-    const free=Array.from({length:Math.max(0,Math.floor(high)-Math.ceil(low)+1)},(_,i)=>Math.ceil(low)+i).sort((a,b)=>Math.abs(a-ideal)-Math.abs(b-ideal));
-    for(const y of free)if(usedY.every(n=>n.edge===edge||!n.channels.some(c=>channels.includes(c))||Math.abs(n.y-y)>=portGap)){usedY.push({y,edge,channels});return y;}
-    throw new Error('Graph ports exceed card capacity');
-  };
-  try {
+  // A dummy keeps its ordinate across both channels and clears every real card in its layer.
+  const dummyPorts=layers.map(()=>[]);
   for(const ids of layers)for(const id of ids){
     const v=vertices.get(id);
-    if(v.dummy){v.port=ordinate(v.y+v.height/2,v.y+2,v.y+v.height-2,v.route,[v.layer-1,v.layer]);continue;}
-    for(const side of ['start','end']){
-      const rs=routes.filter(r=>r[side==='start'?'from':'to']===id);
-      const neighbour=r=>vertices.get(r.chain[side==='start'?1:r.chain.length-2]);
-      rs.sort((a,b)=>{const p=neighbour(a),q=neighbour(b);return p.y+p.height/2-q.y-q.height/2||a.index-b.index;});
-      rs.forEach((r,i)=>r[side]={x:v.x+(side==='start'?v.width:0),y:ordinate(v.y+v.height*(i+1)/(rs.length+1),v.y+12,v.y+v.height-12,r.index,[v.layer-(side==='end'?1:0)])});
-    }
+    if(!v.dummy)continue;
+    const left=dummyPorts[v.layer-1], right=dummyPorts[v.layer], center=v.y+v.height/2;
+    const taken=[...left,...right];
+    v.port=center;
+    while(taken.some(y=>Math.abs(v.port-y)<1))v.port++;
+    left.push(v.port);right.push(v.port);
   }
-  } catch(error) {
-    if((options.clearance||0)>routes.length*80)throw error;
-    return layeredLayout(nodes,edges,decisions,sort,{...options,clearance:(options.clearance||0)+40});
-  }
-  const segmentCross=(a,b,c,d)=>a.y===b.y&&c.x===d.x&&c.x>Math.min(a.x,b.x)&&c.x<Math.max(a.x,b.x)&&a.y>Math.min(c.y,d.y)&&a.y<Math.max(c.y,d.y);
-  const parts=[];
+  const bundles=[];
   channels.forEach((channel,d)=>{
     const right=vertices.get(layers[d][0]).x+widths[d],next=vertices.get(layers[d+1][0]).x;
-    const pieces=channel.map(e=>{const r=routes[e.route],a=vertices.get(e.from),b=vertices.get(e.to);return {route:r.index,a:a.dummy?{x:a.x+a.width,y:a.port}:r.start,b:b.dummy?{x:b.x,y:b.port}:r.end};});
-    const points=(p,i)=>{const track=right+inset+(next-right-inset*2)*(i+1)/(pieces.length+1);return [p.a,{x:track,y:p.a.y},{x:track,y:p.b.y},p.b];};
-    const cost=()=>{let n=0;pieces.forEach((p,i)=>pieces.slice(i+1).forEach((q,j)=>{const a=points(p,i),b=points(q,i+1+j);for(let k=1;k<4;k++)for(let l=1;l<4;l++)if(segmentCross(a[k-1],a[k],b[l-1],b[l])||segmentCross(b[l-1],b[l],a[k-1],a[k]))n++;}));return n;};
-    pieces.sort((a,b)=>(a.b.y-a.a.y)-(b.b.y-b.a.y)||a.route-b.route);
-    for(let sweep=0;sweep<6;sweep++)for(let i=0;i<pieces.length-1;i++){const before=cost();[pieces[i],pieces[i+1]]=[pieces[i+1],pieces[i]];if(cost()>=before)[pieces[i],pieces[i+1]]=[pieces[i+1],pieces[i]];}
-    pieces.forEach((p,i)=>parts.push({...p,layer:d,points:points(p,i)}));
+    const candidates=[null,'a','b'].map(shared=>routeChannel(channel,vertices,routes,right,next,inset,shared));
+    const {tracks}=candidates.sort((a,b)=>a.crossings-b.crossings||a.runs-b.runs||a.bends-b.bends||a.length-b.length)[0];
+    for(const track of tracks) {
+      if(track.pieces.length>1)bundles.push(track);
+      for(const p of track.pieces) {
+        const r=routes[p.route];
+        (r.parts ||= []).push(p.points);
+      }
+    }
   });
   for(const r of routes){
-    const points=parts.filter(p=>p.route===r.index).sort((a,b)=>a.layer-b.layer).flatMap(p=>p.points).filter((p,i,a)=>!i||p.x!==a[i-1].x||p.y!==a[i-1].y);
-    r.points=points.filter((p,i,a)=>!i||i===a.length-1||!((a[i-1].x===p.x&&p.x===a[i+1].x)||(a[i-1].y===p.y&&p.y===a[i+1].y)));
+    r.points=simplifyRoute(r.parts?.flat()||[]);
+    r.start=r.points[0];r.end=r.points.at(-1);
+    delete r.parts;
   }
   const positions=Object.fromEntries([...vertices].filter(([,v])=>!v.dummy).map(([id,v])=>[id,{x:v.x,y:v.y,width:v.width,height:v.height,depth:v.layer,layer:v.layer}]));
   const cardRects=Object.entries(positions).map(([id,p])=>({id,...p})),chips=[];
@@ -1839,8 +2322,8 @@ export function layeredLayout(nodes, edges, decisions = [], sort = true, options
     }
   }
   if(overview && options.wrapLongChains && layers.length>8 && layers.every(ids=>ids.length===1 && byId.has(ids[0]))) {
-    const columns=7, rowHeight=Math.max(80,...Object.values(positions).map(p=>p.height))+40;
-    layers.forEach((ids,i)=>{Object.assign(positions[ids[0]],{x:margin+(i%columns)*212,y:margin+Math.floor(i/columns)*rowHeight});});
+    const columns=7, step=widths[0]+56, rowHeight=Math.max(80,...Object.values(positions).map(p=>p.height))+40;
+    layers.forEach((ids,i)=>{Object.assign(positions[ids[0]],{x:margin+(i%columns)*step,y:margin+Math.floor(i/columns)*rowHeight});});
     for(const r of routes){const a=positions[r.from],b=positions[r.to],start={x:a.x+a.width,y:a.y+a.height/2},end={x:b.x,y:b.y+b.height/2};
       r.start=start;r.end=end;r.chip=null;
       r.points=a.y===b.y?[start,end]:[start,{x:start.x+18,y:start.y},{x:start.x+18,y:b.y-24},{x:b.x-12,y:b.y-24},{x:b.x-12,y:end.y},end];}
@@ -1851,14 +2334,14 @@ export function layeredLayout(nodes, edges, decisions = [], sort = true, options
   }
   return {positions,layers:layers.map(ids=>ids.filter(id=>byId.has(id))),order:layers.flat().filter(id=>byId.has(id)),routes,chips,cardRects,
     terminals:nodes.filter(n=>!routes.some(r=>r.from===n.id)).map(n=>n.id),
-    bounds:{width:Math.max(100,...cardRects.map(p=>p.x+p.width+margin)),height:tallest+margin*2},vertical:false};
+    bounds:{width:Math.max(100,...cardRects.map(p=>p.x+p.width+margin)),height:tallest+margin*2},vertical:false,bundles};
 }
 
 export function compactOverview(layout,width) {
   // Only a genuine single chain may use the compact row router.
   if(layout.routes.length!==layout.order.length-1 || layout.order.some(id=>layout.routes.filter(r=>r.from===id).length>1 || layout.routes.filter(r=>r.to===id).length>1))return layout;
   if(layout.bounds.width*MIN_FIT_SCALE<=width)return layout;
-  const margin=20,gap=36,cardWidth=156,columns=Math.max(1,Math.floor((width/MIN_FIT_SCALE-margin*2+gap)/(cardWidth+gap)));
+  const margin=20,gap=36,cardWidth=layout.cardRects[0]?.width||156,columns=Math.max(1,Math.floor((width/MIN_FIT_SCALE-margin*2+gap)/(cardWidth+gap)));
   const height=Math.max(80,...layout.cardRects.map(r=>r.height)),rowHeight=height+36;
   const positions={};layout.order.forEach((id,i)=>{positions[id]={...layout.positions[id],x:margin+(i%columns)*(cardWidth+gap),y:margin+Math.floor(i/columns)*rowHeight,width:cardWidth,height};});
   const routes=layout.routes.map((r,i)=>{
@@ -1871,16 +2354,368 @@ export function compactOverview(layout,width) {
   return {...layout,positions,routes,chips:[],cardRects,bounds:{width:Math.max(...cardRects.map(r=>r.x+r.width))+margin,height:Math.max(...cardRects.map(r=>r.y+r.height))+margin}};
 }
 
+function sceneStrokes(edges,bundles) {
+  const strokes=[],markers=[],byId=new Map(edges.map(edge=>[edge.id,edge]));
+  const bundled=new Set(bundles.flatMap(track=>track.pieces.map(p=>String(p.route))));
+  const add=(points,members,bundle,distance=0)=>{
+    if(points.length<2)return;
+    strokes.push({id:String(strokes.length),points,members,bundle,distance,gate:byId.get(members[0]).style.gate});
+  };
+  const mark=(points,members)=>{
+    const [a,b]=points.slice(-2);
+    if(a.x===b.x&&a.y===b.y)return;
+    markers.push({id:String(markers.length),points:[a,b],members,relation:byId.get(members[0]).style.relation});
+  };
+  for(const edge of edges)if(edge.points.length>=2&&!bundled.has(edge.id)){
+    add(edge.points,[edge.id],edge.id);
+    mark(edge.points,[edge.id]);
+  }
+  for(const {x,shared,pieces} of bundles){
+    const members=pieces.map(p=>String(p.route)),bundle=members[0];
+    const startSide=shared==='a';
+    const port=pieces[0].points.at(startSide?0:-1),hub={x,y:port.y};
+    const lead=Math.abs(x-port.x);
+    add([port,hub],members,bundle);
+    if(!startSide)mark([hub,port],members);
+    const branches=pieces.map(({route,points})=>({id:String(route),end:points.at(startSide?-1:0)}));
+    for(const direction of [-1,1]){
+      const side=branches.filter(({end})=>Math.sign(end.y-hub.y)===direction)
+        .sort((a,b)=>direction*(a.end.y-b.end.y));
+      let last=hub;
+      for(const [i,{end}] of side.entries()){
+        const joint={x,y:end.y};
+        add([last,joint],side.slice(i).map(branch=>branch.id),bundle,lead+Math.abs(last.y-hub.y));
+        last=joint;
+      }
+    }
+    for(const {id,end} of branches){
+      const joint={x,y:end.y};
+      add([joint,end],[id],bundle,lead+Math.abs(end.y-hub.y));
+      mark(startSide?[joint,end]:[end,joint],[id]);
+    }
+  }
+  return {strokes,markers};
+}
+
+function sceneFlowMarks(edges, strokes, cards) {
+  const parts=new Map();
+  for(const {points,members} of strokes){
+    for(let i=1;i<points.length;i++){
+      const a=points[i-1],b=points[i],length=Math.hypot(b.x-a.x,b.y-a.y);
+      if(!length)continue;
+      for(const id of members){
+        if(!parts.has(id))parts.set(id,[]);
+        parts.get(id).push({a,b,length,count:members.length});
+      }
+    }
+  }
+  return edges.flatMap(edge=>{
+    const cue=flowCue(edge.flow), segments=parts.get(edge.id);
+    if(!cue||!segments)return [];
+    segments.sort((a,b)=>a.count-b.count||b.length-a.length);
+    for(const offset of [-8,8,-5,5,0])for(const {a,b,length} of segments){
+      const middle={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+      const forward=edge.points.findIndex((p,i,points)=>{
+        if(!i)return false;
+        const q=points[i-1];
+        return p.x===q.x && p.x===middle.x && (p.y-middle.y)*(q.y-middle.y)<0 ||
+          p.y===q.y && p.y===middle.y && (p.x-middle.x)*(q.x-middle.x)<0;
+      });
+      const direction=forward>0 ? edge.points[forward] : b;
+      const dx=Math.sign(direction.x-middle.x),dy=Math.sign(direction.y-middle.y);
+      const span=Math.min(1,length/24);
+      const paths=FLOW_MARKS[cue].map(path=>path.map(([x,y])=>({
+        x:middle.x+x*span*dx-(y+offset)*dy,y:middle.y+x*span*dy+(y+offset)*dx,
+      })));
+      const points=paths.flat(), xs=points.map(p=>p.x), ys=points.map(p=>p.y);
+      const left=Math.min(...xs)-2, right=Math.max(...xs)+2, top=Math.min(...ys)-2, bottom=Math.max(...ys)+2;
+      if(!cards.some(r=>left<r.x+r.width&&right>r.x&&top<r.y+r.height&&bottom>r.y))
+        return [{id:edge.id,cue,paths}];
+    }
+    return [];
+  });
+}
+
+export function pointAlongRoute(points, progress) {
+  const lengths=points.slice(1).map((p,i)=>Math.hypot(p.x-points[i].x,p.y-points[i].y));
+  let distance=lengths.reduce((sum,length)=>sum+length,0)*progress;
+  for(const [i,length] of lengths.entries()){
+    if(length>0&&distance<=length){
+      const a=points[i],b=points[i+1],fraction=distance/length;
+      return {x:a.x+(b.x-a.x)*fraction,y:a.y+(b.y-a.y)*fraction};
+    }
+    distance-=length;
+  }
+  return points.at(-1);
+}
+
+const MOTION_DURATIONS = {dot:180,strip:220,glyph:280,pass:620,return:620,
+  flicker:320,session:700};
+const motionEase = t => t*t*(3-2*t);
+
+export function createGraphMotion() {
+  let baseline=null, effects=new Map(), halos=new Map(), drifting=new Set();
+  const add=(kind,id,record,time,duration=MOTION_DURATIONS[kind],extra={})=>{
+    effects.set(JSON.stringify([kind,id,record]),{kind,id,record,time,duration,...extra});
+  };
+  function observe(scene,time,enabled,reset=false) {
+    if(reset){effects.clear();halos.clear();drifting.clear();baseline=null;}
+    const previous=baseline;
+    baseline=scene;
+    if(!scene||!previous)return;
+    for(const id of halos.keys())if(scene.positions[id]?.state!=='awaiting')halos.delete(id);
+    const eligible=new Set(scene.edges.filter(edge=>edge.targetRunning&&edge.flow?.state==='delivered').map(edge=>edge.key));
+    for(const key of drifting)if(!eligible.has(key))drifting.delete(key);
+    if(!enabled)return;
+    frame(time,true);
+    const dirty=new Set();
+    for(const card of scene.cards){
+      const old=previous.positions[card.id];
+      if(!old)continue;
+      const {facts}=card;
+      if(card.state!==old.state){
+        const record=card.state+':'+card.recordedAttempt;
+        add('glyph',card.id,record,time);
+        if(card.state==='passed')add('pass',card.id,record,time);
+        if(card.state==='returned'||card.state==='failedFinal'){
+          add('return',card.id,record,time);
+          add('flicker',card.id,record,time);
+        }
+        if(card.state==='awaiting'&&facts.ask!=null)halos.set(card.id,{time,record:facts.ask});
+        dirty.add(card.id);
+      }
+      if(card.state==='awaiting'&&facts.ask!=null&&facts.ask!==old.facts.ask)
+        halos.set(card.id,{time,record:facts.ask});
+      if(card.state!=='awaiting')halos.delete(card.id);
+      const prior=new Set(old.facts.calls.map(call=>call.id));
+      const dots=facts.calls.filter(call=>!prior.has(call.id));
+      for(const call of dots){
+        add('dot',card.id,call.id,time);
+        if(call.category==='session'&&call.start_ms!=null)add('session',card.id,call.id,time);
+      }
+      if(facts.activeCall && old.facts.activeCall!==facts.activeCall && !dots.some(call=>call.id===facts.activeCall) &&
+        !old.attemptHistory.some(attempt=>attempt.calls?.some(call=>call.id===facts.activeCall&&call.start_ms!=null)) &&
+        facts.now==='session')
+        add('session',card.id,facts.activeCall,time);
+      if(dots.length||old.recordedAttempt!==card.recordedAttempt||
+        JSON.stringify(old.attemptHistory)!==JSON.stringify(card.attemptHistory)){
+        const record=dots.at(-1)?.id || facts.activeCall || facts.calls.at(-1)?.id || card.recordedAttempt;
+        if(card.strip)add('strip',card.id,record,time,undefined,{before:old.strip});
+        if(dots.length)dirty.add(card.id);
+      }
+    }
+    const oldEdges=new Map(previous.edges.map(edge=>[edge.key,edge]));
+    let travelling=[...effects.values()].filter(e=>e.kind==='handoff'||e.kind==='reverse').length;
+    for(const edge of scene.edges){
+      const old=oldEdges.get(edge.key);
+      if(!old)continue;
+      const delivery=edge.flow?.delivery, returned=edge.flow?.state==='returned'&&edge.flow.record;
+      const forward=delivery && delivery.seq!==old.flow?.delivery?.seq;
+      const reverse=returned && (old.flow?.state!=='returned'||returned.seq!==old.flow?.record?.seq);
+      if((forward||reverse)&&travelling<4){
+        const length=edge.points.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-edge.points[i].x,p.y-edge.points[i].y),0);
+        add(reverse?'reverse':'handoff',edge.key,(reverse?returned:delivery).seq,time,
+          Math.max(400,Math.min(1000,length*2.5)));
+        travelling++;
+      }
+      if(!edge.targetRunning||edge.flow?.state!=='delivered')drifting.delete(edge.key);
+      else if(!old.targetRunning||forward||dirty.has(edge.to))drifting.add(edge.key);
+    }
+  }
+  function frame(time,enabled) {
+    if(!enabled)return [];
+    const result=[];
+    for(const [key,event] of effects){
+      if(time>=event.time+event.duration){effects.delete(key);continue;}
+      result.push({...event,progress:clamp((time-event.time)/event.duration)});
+    }
+    for(const [id,{time:start,record}] of halos){
+      const elapsed=Math.max(0,time-start);
+      const phase=elapsed<3000?elapsed%1000:(elapsed%12000);
+      const progress=clamp(phase/650);
+      result.push({kind:'halo',id,record,loop:true,progress,strength:Math.sin(Math.PI*progress)**2});
+    }
+    for(const id of drifting)result.push({kind:'drift',id,loop:true,progress:(time%1000)/1000,distance:time*.038});
+    return result;
+  }
+  return {observe,frame,settle(){effects.clear();},active:()=>!!(effects.size||halos.size||drifting.size)};
+}
+
+export function pickGraphEdges(scene, point, scale) {
+  // The hit corridor is 24 CSS pixels wide independently of the stage scale.
+  let nearest = null;
+  const tolerance = 12/scale;
+  for (const stroke of scene.strokes) {
+    for(let i=1;i<stroke.points.length;i++){
+      const a=stroke.points[i-1],b=stroke.points[i],dx=b.x-a.x,dy=b.y-a.y;
+      const length=dx*dx+dy*dy;
+      if(!length)continue;
+      const t=Math.max(0,Math.min(1,((point.x-a.x)*dx+(point.y-a.y)*dy)/length));
+      const x=a.x+t*dx,y=a.y+t*dy,distance=Math.hypot(point.x-x,point.y-y);
+      if(distance>tolerance)continue;
+      const closer=!nearest||distance<nearest.distance-1e-6;
+      if(closer)nearest={distance,x,y,vertical:dx===0,members:[...stroke.members]};
+      else if(Math.abs(distance-nearest.distance)<=1e-6&&x===nearest.x&&y===nearest.y&&(dx===0)===nearest.vertical){
+        for(const id of stroke.members)if(!nearest.members.includes(id))nearest.members.push(id);
+      }
+    }
+  }
+  return nearest?.members || [];
+}
+
+// Geometry is already measured in stage CSS pixels. Renderers share this data, not DOM or layout internals.
+export function routeTags(edges, strokes, cards, bounds, language) {
+  const height=20;
+  const occupied=[...cards];
+  const overlaps=(a,b,pad)=>a.x<b.x+b.width+pad&&a.x+a.width+pad>b.x&&
+    a.y<b.y+b.height+pad&&a.y+a.height+pad>b.y;
+  const segments=new Map(edges.map(edge=>[edge.id,[]]));
+  for(const stroke of strokes){
+    if(stroke.members.length!==1)continue;
+    const parts=segments.get(stroke.members[0]);
+    stroke.points.slice(1).forEach((b,i)=>{
+      const a=stroke.points[i];
+      if(a.x!==b.x || a.y!==b.y)parts.push({a,b,branch:stroke.id,length:Math.hypot(b.x-a.x,b.y-a.y)});
+    });
+  }
+  // Place the most constrained branches first. A tag may sit alongside its own trace.
+  const sorted=[...edges].sort((a,b)=>Math.max(0,...segments.get(a.id).map(s=>s.length))-
+    Math.max(0,...segments.get(b.id).map(s=>s.length)));
+  return sorted.flatMap(edge=>{
+    const tag=edgeTag(edge,language),width=Math.ceil(textWidth(tag.text,13,8))+14;
+    const parts=segments.get(edge.id).sort((a,b)=>b.length-a.length);
+    for(const offset of [0,-14,14,-26,26,-38,38,-50,50,-64,64,-78,78,'start','end']){
+      for(const {a,b,branch} of parts)for(const fraction of [.5,.35,.65,.2,.8,.05,.95]){
+        const x=a.x+(b.x-a.x)*fraction, y=a.y+(b.y-a.y)*fraction;
+        const vertical=a.x===b.x;
+        const rect={x:x-width/2,y:y-height/2,width,height};
+        if(typeof offset==='number')rect[vertical?'x':'y']+=offset;
+        else rect[vertical?'x':'y']=offset==='start'?0:vertical?bounds.width-width:bounds.height-height;
+        if(rect.x<0||rect.y<0||rect.x+width>bounds.width||rect.y+height>bounds.height)continue;
+        if(occupied.some(other=>overlaps(rect,other,typeof offset==='number'?1:0)))continue;
+        occupied.push(rect);
+        return [{id:edge.id,...tag,...rect,branch,anchor:{x,y}}];
+      }
+    }
+    return [];
+  });
+}
+
+export function activityStrip(attempt, facts, now) {
+  if(!attempt?.phases?.length)return null;
+  const phases=attempt.phases.filter(phase=>phase.start_ms!=null&&phase.start_ms<=now)
+    .sort((a,b)=>a.start_ms-b.start_ms);
+  if(!phases.length)return null;
+  const start=attempt.status==='observed'?phases[0].start_ms:Math.min(attempt.started_ms??now,phases[0].start_ms);
+  const end=Math.max(start+1,Math.min(now,attempt.last_ms??now),facts.now?now:start);
+  // An open attempt has spare rail for the next observation, including polls with a long open call.
+  const length=Math.max(1000,(end-start)*(facts.now?1.25:1));
+  const position=stamp=>clamp((stamp-start)/length);
+  const known=new Set([...facts.totals.map(total=>total.category),facts.now]);
+  const segments=phases.map(phase=>{
+    const open=facts.now===phase.category && phase.id===attempt.current && phase.end_ms==null;
+    const stop=Math.min(now,open?now:phase.end_ms??phase.start_ms+phase.duration_ms);
+    return {id:phase.id,category:phase.category,pattern:known.has(phase.category)?phase.category:null,
+      left:Math.min(.982,position(phase.start_ms)),width:Math.max(.018,position(stop)-position(phase.start_ms))};
+  });
+  return {segments,dots:facts.calls.map(call=>({id:call.id,left:position(call.start_ms??call.end_ms)})),
+    head:facts.now?position(now):null};
+}
+
+function graphMotionCard(node, decisions, now, language) {
+  const facts=cardFacts(node,decisions,now,language);
+  const attempt=graphAttempt(node);
+  return {id:node.id,kind:facts.kind,state:facts.state,lane:facts.lane,facts,
+    attemptHistory:node.activity||[],recordedAttempt:node.attempts||0,strip:activityStrip(attempt,facts,now)};
+}
+
+export function createGraphScene(nodes, layout, decisions, level, now = 0, language = 'en') {
+  const byId = new Map(nodes.map(node => [node.id, node]));
+  const cards = layout.order.map((id, order) => {
+    const {x, y, width, height, layer} = layout.positions[id];
+    const card=graphMotionCard(byId.get(id),decisions,now,language);
+    const tier=card.state==='awaiting'?1:card.state==='stalled'||graphAttempt(byId.get(id))?.repeating?2:card.strip?3:null;
+    return {...card,tier,level,x,y,width,height,layer,order};
+  });
+  const positions = Object.fromEntries(cards.map(card => [card.id, card]));
+  const edges = layout.routes.map(route => ({
+    id:String(route.index), from:route.from, to:route.to, direction:'source-to-target',
+    relation:route.relation, gate:route.gate, label:route.label || '', points:route.points, flow:route.flow,
+    style:{gate:route.gateState, relation:route.relation || 'hands_over'},
+    chip:route.chip, text:route.text, key:edgeKey(route),
+    targetRunning:runningCard(positions[route.to]?.state),
+    transfer:route.flow?.delivery || (route.flow?.state==='returned'?route.flow.record:null)
+  }));
+  const {strokes,markers}=sceneStrokes(edges,layout.bundles||[]);
+  for(const stroke of strokes){
+    const tags=stroke.members.map(id=>edgeTag(edges[Number(id)],language));
+    stroke.tone=tags.every(tag=>tag.tone===tags[0].tone)?tags[0].tone:'structure';
+    stroke.trace=tags.every(tag=>['delivered','frontier'].includes(tag.cue))?'open':
+      tags.every(tag=>tag.cue==='blocked')?'waiting_for_you':tags.every(tag=>tag.cue==='returned')?'returned':'closed';
+  }
+  for(const marker of markers){
+    const tones=marker.members.map(id=>edgeTag(edges[Number(id)],language).tone);
+    marker.tone=tones.every(tone=>tone===tones[0])?tones[0]:'structure';
+  }
+  return {level, now, bounds:layout.bounds, cards, edges, strokes, markers,
+    tags:routeTags(edges,strokes,cards,layout.bounds,language), flowMarks:sceneFlowMarks(edges,strokes,cards),
+    positions, order:cards.map(card => card.id), chips:layout.chips};
+}
+
+function graphInkOrder(scene,focusId,focus) {
+  const weight=members=>members.some(id=>focus?.edges.has(id))?'path':focusId?'context':'normal';
+  const bundles=new Map();
+  for(const stroke of scene.strokes)if(!bundles.has(stroke.bundle))bundles.set(stroke.bundle,bundles.size*2);
+  const markerOrder=bundles.size*2, foreground=markerOrder+1;
+  const strokes=new Map(scene.strokes.map(({id,members,bundle})=>{
+    const emphasis=weight(members), base=emphasis==='path'?foreground:bundles.get(bundle);
+    return [id,{weight:emphasis,base,ink:base+1}];
+  }));
+  const markers=new Map(scene.markers.map(({id,members})=>{
+    const emphasis=weight(members);
+    return [id,{weight:emphasis,ink:emphasis==='path'?foreground+2:markerOrder}];
+  }));
+  return {strokes,markers};
+}
+
+export function dependencyFocus(scene, id) {
+  const cards = new Set(), edges = new Set();
+  if (!id || !Object.hasOwn(scene.positions,id)) return {cards,edges};
+  cards.add(id);
+  for (const [start,end] of [['from','to'],['to','from']]) {
+    const pending = [id], visited = new Set(pending);
+    while (pending.length) {
+      const current = pending.pop();
+      for (const edge of scene.edges) {
+        if (edge.to === '_run_checks' || edge[start] !== current) continue;
+        edges.add(edge.id);
+        const next = edge[end];
+        if (visited.has(next)) continue;
+        visited.add(next);
+        cards.add(next);
+        pending.push(next);
+      }
+    }
+  }
+  return {cards,edges};
+}
+
 export function roundedRoute(points, radius = 5) {
   const pts=points.filter((p,i)=>!i||p.x!==points[i-1].x||p.y!==points[i-1].y);
   if(!pts.length)return '';
   let path=`M${pts[0].x} ${pts[0].y}`;
   for(let i=1;i<pts.length-1;i++){
     const a=pts[i-1],b=pts[i],c=pts[i+1],before=Math.hypot(b.x-a.x,b.y-a.y),after=Math.hypot(c.x-b.x,c.y-b.y),r=Math.min(radius,before/2,after/2);
-    if((a.x===b.x&&b.x===c.x)||(a.y===b.y&&b.y===c.y)){path+=` L${b.x} ${b.y}`;continue;}
+    if(!r||(a.x===b.x&&b.x===c.x)||(a.y===b.y&&b.y===c.y)){path+=` L${b.x} ${b.y}`;continue;}
     path+=` L${b.x+(a.x-b.x)*r/before} ${b.y+(a.y-b.y)*r/before} Q${b.x} ${b.y} ${b.x+(c.x-b.x)*r/after} ${b.y+(c.y-b.y)*r/after}`;
   }
   const end=pts.at(-1);return path+` L${end.x} ${end.y}`;
+}
+
+export function activityCues(node) {
+  const attempt = node.activity?.at(-1);
+  if (node.status !== 'running' || !attempt) return [];
+  return [attempt.cue || attempt.latest, attempt.stalled && 'stalled', attempt.repeating && 'repeating'].filter(Boolean);
 }
 
 if (typeof document !== 'undefined') {
@@ -1909,7 +2744,10 @@ function translate() {
   document.querySelectorAll('[data-i18n-label]').forEach(e=>e.setAttribute('aria-label',t(e.dataset.i18nLabel)));
 }
 translate();
-let chosen = null, projects = [], view = null, fingerprint = '', mode = 'flow', selected = null;
+let chosen = null, projects = [], view = null, fingerprint = '', ageFingerprint = '', mode = 'flow', selected = null;
+let selectedEdge = null, edgeChoices = [], edgeOrigin = null;
+let timeBar, timeBarModule, liveView, timeCut;
+const isPast = () => !!timeBar?.describe().past;
 function flowNode(id) { return planFlow(view,language).nodes.find(n => n.id === id); }
 let queuedRefresh = false;
 let timer = 0, loading = false, generation = 0, renderer = null;
@@ -1917,6 +2755,7 @@ const decisionController = createDecisionController();
 let decisionUI = null, decisionNotice = '', cameFrom = 'flow';
 
 async function api(path, body, text = false) {
+  if (body && isPast()) throw new Error(t("timePast"));
   const response = await fetch(path, {method: body ? 'POST' : 'GET', headers: {'X-GF-Token': token, ...(body ? {'Content-Type':'application/json'} : {})}, ...(body ? {body:JSON.stringify(body)} : {})});
   if (!response.ok) { const err = new Error('request'); err.status = response.status; try{err.code=(await response.json()).code;}catch{} throw err; }
   return text ? response.text() : response.json();
@@ -1971,7 +2810,7 @@ function decisionHeading(parent, d, tag) {
   if (!d.free && d.purpose === 'trajectory') textList(parent, (d.trajectory_reasons || []).map(key => t(key)));
 }
 function needs(node) { return view.decisions.some(d => d.node === node.id); }
-function status(node) { return node.kind==='review'&&node.status==='running'?t('reviewing'):stateWords(displayState(node,view.decisions),language).name; }
+function status(node) { return stateWords(displayState(node,view.decisions),language).name; }
 function attempts(node) { if(['decision','goal'].includes(node.kind))return ''; return t(node.attempts?'attempt':'unusedAttempts', {n:node.attempts||0,max:node.max_attempts||3}); }
 function card(heading, body, paper = false) { const c = el('div', undefined, 'card' + (paper ? ' paper' : '')); c.append(el('p', heading, 'eyebrow')); if (body) c.append(el('p', body)); return c; }
 function textList(parent, items, empty = 'notRecorded') { const list = el('ul'); if (!items.length) list.append(el('li', t(empty))); else items.forEach(text => list.append(el('li', text))); parent.append(list); }
@@ -2021,11 +2860,25 @@ function authorNote(parent,context) {
 function plannedQuestion(q) {
   return q.answered?t('answeredQuestion',{...q,outcome:t(q.outcome==='approved'?(q.kind==='authorization'?'answeredPermission':'answeredApproval'):q.outcome==='answered'?'evAnswered':'answeredRevision'),answer:q.answer||''}):t(q.when==='node'?'whenDecision':q.when==='trajectory'?'whenTrajectory':'whenAfterWork')+' '+q.question;
 }
+function edgeAttributes(edge) {
+  return {'data-from':edge.from, 'data-to':edge.to, 'data-relation':edge.relation,
+    'data-gate':edge.gate, 'data-label':edge.label || ''};
+}
+function markRelation(element, edge) {
+  for (const [name,value] of Object.entries(edgeAttributes(edge))) element.setAttribute(name,value);
+  return element;
+}
+function gateText(edge) { return t(GATE_LABELS[edge.gate] || GATE_LABELS.closed); }
+function flowText(edge) { return t(FLOW_LABELS[flowCue(edge.flow)] || FLOW_LABELS.unreachable); }
 function relationFacts(parent,node) {
   for(const [key,rows,direction] of [['planNeeds',node.inputs||[],'from'],['planOutputs',node.outputs||[],'to']]){
     parent.append(el('h3',t(key)));
     const list=el('ul');list.dataset.relations=direction;
-    for(const row of rows){const item=el('li',row.runLevel&&direction==='to'?t('includedIn',{title:row.other_title}):[row.label?outputLabel(row.label):t(row.relation==='reviews'?'reviewInput':row.relation==='waits_for_decision'?'approvalOutput':'handoff'),t(direction)+' '+otherTitle(row.other_title)].filter(Boolean).join(' · '));item.dataset.otherNode=row.other_id;list.append(item);}
+    for(const row of rows){
+      const text=row.runLevel&&direction==='to'?t('includedIn',{title:row.other_title}):t(direction)+' '+otherTitle(row.other_title);
+      const item=markRelation(el('li',[text,relationText(row),gateText(row)].join(' · ')),row);
+      item.dataset.otherNode=row.other_id;list.append(item);
+    }
     if(!rows.length)list.append(el('li',t('noHandoffs')));parent.append(list);
   }
 }
@@ -2099,6 +2952,11 @@ function planFacts(parent, node) {
 }
 function planBlocked() { if(!view)return false; const a=view.plan_approval; return !!(view.plan_error || view.key_mismatch || view.location_mismatch || a && !(a.status==='answered' && a.verified && a.outcome==='approved')); }
 function problemTitle() { const a=view.plan_approval; return t(view.location_mismatch?'projectMoved':view.key_mismatch?'planKeyHeading':view.plan_error?'planTampered':!a?.id?'planMissing':a.status==='answered'&&!a.verified?'planUnverified':a.status==='open'?(view.has_work?'planContinueQuestion':'planWaiting'):'planSentBack'); }
+function returnActor(node) {
+  const roles={leader:'returnLeader',reviewer:'returnReviewer',worker:'roleWorker',human:'roleHuman',tool:'roleTool'};
+  const role=node.returned_by?.role;
+  return Object.hasOwn(roles,role) ? t('returnedActor',{who:t(roles[role])}) : '';
+}
 function returnedLine(n) {
   const row=[...view.timeline].reverse().find(r=>r.node===n.id&&r.kind==='attempt'&&r.attempt===n.attempts);
   const failure=row?.checks?.find(c=>c.result==='failed');
@@ -2121,10 +2979,11 @@ function graphReadReason() {
   return remaining.length?t(remaining.some(n=>planChanges?.some(c=>c.id===n.id&&!planRead.has(c.id)))?'changesReadReason':'planRemainingReason',{names:remaining.map(title).join(', ')}):'';
 }
 function recordGraphRead() {
-  if(!view||!planBlocked()||mode!=='flow'||$('accessible').open||(matchMedia('(max-width:760px)').matches&&selected))return;
+  if(isPast()||!view||!planBlocked()||mode!=='flow'||$('accessible').open||(matchMedia('(max-width:760px)').matches&&selected))return;
   const identity=JSON.stringify(view.plan_approval?.identity);
   if(identity!==graphReadIdentity){graphRead.clear();graphReadSpans.clear();graphReadIdentity=identity;}
   const phone=matchMedia('(max-width:760px)').matches&&!$('flow').classList.contains('phone-diagram');
+  if(!phone&&$('map').dataset.lod==='far')return;
   const viewport=phone?{left:0,top:0,right:innerWidth,bottom:innerHeight-(document.querySelector('.plan-actions')?.offsetHeight||0)}:mapViewportRect();
   if(!viewport)return;
   const top=Math.max(viewport.top,document.querySelector('#attention.plan-banner')?.getBoundingClientRect().bottom||0);
@@ -2140,7 +2999,7 @@ function recordGraphRead() {
   updateUnreadMarks();planBanner?.update?.();
 }
 function updateUnreadMarks(){
-  const remaining=new Set(planBlocked()?unreadCards().map(n=>n.id):[]);
+  const remaining=new Set(!isPast()&&planBlocked()?unreadCards().map(n=>n.id):[]);
   for(const card of document.querySelectorAll('.node-card')){
     const unread=remaining.has(card.dataset.node);
     let mark=card.querySelector('.unread-mark');
@@ -2158,12 +3017,12 @@ function renderPlanDiff(parent,id){
   for(const field of change.fields||[])box.append(el('p',diffText(field)));parent.append(box);
 }
 function unreadPlanChanges(){return !!planChanges?.some(c=>!planRead.has(c.id));}
-function readPlanChange(id){planRead.add(id);updateUnreadMarks();planBanner?.update?.();}
+function readPlanChange(id){if(isPast())return;planRead.add(id);updateUnreadMarks();planBanner?.update?.();}
 
 
 function planAttention(box) {
   const approval = view.plan_approval;
-  const blocked = planBlocked();
+  const blocked = !isPast() && planBlocked();
   if (!blocked) { planBanner = null; return false; }
   box.hidden = false; box.classList.add('plan-banner');
   const key = JSON.stringify([mode, chosen, approval?.id, approval?.status, approval?.verified, approval?.outcome, approval?.answer, view.plan_error, view.key_mismatch, view.location_mismatch, view.has_work, approval?.identity, planChanges]);
@@ -2271,6 +3130,10 @@ function attention() {
   if (planAttention(planBox)) return;
   planBox.classList.remove('plan-banner','problem'); planBox.removeAttribute('aria-labelledby');
   const box = $('attention'); clear(box); box.hidden = !view.decisions.length;
+  if(isPast()) {
+    for(const decision of view.decisions) box.append(el('p',question(decision)||purposeWording(decision.purpose,language)));
+    return;
+  }
   box.setAttribute('aria-label', t('yourTurn'));
   if (box.hidden) return;
   const heading = el('div', undefined, 'attention-heading');
@@ -2286,29 +3149,345 @@ function attention() {
   }
   box.append(heading, items);
 }
+const ACTIVITY_LABELS = {
+  read:'activityRead', tool:'activityTool', skill:'activitySkill', mcp:'activityMcp', session:'activitySession',
+  gf:'activityGf', other:'activityOther', thinking:'activityThinking', start:'activityStart',
+  check:'activityCheck', submit:'activitySubmit', more:'activityMore',
+};
+let workSummary;
+function createWorkSummary() {
+  const section = el('section',undefined,'work-summary');
+  const heading = el('h3',t('workActivity'));
+  heading.id = 'work-summary-heading';
+  section.setAttribute('aria-labelledby',heading.id);
+  const canvas = el('canvas',undefined,'work-canvas');
+  canvas.setAttribute('aria-hidden','true');
+  const visual = el('div',undefined,'work-visual'), labels = el('div',undefined,'work-solid-labels');
+  visual.append(canvas,labels);
+  const globallyPaused=()=>document.body.classList.contains('graph-paused');
+  const replay = button(t('activityReplay'),()=>{if(!globallyPaused())scene?.play();},'small');
+  const pause = button(t('activityPause'),()=> {
+    if(globallyPaused())return;
+    if(scene.describe().playing) scene.pause();
+    else scene.play(false);
+  },'small');
+  replay.id = 'activity-replay';
+  pause.id = 'activity-pause';
+  const controls = el('div',undefined,'work-controls');
+  controls.append(replay,pause);
+  const header = el('div',undefined,'work-heading');
+  header.append(heading,controls);
+  const list = el('div',undefined,'work-attempts');
+  section.append(header,visual,list);
+  controls.hidden = visual.hidden = canvas.hidden = true;
+  const phone = matchMedia('(max-width:760px)');
+  const forceSVG = startup.searchParams.get('renderer') === 'svg';
+  const capture = startup.searchParams.get('graphTest') === '1';
+  let scene, loading, disposed, unavailable, signature, activities = [], visible = true, active = null;
+  const rowsById=new Map(), labelsById=new Map();
+  Object.defineProperty(section,'activityScene',{get:()=>scene?.describe() || null});
+  if(capture)Object.defineProperty(section,'activitySilhouettes',{get:()=>scene?.silhouettes()});
+
+  function motion() {
+    if(globallyPaused())scene?.pause();
+    scene?.mode(reduced.matches || globallyPaused());
+    controls.hidden = !scene || reduced.matches || globallyPaused();
+  }
+  function highlight(id) {
+    active = id;
+    for(const [key, row] of rowsById){
+      const value=String(id===key);
+      row.setAttribute('aria-pressed',value);
+      labelsById.get(key)?.setAttribute('aria-pressed',value);
+    }
+    scene?.select(active);
+  }
+  function sync() {
+    const hasPhases = activities.some(attempt=>attempt.phases.length);
+    if(phone.matches || !hasPhases) {
+      scene?.pause();
+      controls.hidden = visual.hidden = canvas.hidden = true;
+      return;
+    }
+    if(scene){
+      visual.hidden = canvas.hidden = false;
+      controls.hidden = reduced.matches || globallyPaused();
+      return;
+    }
+    if(loading || unavailable || forceSVG || matchMedia('(forced-colors: active)').matches || !visible || typeof WebGL2RenderingContext === 'undefined')return;
+    loading = import('./activity-webgl.js').then(({createActivityScene})=>{
+      if(disposed || phone.matches || !activities.some(attempt=>attempt.phases.length) || !visible)return;
+      const scroller = section.closest('.panel-body');
+      const scroll = scroller?.scrollTop;
+      visual.hidden = canvas.hidden = false;
+      scene = createActivityScene(canvas,{attempts:activities,reduced:reduced.matches||globallyPaused(),autoplay:false,capture,
+        onState:(playing,canPause)=>{
+          pause.textContent = t(playing || !canPause ? 'activityPause' : 'activityResume');
+          pause.disabled = !canPause;
+        },
+        onLoss:()=>{scene = null; unavailable = true; controls.hidden = visual.hidden = canvas.hidden = true;},
+      });
+      if(!scene){unavailable = true;visual.hidden = canvas.hidden = true;return;}
+      scene.select(active);
+      pause.disabled = !scene.describe().playing;
+      controls.hidden = reduced.matches || globallyPaused();
+      if(scroller)scroller.scrollTop = scroll;
+    }).catch(()=>{
+      scene?.dispose();
+      scene = null; unavailable = true; controls.hidden = visual.hidden = canvas.hidden = true;
+    }).finally(()=>{loading = null;});
+  }
+
+  function render(data) {
+    const next = JSON.stringify([language,data]);
+    if(signature === next)return;
+    signature = next;
+    activities = data;
+    heading.textContent = t('workActivity');
+    replay.textContent = t('activityReplay');
+    const duration = new Intl.NumberFormat(language,{style:'unit',unit:'second',unitDisplay:'short',maximumFractionDigits:2});
+    const milliseconds = new Intl.NumberFormat(language,{style:'unit',unit:'millisecond',unitDisplay:'short'});
+    const formatDuration = ms => ms < 1000 ? milliseconds.format(ms) : duration.format(ms/1000);
+    const time = new Intl.DateTimeFormat(language,{hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3,hour12:false});
+    const focused = document.activeElement?.id;
+    clear(list);clear(labels);rowsById.clear();labelsById.clear();
+    if(!data.length)list.append(el('p',t('activityEmpty'),'muted'));
+    for(const attempt of data){
+      const group = el('section',undefined,'work-attempt');
+      group.dataset.attempt = attempt.attempt;
+      if(data.length>1)group.append(el('h4',t('activityAttempt',{n:attempt.attempt})));
+      if(attempt.status!=='observed'){
+        const status = el('p',t(attempt.status==='unreadable'?'activityUnreadable':'activityUnobserved'),'muted');
+        status.dataset.activityStatus = attempt.status;
+        group.append(status);
+      }
+      const rows = el('ol',undefined,'work-phases');
+      for(const phase of attempt.phases){
+        const row = el('li',undefined,'work-phase');
+        const id = attempt.attempt + ':' + phase.id;
+        Object.assign(row.dataset,{phase:id,category:phase.category,count:phase.count,duration:phase.duration_ms,
+          distinct:phase.distinct,errors:phase.errors,inferred:phase.inferred});
+        const mark=ACTIVITY_MARKS[phase.category][0];
+        const glyph = el('span',mark,'work-glyph');
+        glyph.setAttribute('aria-hidden','true');
+        const title = t(ACTIVITY_LABELS[phase.label],{n:phase.label==='more'?phase.steps:phase.count});
+        const text = el('span',title,'work-label');
+        const facts = [];
+        if(phase.label==='more'&&phase.count)facts.push(t('activityCount',{n:phase.count}));
+        if(phase.distinct)facts.push(t('activityKnown',{d:phase.distinct}));
+        if(!['start','submit'].includes(phase.label)&&(phase.unknown!==phase.count||!phase.count)){
+          facts.push(t('activityTotalDuration',{time:formatDuration(phase.duration_ms)}));
+        }
+        if(phase.longest_ms!=null)facts.push(t('activityLongest',{time:formatDuration(phase.longest_ms)}));
+        if(phase.unknown)facts.push(t(phase.unknown===phase.count?'activityDurationUnknown':'activitySomeUnknown'));
+        if(phase.count)facts.push(t('activityErrors',{n:phase.errors}));
+        if(phase.stalled)facts.push(activityName('stalled'));
+        if(phase.repeating)facts.push(activityName('repeating'));
+        if(phase.includes_inferred&&!phase.inferred)facts.push(t('activityIncludesInferred'));
+        if(phase.origin)facts.push(t(`activityOrigin_${phase.origin}`));
+        for(const via of phase.via||[])facts.push(t(`activityVia_${via}`));
+        if(phase.detail_start_ms!=null)facts.push(t('activityStarted',{time:time.format(phase.detail_start_ms)}));
+        if(phase.end_ms!=null)facts.push(t('activityEnded',{time:time.format(phase.end_ms)}));
+        const names=Object.entries(phase.tools||phase.checks||{}).map(([name,count])=>name+' × '+count).join(' · ');
+        const accessibleName = [activityName(phase.category),title,names,...facts].filter(Boolean).join(' · ');
+        row.setAttribute('aria-label',accessibleName);
+        const rowButton=button('',()=>highlight(id),'work-phase-button');
+        rowButton.id='work-phase-'+id;
+        rowButton.append(glyph,text);
+        if(names)rowButton.append(el('small',names,'work-facts work-tools'));
+        rowButton.append(el('small',facts.join(' · '),'work-facts'));
+        row.append(rowButton);
+        const solid=button(mark,()=>highlight(id),'work-solid-label');
+        solid.id='work-solid-'+id;solid.dataset.solid=id;
+        solid.setAttribute('aria-label',accessibleName);
+        solid.setAttribute('aria-controls',rowButton.id);
+        labels.append(solid);
+        rowsById.set(id,rowButton);labelsById.set(id,solid);
+        rows.append(row);
+      }
+      const totals=Object.entries(attempt.totals||{});
+      if(totals.length){
+        const chart=el('div',undefined,'work-totals');
+        chart.setAttribute('role','group');chart.setAttribute('aria-label',t('activityTotals'));
+        chart.append(el('strong',t('activityTotals')),el('strong',t('activityTime')),el('strong',t('activityCalls')));
+        const maxDuration=Math.max(1,...totals.map(([,total])=>total.duration_ms));
+        const maxCalls=Math.max(1,...totals.map(([,total])=>total.count));
+        for(const [category,total] of totals){
+          const name=activityName(category);
+          const caption=el('span',ACTIVITY_MARKS[category][0]+' '+name);
+          chart.append(caption);
+          for(const [key,max,value,metric] of [
+            ['duration_ms',maxDuration,formatDuration(total.duration_ms),'activityTime'],
+            ['count',maxCalls,String(total.count),'activityCalls'],
+          ]){
+            const cell=el('span',value),bar=el('meter');
+            bar.max=max;bar.value=total[key];bar.dataset.total=key;bar.dataset.category=category;
+            bar.setAttribute('aria-label',name+' · '+t(metric));
+            cell.prepend(bar);chart.append(cell);
+          }
+        }
+        group.append(chart);
+      }
+      group.append(rows);
+      list.append(group);
+    }
+    scene?.update(data);
+    highlight(rowsById.has(active)?active:null);
+    if (focused) $(focused)?.focus({preventScroll:true});
+    sync();
+  }
+  const onPhone = () => sync();
+  reduced.addEventListener('change',motion);
+  phone.addEventListener('change',onPhone);
+  return {section,render,globalMotion:motion,visible(value){visible=value;if(!visible)scene?.pause();else sync();},dispose(){
+    disposed = true; scene?.dispose();
+    reduced.removeEventListener?.('change',motion);
+    phone.removeEventListener?.('change',onPhone);
+  }};
+}
+
 let panelFingerprint='',panelNode=null;
+const PANEL_TEXT = 'p,li,summary,h3,pre';
+function panelBody(shell) {
+  const body=el('div',undefined,'panel-body');
+  const clip=()=>{
+    const leaves=[...body.querySelectorAll(PANEL_TEXT)].filter(text=>{
+      if(text.querySelector(PANEL_TEXT))return false;
+      const closed=text.closest('details:not([open])');
+      return !closed || (text.closest('summary')?.parentElement===closed && !closed.parentElement.closest('details:not([open])'));
+    });
+    wholeTextLines(leaves,body.getBoundingClientRect(),1);
+  };
+  shell.onscroll=clip;
+  body.addEventListener('scroll',clip,{passive:true});
+  body.addEventListener('toggle',clip,true);
+  return body;
+}
+function edgeDirection(edge, flow) {
+  return title(flow.nodes.find(node=>node.id===edge.from))+' → '+title(flow.nodes.find(node=>node.id===edge.to));
+}
+
+function recordReference(labelKey, record) {
+  const kind={
+    'node.start':'edgeRecordStart','node.submit':'edgeRecordSubmission','review.submit':'edgeRecordReview',
+    'check.result':'edgeRecordCheck','check.red':'edgeRecordCheck','gate.verdict':'edgeRecordVerdict',
+    'decision.ask':'edgeRecordDecision','decision.answer':'edgeRecordDecision',
+  }[record.kind];
+  const caption=t(kind)+' '+record.id;
+  const row=el('p',undefined,'ref-line edge-record');
+  row.dataset.recordRole=labelKey;row.dataset.recordId=record.id;row.dataset.recordSeq=record.seq;
+  const chip=refChip(record.id,caption,kind==='edgeRecordDecision');
+  chip.textContent=caption;
+  row.append(el('span',t(labelKey)),chip);
+  if(record.time){
+    const time=el('time',clock(record.time,true));time.dateTime=record.time;row.append(time);
+  }
+  const verdict={pass:'checkPassed',reject:'lineSampleReturned',replan:'edgeVerdictReplan',
+    hold:'edgeVerdictHold',needs_approval:'lineSampleWaiting',unverified:'edgeVerdictUnverified'}[record.verdict];
+  const outcome={approved:'answeredApproval',rejected:'answeredRejection',revision_requested:'answeredRevision',answered:'evAnswered'}[record.outcome];
+  for(const text of [record.check,verdict&&t(verdict),record.rule,outcome&&t(outcome)])if(text)row.append(el('span',text));
+  return row;
+}
+
+function openDrawer(shell){
+  const entering=shell.hidden;
+  shell.hidden=false;$('flow').classList.add('has-selection');
+  if(entering && !reduced.matches && !document.body.classList.contains('graph-paused')){
+    const phone=matchMedia('(max-width:760px)').matches;
+    shell.animate?.([{transform:phone?'translateY(100%)':'translateX(100%)'},{transform:'none'}],
+      {duration:280,easing:'cubic-bezier(.2,.8,.2,1)'});
+  }
+}
+
+function edgePanel(shell, flow, edges) {
+  const edge=selectedEdge ? edges[0] : null;
+  const signature=JSON.stringify([selectedEdge,edges,edges.map(item=>edgeDirection(item,flow)),language]);
+  if(signature===panelFingerprint)return;
+  panelFingerprint=signature;panelNode=null;
+  clear(shell);
+  delete shell.dataset.node;
+  shell.dataset.edge=edge ? edgeKey(edge) : '';
+  shell.dataset.trunk=String(!edge);
+  openDrawer(shell);
+  const name=edge ? edgeDirection(edge,flow) : t('edgeChoose');
+  shell.setAttribute('aria-label',name);
+  const close=button('×',()=>closeEdge(true),'panel-close');close.setAttribute('aria-label',t('closeDetails'));
+  const intro=el('div',undefined,'panel-intro');
+  intro.append(el('strong',name));
+  if(edge)intro.append(el('p',edgeRelationLabel({...edge,label:''},language),'node-sentence'));
+  const bar=el('div',undefined,'panel-bar');bar.append(intro,close);
+  const body=panelBody(shell);
+  shell.append(bar,body);
+  if(!edge){
+    const choices=el('ul',undefined,'edge-choices');
+    for(const item of edges){
+      const row=el('li'),key=edgeKey(item);
+      const pick=button(edgeDirection(item,flow)+' · '+edgeRelationLabel({...item,label:''},language),()=>selectEdge(key,edgeOrigin));
+      pick.dataset.edgeKey=key;row.append(pick);choices.append(row);
+    }
+    body.append(choices);
+    return;
+  }
+  const state=el('dl',undefined,'edge-states');
+  state.append(el('dt',t('edgeGate')),el('dd',gateText(edge)),el('dt',t('edgeFlow')),el('dd',flowText(edge)));
+  if(edge.label)state.append(el('dt',t('edgeArtifact')),el('dd',label(edge.label)));
+  body.append(state);
+  const {record,delivery,gate_record:gate} = edge.flow || {};
+  const sameRecord=gate && record && gate.seq===record.seq;
+  if(gate&&!sameRecord)body.append(recordReference('edgeGateRecord',gate));
+  if(record){
+    const role=edge.flow.state==='returned'?
+      (sameRecord?'edgeGateReturnRecord':'edgeReturnRecord'):(sameRecord?'edgeGateFlowRecord':'edgeFlowRecord');
+    body.append(recordReference(role,record));
+  }
+  if(delivery && delivery.seq!==record?.seq)body.append(recordReference('edgeDeliveryRecord',delivery));
+}
+
 function panel() {
   const shell = $('panel');
-  const signature=JSON.stringify([selected,flowNode(selected),view.decisions.filter(d=>d.node===selected),view.timeline.filter(r=>r.node===selected)]);
-  if(signature===panelFingerprint)return;
-  panelFingerprint=signature;
-  const scroll=selected===panelNode?(shell.querySelector('.panel-body')?.scrollTop||0):0;panelNode=selected;clear(shell);
-  const p=el('div',undefined,'panel-body');
   const node = flowNode(selected);
-  shell.hidden = !node; $('flow').classList.toggle('has-selection', !!node);
-  if (!node) return;
+  const {activity, ...details} = node || {};
+  const showSummary = !planBlocked() && ['work','review'].includes(node?.kind);
+  if(workSummary && (!showSummary || panelNode!==selected)){
+    workSummary.dispose();
+    workSummary = null;
+  }
+  if(selectedEdge || edgeChoices.length){
+    const flow=planFlow(view,language);
+    const keys=new Set(selectedEdge?[selectedEdge]:edgeChoices);
+    const edges=flow.edges.filter(edge=>keys.has(edgeKey(edge)));
+    if(edges.length){edgePanel(shell,flow,edges);return;}
+  }
+  delete shell.dataset.edge;
+  delete shell.dataset.trunk;
+  const signature=JSON.stringify([isPast(),selected,details,view.decisions.filter(d=>d.node===selected),view.timeline.filter(r=>r.node===selected)]);
+  if(signature===panelFingerprint){
+    workSummary?.render(activity || []);
+    return;
+  }
+  panelFingerprint=signature;
+  const scroll=selected===panelNode?(shell.querySelector('.panel-body')?.scrollTop||0):0;
+  panelNode=selected;
+  clear(shell);
+  if(node)openDrawer(shell);else{shell.hidden=true;$('flow').classList.remove('has-selection');}
+  if (!node) {shell.onscroll=null;return;}
+  const p=panelBody(shell);
+  shell.dataset.node=node.id;
   shell.setAttribute('aria-label', title(node));
-  const close = button('×', () => {
-    const id = selected; selectNode(id);
-    [...document.querySelectorAll('.node-card')].find(e => e.dataset.node === id)?.querySelector('.node-header')?.focus({preventScroll:!matchMedia('(max-width:760px)').matches});
-  }, 'panel-close'); close.setAttribute('aria-label', t('closeDetails'));
+  const close = button('×',closeNode,'panel-close');close.setAttribute('aria-label',t('closeDetails'));
   const reference = el('p', undefined, 'ref-line'); reference.append(refChip(node.id, `${node.id} · ${title(node)}`));
   if(workedBy(node))reference.append(el('span',t('workedBy',{who:workedBy(node)})));
   const referenceDetails=el('details');referenceDetails.append(el('summary',t('nodeReference')),reference);
   const panelBar=el('div',undefined,'panel-bar'),intro=el('div',undefined,'panel-intro'); intro.append(el('strong',title(node)),el('p',nodeSentence(node,view.nodes,language),'node-sentence')); panelBar.append(intro,close); shell.append(panelBar,p);
   for (const d of view.decisions.filter(d => d.node === node.id)) {
     const ask = card(t('yourTurn'), question(d) || purposeWording(d.purpose, language), true);
-    ask.append(refChip(d.id, `${d.id} · ${title(node)}`, true, d.free),button(t('read'),()=>openDecision(d.id),'primary')); p.append(ask);
+    if(!isPast())ask.append(refChip(d.id, `${d.id} · ${title(node)}`, true, d.free),button(t('read'),()=>openDecision(d.id),'primary'));
+    p.append(ask);
+  }
+  if(showSummary){
+    workSummary ||= createWorkSummary();
+    p.append(workSummary.section);
+    workSummary.render(activity || []);
   }
   p.append(el('p', status(node), 'panel-status '+cardTone(node)));
 
@@ -2317,7 +3496,10 @@ function panel() {
   if (node.runLevel || view.plan_approval && !(view.plan_approval.verified && view.plan_approval.outcome === 'approved')) {
     planFacts(p, node); if(!node.runLevel)p.append(referenceDetails); p.scrollTop=scroll; return;
   }
-  if (displayState(node,view.decisions)==='returned') p.append(el('p',t('returnedShort',{who:t(node.returned_by?.role==='reviewer'?'roleReviewer':'roleLeader'),reason:returnedLine(node)})));
+  if (displayState(node,view.decisions)==='returned') {
+    const actor=returnActor(node);
+    p.append(el('p',[returnedLine(node),actor].filter(Boolean).join(' · ')));
+  }
   p.append(referenceDetails, el('p', attempts(node)));
   const rows = view.timeline.filter(r => r.node === node.id && r.kind === 'attempt').sort((a,b)=>b.seq-a.seq);
   if (rows.length) p.append(el('p', t('attemptsOf'), 'eyebrow'));
@@ -2365,7 +3547,7 @@ function rowSentence(r) {
   const checks=current?.planned_checks||[],total=Math.max((r.checks||[]).length,checks.filter(c=>c.type!=='human').length),human=checks.filter(c=>c.type==='human').length;
   const outcome = total && r.state !== 'running' ? t('checkProgress',{total,passed})+(human?' · '+t('humanCheckCount',{n:human}):'') : '';
   const stateKey=displayState({status:({returned:'rejected',needs_you:'awaiting_approval'}[r.state]||r.state),attempts:n},current&&needs(current)&&!['returned','replan','passed'].includes(r.state)?[{node:undefined}]:[]);
-  return [current?.kind==='review'&&r.state==='running'?t('reviewing'):stateWords(stateKey,language).name,outcome,r.returned_by?t('returnedActor',{who:who(r.returned_by)}):''].filter(Boolean).join(' · ');
+  return [current?.kind==='review'&&r.state==='running'?t('reviewing'):stateWords(stateKey,language).name,outcome,returnActor(r)].filter(Boolean).join(' · ');
 }
 function rowTone(r) {
   const current=view.nodes.find(n=>n.id===r.node && n.attempts===r.attempt);
@@ -2478,7 +3660,7 @@ function home() {
   wrap.append(table); tasks.append(wrap); box.append(tasks);
   if (view.lessons.length) { const lessons = el('details'); lessons.open = !!rowOpen.get('lessons'); lessons.addEventListener('toggle', () => rowOpen.set('lessons', lessons.open)); lessons.append(el('summary', t('lessonsCount', {n:view.lessons.length}))); textList(lessons, view.lessons.map(l => l.node_title ? `${otherTitle(l.node_title)} · ${l.text}` : l.text)); box.append(lessons); }
   const marked = document.getElementById(mark || ''); if (marked) marked.classList.add('found');
-  if (found) { const target = document.getElementById(found); found = null; if (target) target.scrollIntoView({block:target.id === 'log' ? 'start' : 'center', behavior:reduced.matches ? 'auto' : 'smooth'}); }
+  if (found) { const target = document.getElementById(found); found = null; if (target) target.scrollIntoView({block:target.id === 'log' ? 'start' : 'center', behavior:reduced.matches||document.body.classList.contains('graph-paused') ? 'auto' : 'smooth'}); }
 }
 // Show one task's entries in the record, where the agent's words about it can be matched by time.
 function showNode(id) { if (!showMode('home')) return; logNode = id; logFilter = 'all'; mark = null; found = 'log'; home(); }
@@ -2500,23 +3682,36 @@ function accessible() {
   const repeated=work.length>20&&new Set(templates).size===1;
   if(repeated){const note=el('li',t('repeatedSteps',{n:work.length}),'repeated-note');note.style.counterIncrement='list-item 0';$('node-list').append(note);}
   const order = layeredLayout(flow.nodes,flow.edges,flow.decisions).order;
-  [...flow.nodes].sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id)).forEach(n => { const item = el('li', undefined, 'card'); item.append(button(title(n), () => selectNode(n.id)), el('p', n.runLevel?t('runChecksAfter'):status(n))); if(!n.runLevel)item.append(el('p', attempts(n), 'muted')); if(planBlocked()){if(flow.nodes.length>20){const more=el('details');more.open=$('node-list').children.length===(repeated?1:0);more.append(el('summary',t('moreDetails')));planFacts(more,n);item.append(more);}else planFacts(item,n);} else item.append(el('p', n.runLevel?view.goal:n.summary)); if (n.returned_reasons.length) textList(item, n.returned_reasons.flatMap((reasons,i)=>reasons.map(reason=>t('earlierFailure',{n:i+1,reason}))), 'noReason'); $('node-list').append(item); });
-  forwardEdges(flow.edges).forEach(e => { const a = flow.nodes.find(n => n.id === e.from), b = flow.nodes.find(n => n.id === e.to); $('edge-list').append(el('li', `${title(a)} → ${title(b)} · ${relationText(e)} · ${t(e.delivered ? 'delivered' : 'notDelivered')}`)); });
+  [...flow.nodes].sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id)).forEach(n => { const item = el('li', undefined, 'card'); item.dataset.node=n.id; item.append(button(title(n), () => selectNode(n.id)), el('p', status(n))); if(!n.runLevel)item.append(el('p', attempts(n), 'muted')); if(planBlocked()){if(flow.nodes.length>20){const more=el('details');more.open=$('node-list').children.length===(repeated?1:0);more.append(el('summary',t('moreDetails')));planFacts(more,n);item.append(more);}else planFacts(item,n);} else item.append(el('p', n.runLevel?view.goal:n.summary)); if (n.returned_reasons.length) textList(item, n.returned_reasons.flatMap((reasons,i)=>reasons.map(reason=>t('earlierFailure',{n:i+1,reason}))), 'noReason'); $('node-list').append(item); });
+  function edgeButton(edge, cls) {
+    const key=edgeKey(edge);
+    const b=button([edgeDirection(edge,flow),relationText(edge),gateText(edge),edgeTag(edge,language).text].filter(Boolean).join(' · '),
+      event=>selectEdge(key,event.currentTarget),cls);
+    b.dataset.edgeKey=key;b.setAttribute('aria-pressed',String(selectedEdge===key));
+    return b;
+  }
+  for(const edge of flow.edges){
+    const row=markRelation(el('li'),edge);
+    row.append(edgeButton(edge));$('edge-list').append(row);
+  }
   view.decisions.forEach(d => { const item = el('li'); decisionHeading(item, d, 'h3'); failedBlock(item, d); if (d.context.why) item.append(el('p', d.context.why)); $('decision-list').append(item); });
   if (!view.decisions.length) $('decision-list').append(el('li', t('nothingTitle')));
   const listHeading=$('accessible').querySelector('h2');if(listHeading)listHeading.textContent=planCounts(view.plan_counts,language);
-  const phone=$('phone-flow');clear(phone);
+  const phone=$('phone-flow');
+  clear(phone);
   for(const id of order){
-    const n=flow.nodes.find(n=>n.id===id),item=el('li');item.append(nodeCard(n,n.id===selected));
-    const edges=forwardEdges(flow.edges).filter(e=>e.from===id);
-    for(const e of edges){const handoff=el('p',undefined,'phone-handoff');handoff.append(el('span',`${title(n)} → ${title(flow.nodes.find(n=>n.id===e.to))}`));item.append(handoff);}
+    const n=flow.nodes.find(n=>n.id===id),item=el('li');item.append(nodeCard(n,n.id===selected,'detail',displayState(n,view.decisions)));
+    const edges=flow.edges.filter(e=>e.from===id);
+    for(const e of edges)item.append(markRelation(edgeButton(e,'phone-handoff'),e));
     phone.append(item);
   }
   wholePhoneCards();setTimeout(recordGraphRead,0);
 }
 function showMode(next) {
   if (next !== 'decision' && (mode === 'decision' || next === 'home') && !discardDecision()) return false;
-  mode = next; if(view&&planBlocked())planAttention($('attention')); $('attention').hidden = !planBlocked() && (next!=='flow' || !view?.decisions.length); $('home').hidden = next !== 'home'; $('flow').hidden = next !== 'flow'; $('decision').hidden = next !== 'decision'; $('accessible').hidden = next !== 'flow' || !!view?.plan_error;
+  if(next==='home' && isPast())timeBar.returnLive();
+  mode = next; if(view&&planBlocked())planAttention($('attention')); $('attention').hidden = (isPast()||!planBlocked()) && (next!=='flow' || !view?.decisions.length); $('home').hidden = next !== 'home'; $('flow').hidden = next !== 'flow'; $('decision').hidden = next !== 'decision'; $('accessible').hidden = next !== 'flow' || !!view?.plan_error;
+  workSummary?.visible(next === 'flow');
   $('home-tab').setAttribute('aria-pressed', String(next === 'home')); $('flow-tab').setAttribute('aria-pressed', String(next === 'flow'));
   // The map can only measure its cards while it is on screen.
   if (renderer && next === 'flow' && view) renderer.update(view, selected); wholePhoneCards(); return true;
@@ -2537,9 +3732,71 @@ function closeInvalidDecision(run, decisions, nextView = {decisions}) {
 function showChangedDecision(){const changed=decisionController.session?.decision,free=!!changed?.free;unavailableDecisions.push(decisionController.session?.target.id);updateSubtitle();decisionController.close();decisionUI=null;const box=$('decision');clear(box);box.classList.add('decision-changed');box.append(el('p',t('decisionRef',{id:changed.id})+' · '+decisionTitle(changed)),el('p',question(changed)),el('h2',t(free?'freeEvidenceChanged':'evidenceChanged')),el('p',t('waitForNewQuestion'),'change-notice'),button(t('backToTab',{tab:t('graph')}),showGraph));$('picker').disabled=false;}
 function goHome() { if (showMode('home') && view) home(); }
 function showGraph() { if (!showMode('flow')) return; attention(); panel(); }
-function selectNode(id) { const n=flowNode(id),d=view.decisions.find(d=>d.node===id); if (!showMode('flow')) return; selected = selected === id ? null : id; panel(); if(selected)readPlanChange(selected); if (renderer) renderer.select(selected);planBanner?.update?.(); if(selected){const intro=$('panel').querySelector('.panel-intro'),r=intro.getBoundingClientRect();if(r.top<0||r.bottom>innerHeight)intro.scrollIntoView({block:'nearest'});} }
+function refreshEdgeSelection() {
+  panel();
+  for(const b of document.querySelectorAll('#edge-list button, #phone-flow .phone-handoff')){
+    b.setAttribute('aria-pressed',String(b.dataset.edgeKey===selectedEdge));
+  }
+  for(const card of $('phone-flow').querySelectorAll('.node-card')){
+    const expanded=card.dataset.node===selected;
+    card.classList.toggle('expanded',expanded);
+    card.querySelector('.node-header').setAttribute('aria-expanded',String(expanded));
+  }
+  renderer?.select(selected);
+}
+function closeEdge(returnFocus) {
+  const source=edgeOrigin,key=selectedEdge;
+  selectedEdge=null;edgeChoices=[];edgeOrigin=null;
+  refreshEdgeSelection();
+  if(returnFocus){
+    const replacement=[...document.querySelectorAll('#edge-list button, #phone-flow .phone-handoff')]
+      .find(b=>b.dataset.edgeKey===key&&b.getBoundingClientRect().width);
+    (source?.isConnected ? source : replacement || $('map').querySelector('.map-viewport'))?.focus({preventScroll:true});
+  }
+}
+function selectEdge(key, origin) {
+  if(mode!=='flow'&&!showMode('flow'))return;
+  if(selectedEdge===key){closeEdge(false);return;}
+  const fromChooser=edgeChoices.length>0 && $('panel').contains(document.activeElement);
+  selected=null;selectedEdge=key;edgeChoices=[];edgeOrigin=origin;
+  refreshEdgeSelection();
+  if(fromChooser)$('panel').querySelector('.panel-close')?.focus({preventScroll:true});
+}
+function chooseEdge(keys, origin) {
+  selected=selectedEdge=null;edgeChoices=keys;edgeOrigin=origin;
+  refreshEdgeSelection();
+  $('panel').querySelector('.edge-choices button')?.focus({preventScroll:true});
+}
+function closeNode(){
+  const id=selected;
+  selectNode(id);
+  const card=[...document.querySelectorAll('.node-card')].find(element=>element.dataset.node===id&&
+    element.getBoundingClientRect().width&&element.parentElement?.style.visibility!=='hidden');
+  card?.querySelector('.node-header')?.focus({preventScroll:true});
+}
+function selectNode(id) {
+  if (!showMode('flow')) return;
+  selected = selected === id ? null : id;
+  selectedEdge=null;edgeChoices=[];edgeOrigin=null;
+  refreshEdgeSelection();
+  if(selected)readPlanChange(selected);
+  planBanner?.update?.();
+  if(selected&&!matchMedia('(max-width:760px)').matches){
+    const reveal=()=>{
+      if(selected!==id||$('panel').hidden)return;
+      const r=$('panel').querySelector('.panel-intro').getBoundingClientRect();
+      if(r.top<0||r.bottom>innerHeight)
+        window.scrollBy(0,r.top<0?r.top-12:r.bottom-innerHeight+12);
+    };
+    reveal();
+    document.fonts?.ready.then(reveal);
+    const opening=$('panel').getAnimations?.()||[];
+    if(opening.length)Promise.allSettled(opening.map(animation=>animation.finished)).then(reveal);
+  }
+}
 function focusHeading(heading) { heading.tabIndex = -1; heading.focus({preventScroll:true}); }
 function openDecision(id, focus = true) {
+  if(isPast())return;
   replacementDecision=null; decisionNotice=''; notice('');
   if (view.decisions.find(d => d.id === id)?.purpose === 'plan_approval') {
     showGraph(); attention(); if (focus) $('plan-question')?.focus({preventScroll:true}); return;
@@ -2767,7 +4024,7 @@ const unavailableDecisions=[];
 function updateSubtitle(){
   const pending=actionableDecisions(view,unavailableDecisions);
   const states=Object.entries(stateCounts(planFlow(view,language).nodes,pending)).filter(([key])=>key!=='awaiting').map(([key,n])=>stateWords(key,language).name+' '+n).join(' · ');
-  $('subtitle').textContent=view.plan_error?'':view.complete?t('complete'):[t('yourTurnCount',{n:pending.length}),states].filter(Boolean).join(' · ');
+  $('subtitle').textContent=view.plan_error?'':view.complete?t('complete'):[isPast()?null:t('yourTurnCount',{n:pending.length}),states].filter(Boolean).join(' · ');
 }
 function applyView(next) {
   if (decisionController.session?.busy) return;
@@ -2785,24 +4042,40 @@ function applyView(next) {
     planSeen={identity,id:next.plan_approval.id,nodes:next.nodes,contract:next.run_contract};
   }
   closeInvalidDecision(chosen, next.decisions, next);
-  const nextFingerprint = JSON.stringify(next); if (nextFingerprint === fingerprint) return;
-  const active=document.activeElement,focusId=active?.id,focusLabel=active?.getAttribute?.('aria-label');
-  const focusHeader=active?.className==='node-header',phoneFocus=!!active?.closest?.('#phone-flow'),focusNode=active?.closest?.('[data-node]')?.dataset.node;
-  const pageScroll=typeof scrollY==='number'?{left:scrollX,top:scrollY}:null;
+  const {observed_at_ms: stamp,...recorded}=next;
+  const ages=next.decisions.filter(d=>d.node&&d.asked).map(d=>Math.floor((stamp-Date.parse(d.asked))/60000));
+  for(const node of next.nodes){
+    const attempt=graphAttempt(node);
+    if(attempt?.stalled)ages.push(Math.floor((stamp-attempt.last_ms)/60000));
+  }
+  const nextFingerprint=JSON.stringify(recorded),nextAgeFingerprint=JSON.stringify(ages);
+  if(nextFingerprint===fingerprint&&(mode!=='flow'||nextAgeFingerprint===ageFingerprint))return;
   const languageChanged=language!==viewLanguage(next,navigator.language);
   language = viewLanguage(next, navigator.language); translate();
   if(languageChanged && projects.length)chooseRuns({projects});
-  view = next; fingerprint = nextFingerprint; if (!planFlow(view,language).nodes.some(n => n.id === selected)) selected = null; if (!view.nodes.some(n => n.id === logNode)) logNode = null;
+  fingerprint = nextFingerprint; ageFingerprint=nextAgeFingerprint;
+  renderView(next);
+}
+
+function renderView(next) {
+  const active=document.activeElement,focusId=active?.id,focusLabel=active?.getAttribute?.('aria-label');
+  const focusHeader=active?.className==='node-header',phoneFocus=!!active?.closest?.('#phone-flow'),focusNode=active?.closest?.('[data-node]')?.dataset.node;
+  const pageScroll=typeof scrollY==='number'?{left:scrollX,top:scrollY}:null;
+  view = {...next,nodes:next.nodes.map(n=>({...n,plan_revision_wait:next.plan_approval?.status==='answered'&&
+    ['rejected','revision_requested'].includes(next.plan_approval.outcome)}))};
+  const flow=planFlow(view,language), keys=new Set(flow.edges.map(edgeKey));
+  if(!flow.nodes.some(n=>n.id===selected))selected=null;
+  if(!keys.has(selectedEdge))selectedEdge=null;
+  edgeChoices=edgeChoices.filter(key=>keys.has(key));
+  if(!view.nodes.some(n=>n.id===logNode))logNode=null;
   const firstDecision=view.decisions[0]?.id || view.timeline.find(r=>r.decision)?.decision;
   $('find-text').placeholder=firstDecision?t('findDecisionHint',{id:firstDecision}):t('findHint');
   $('title').textContent = view.title || t('brand'); $('where').textContent = '';
   const sent = view.plan_approval?.verified && ['rejected','revision_requested'].includes(view.plan_approval.outcome);
   $('flow').classList.toggle('sent-plan',!!sent); $('flow').classList.toggle('plan-unavailable',!!view.plan_error);
-  const sentBack=view.plan_approval?.status==='answered'&&['rejected','revision_requested'].includes(view.plan_approval.outcome);
-  view.nodes.forEach(n=>n.plan_revision_wait=sentBack);
   updateSubtitle();
   if(view.complete){const resultNode=[...view.nodes].reverse().find(n=>n.kind==='work'&&view.timeline.some(r=>r.node===n.id&&r.files?.length));if(resultNode){const files=[...new Set(view.timeline.filter(r=>r.node===resultNode.id).flatMap(r=>r.files||[]))];$('subtitle').append(button(t('results'),()=>selectNode(resultNode.id),'primary result-action'),el('span',t('runResultSummary',{files:files.join(', ')}),'result-summary'));}}
-  accessible(); attention(); panel(); home(); showMode(mode); if (renderer && mode === 'flow') renderer.update(view, selected);
+  accessible(); attention(); panel(); if(!isPast())home(); showMode(mode);
   if (mode === 'decision' && decisionController.session) openDecision(decisionController.session.target.id, false);
   if(active && active.isConnected===false){
     const scope=phoneFocus?$('phone-flow'):document;
@@ -2839,20 +4112,73 @@ async function refresh(force = false) {
     if (!projects.length) { resetView(); notice(decisionNotice || 'noProjects'); return; }
     if (!chosen) { resetView(); notice(decisionNotice || (projects.some(p => p.error) ? 'unreadable' : 'noRun')); return; }
     if (available && available.error) { resetView(); notice(decisionNotice || 'unreadable', true); return; }
-    const data = await api(query('/api/run')); if (currentGeneration !== generation || document.hidden || decisionController.session?.busy) return;
-    notice(decisionNotice || (data.view.plan_error ? '' : !data.plan ? 'noPlan' : '')); applyView(data.view);
+    const data = await api(query('/api/run',{history:'index'})); if (currentGeneration !== generation || document.hidden || decisionController.session?.busy) return;
+    liveView=data.view;
+    if(!isPast()){
+      notice(decisionNotice || (data.view.plan_error ? '' : !data.plan ? 'noPlan' : ''));
+      applyView(liveView);
+    }
+    if(data.history)await receiveTimeIndex(data.history,currentGeneration);
     if (pendingJump && view && !decisionController.session?.busy) { const target = pendingJump; pendingJump = null; jump(target); }
   } catch (error) { if (currentGeneration === generation) notice(error.status === 401 ? 'unauthorized' : error.status === 400 || error.status === 404 || error.status === 500 ? 'unreadable' : 'lost', true); }
   finally { loading = false; if (queuedRefresh) { queuedRefresh = false; refresh(true); } else schedule(); }
 }
-function resetView() { planSeen=null;planChanges=null;planRead.clear(); $('panel').onscroll=null; $('panel').hidden=true; $('flow').classList.remove('has-selection'); panelFingerprint=''; panelNode=null; language = viewLanguage(null, navigator.language); translate(); closeInvalidDecision(chosen, []); view = null; selected = null; fingerprint = ''; ['node-list','edge-list','decision-list','panel','home','attention'].forEach(id => clear($(id))); if (renderer) renderer.update({nodes:[],edges:[],decisions:[],complete:false}, null); $('flow').hidden = true; $('home').hidden = true; $('accessible').hidden = true; $('decision').hidden = true; $('subtitle').textContent = ''; $('where').textContent = ''; }
+async function receiveTimeIndex(index, snapshotGeneration) {
+  const root=$('time-bar');
+  if(!root)return;
+  if(!timeBar){
+    timeBarModule ||= import('./history.js');
+    const [{createTimeBar},{createSpaceView}]=await Promise.all([timeBarModule,import('./spacetime.js')]);
+    if(snapshotGeneration!==generation)return;
+    timeBar ||= createTimeBar({root,t,duration:historyDuration,stamp:historyStamp,
+      load:()=>api(query('/api/history')),
+      display:(next, reset)=>{
+        if(reset)renderer?.resetMotion();
+        renderView(next);
+        if(reset)renderer?.baselineMotion();
+      },
+      live:()=>{
+        if(!liveView)return;
+        renderer?.resetMotion();fingerprint='';applyView(liveView);renderer?.baselineMotion();
+      },
+      cut:next=>{timeCut=next;renderer?.timeCut?.();},
+      clock:()=>graphTestClock?.time??performance.now(),
+      deterministic:()=>graphTestClock?.time!=null});
+    timeBar.setMotion(next=>renderer?.observeReplay(next));
+    renderer?.enableSpace(createSpaceView);
+  }
+  timeBar.update(index);
+}
+
+let historyClock, historyClockLanguage;
+function historyStamp(at) {
+  if(historyClockLanguage!==language){
+    historyClockLanguage=language;
+    historyClock=new Intl.DateTimeFormat(language,{
+      month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,
+    });
+  }
+  return historyClock.format(at);
+}
+
+function historyDuration(ms, exact = false) {
+  const units=t('timeUnits').split(',');
+  const steps=[86_400_000,3_600_000,60_000,1_000,1];
+  let remaining=Math.max(0,Math.round(ms));
+  const words=(remaining>=1000&&!exact?steps.slice(0,-1):steps).flatMap((step,i)=>{
+    const count=Math.floor(remaining/step);remaining%=step;
+    return count?[count+units[i]]:[];
+  });
+  return words.join(' ')||t('timeZero');
+}
+function resetView() { timeBar?.reset();timeCut=liveView=null;renderer?.resetSpace();workSummary?.dispose();workSummary=null;planSeen=null;planChanges=null;planRead.clear(); $('panel').onscroll=null; $('panel').hidden=true; $('flow').classList.remove('has-selection'); panelFingerprint=''; panelNode=null; language = viewLanguage(null, navigator.language); translate(); closeInvalidDecision(chosen, []); view = null; selected = selectedEdge = edgeOrigin = null; edgeChoices=[]; fingerprint = ''; ['node-list','edge-list','decision-list','panel','home','attention'].forEach(id => clear($(id))); if (renderer) renderer.update({nodes:[],edges:[],decisions:[],complete:false}, null); $('flow').hidden = true; $('home').hidden = true; $('accessible').hidden = true; $('decision').hidden = true; $('subtitle').textContent = ''; $('where').textContent = ''; }
 function schedule() { clearTimeout(timer); if (!document.hidden) timer = setTimeout(refresh, 2000); }
 $('phone-view-toggle').addEventListener('click',()=>{const diagram=$('flow').classList.toggle('phone-diagram');$('phone-view-toggle').dataset.i18n=diagram?'showFlowList':'showDiagram';$('phone-view-toggle').textContent=t(diagram?'showFlowList':'showDiagram');$('phone-view-toggle').setAttribute('aria-pressed',String(diagram));if(renderer&&view)renderer.update(view,selected);});
 $('home-tab').addEventListener('click', () => { if (view) goHome(); });
 $('flow-tab').addEventListener('click', () => { if (view) showGraph(); });
 $('find').addEventListener('submit', event => { event.preventDefault(); if (find($('find-text').value)) $('find-text').value = ''; });
 addEventListener('hashchange', readFragment);
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !e.isComposing && view) { if (mode === 'decision') leaveDecision(); else if (mode === 'flow' && selected) selectNode(selected); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !e.isComposing && view) { if (mode === 'decision') leaveDecision(); else if (mode === 'flow' && selected) closeNode(); else if(mode==='flow'&&(selectedEdge||edgeChoices.length))closeEdge(true); } });
 document.addEventListener('visibilitychange', () => { clearTimeout(timer); if (renderer) renderer.wake(); if (!document.hidden) refresh(true); });
 reduced.addEventListener('change', () => { if (renderer) renderer.wake(); });
 notice('loading'); readFragment(); refresh();
@@ -2861,58 +4187,145 @@ function svg(tag, attributes = {}) {
   const element=document.createElementNS(['http:', '', 'www.w3.org/2000/svg'].join('/'),tag);
   Object.entries(attributes).forEach(([key,value])=>element.setAttribute(key,String(value)));return element;
 }
+function edgeMarker(relation) {
+  const {paths,fill}=RELATION_MARKS[relation];
+  const d=paths.map(path=>'M'+path.flat().join(' ')).join(' ')+(fill?'Z':'');
+  return svg('path',{d,class:fill?'relation-fill':'relation-stroke'});
+}
 function typeIcon(kind) {
-  const icon=svg('svg',{viewBox:'0 0 24 24','aria-hidden':'true',class:'type-icon'});
+  const bounds={work:'4 3 16 18',review:'2 2 20 20',decision:'1 2 22 20',goal:'4 2 17 20'};
+  const icon=svg('svg',{viewBox:bounds[kind]||bounds.work,'aria-hidden':'true',class:'type-icon','data-kind':kind});
   const paths={work:'M5 4H19V20H5Z M8 8H16 M8 12H16 M8 16H12',review:'M10 3A7 7 0 1 0 10 17A7 7 0 1 0 10 3 M15 15L21 21 M7 10L9 12L13 8',decision:'M12 3L22 12L12 21L2 12Z M12 7V13 M12 16V17',goal:'M5 21V3 M5 4H20L16 9L20 14H5'};
   icon.append(svg('path',{d:paths[kind]||paths.work,fill:'none',stroke:'currentColor','stroke-width':1.6,'stroke-linejoin':'round','stroke-linecap':'round'}));
   return icon;
 }
-function cardTone(n) {if(n.status==='rejected')return 'returned-card';return needs(n)||['held','awaiting_approval'].includes(n.status)?'waiting_for_you':n.status==='passed'||n.answered?'passed':['running','submitted','unverified'].includes(n.status)?'current':'unused';}
+function cardTone(n, state = displayState(n,view.decisions)) {if(['returned','failedFinal'].includes(state))return 'returned-card';return needs(n)||['held','awaiting_approval'].includes(n.status)?'waiting_for_you':n.status==='passed'||n.answered?'passed':['running','submitted','unverified'].includes(n.status)?'current':'unused';}
 // A stable play mark is legible in a still frame and without colour.
 function walker() {
   const mark=el('span','▶','walker');mark.setAttribute('aria-hidden','true');return mark;
 }
-// A rebuilt element joins a looping animation at the phase it would have reached.
-function inPhase(element, period) {element.style.animationDelay=-(performance.now()%period)+'ms';return element;}
-function nodeDescription(n) {return n.runLevel?`${t('runChecksTitle')}. ${t('runChecksAfter')}`:`${t(n.kind||'work')}. ${title(n)}. ${status(n)}. ${attempts(n)}. ${t('returnTimes',{n:cometCount(n)})}`;}
-function nodeCard(n, expanded = false, level = 'detail') {
-  const root=el('article',undefined,'node-card '+cardTone(n)+(['running','reviewing','retrying'].includes(displayState(n,view.decisions))?' working':'')+(expanded?' expanded':''));root.dataset.node=n.id;if(planBlocked())root.classList.add('read-status');
-  if(planBlocked())root.append(el('p',t('cardUnread'),'unread-mark'));
-  const change=planChanges?.find(c=>c.id===n.id);if(change)root.append(el('p',t(change.kind),'change-mark'));
-  const header=button('',()=>{
-    selectNode(n.id);
-  },'node-header');
-  header.setAttribute('aria-label',nodeDescription(n));header.setAttribute('aria-expanded',String(expanded));
-  if (level === 'overview') {
-    root.classList.add('overview-card');
-    const state = displayState(n, view.decisions), marks = [];
-    if (n.kind === 'review') marks.push('⌕ '+t('review'));
-    if (cometCount(n) || state === 'returned') marks.push('↩');
-    if (view.decisions.some(d=>d.node===n.id)) marks.push('◆ '+t('yourTurn'));
-    if ((view.planned_questions || []).some(q=>q.node===n.id)) marks.push(t('questionsMark'));
-    header.title = title(n)+' · '+status(n)+(marks.length?' · '+marks.join(' · '):'')+(cometCount(n)&&n.returned_by?' · '+t('returnedActor',{who:who(n.returned_by)}):'');
-    header.append(el('span',statusGlyph(state),'status-glyph'),el('strong',title(n),'node-title'));
+const ACTIVITY_MARKS = Object.freeze({
+  tool:['▤','activityNameTool'], skill:['✦','activityNameSkill'], mcp:['⬡','activityNameMcp'],
+  session:['⇄','activityNameSession'], gf:['△','activityNameGf'], other:['✚','activityNameOther'],
+  thinking:['◌','activityThinking'], stalled:['⊣','activityNameStalled'], repeating:['≋','activityNameRepeating'],
+});
+const activityName = key => t(ACTIVITY_MARKS[key][1]);
+const graphNow = () => graphTestClock?.wall ?? Date.now();
+const graphTestClock = new URL(location.href).searchParams.get('graphTest')==='1' ? {time:null,wall:null} : null;
+const shortActivity = category => {
+  const key={session:'cardSession',gf:'cardChecks',thinking:'cardThinking'}[category];
+  return key?t(key):activityName(category);
+};
+const minutesWord = n => t(n===1?'cardMinute':'cardMinutes',{n});
+const durationWord = ms => ms>=60000 ? minutesWord(Math.round(ms/6000)/10) :
+  ms>=1000 ? t('cardSeconds',{n:Math.round(ms/100)/10}) : ms+' ms';
+const attemptWord = n => t('cardAttempt',{n});
+const laneWord = n => t('cardLane',{n});
 
-
-    root.append(header); return root;
+function appendStrip(root, strip, facts) {
+  if(strip){
+    const rail=el('div',undefined,'card-strip');
+    rail.setAttribute('aria-hidden','true');
+    for(const segment of strip.segments){
+      const mark=el('i',undefined,'strip-segment');mark.dataset.phase=segment.id;
+      if(segment.pattern)mark.dataset.pattern=segment.pattern;
+      mark.style.left=segment.left*100+'%';mark.style.width=segment.width*100+'%';
+      rail.append(mark);
+    }
+    for(const dot of strip.dots){
+      const mark=el('i',undefined,'call-dot');mark.dataset.call=dot.id;mark.style.left=dot.left*100+'%';rail.append(mark);
+    }
+    if(strip.head!=null){
+      const head=el('i',ACTIVITY_MARKS[facts.now][0],'strip-head');head.dataset.category=facts.now;
+      head.style.left=strip.head*100+'%';rail.append(head);
+    }
+    root.append(rail);
   }
-  const state = displayState(n, view.decisions), statusLine = el('span', status(n), 'node-status');
-  statusLine.prepend(el('span', statusGlyph(state), 'status-glyph'));
-  header.append(statusLine);
+  if(facts.totals.length){
+    const rows=el('div',undefined,'card-totals');
+    const maximum=Math.max(1,facts.totals[0].duration);
+    for(const {category,duration} of facts.totals){
+      const row=el('div',undefined,'card-total');row.dataset.category=category;row.dataset.duration=String(duration);
+      const name=el('span',shortActivity(category),'total-name');
+      const track=el('span',undefined,'total-track'),bar=el('i',undefined,'total-bar');
+      bar.dataset.pattern=category;bar.style.width=duration/maximum*100+'%';track.append(bar);
+      row.append(name,track,el('span',durationWord(duration),'total-duration'));rows.append(row);
+    }
+    root.append(rows);
+  }
+}
+function nodeCard(n, expanded = false, level = 'detail', state, model) {
+  const now=(isPast()?view?.observed_at_ms:graphTestClock?.wall) ?? view?.observed_at_ms ?? graphNow(), facts=model?.facts || cardFacts(n,view.decisions,now,language);
+  state=facts.state;
+  const {kind,lane}=facts;
+  const root=el('article',undefined,'node-card '+cardTone(n,state)+(runningCard(state)?' working':'')+(expanded?' expanded':''));
+  Object.assign(root.dataset,{node:n.id,state,clip:kind,cut:String(5+3*(lane||1))});
+  root.style.setProperty('--cut-size',root.dataset.cut+'px');
+  const plate=el('div',undefined,'node-plate');
+  if(state==='awaiting')plate.dataset.hazard='answer';
+  root.append(plate);
+  if(planBlocked())root.classList.add('read-status');
+  if(planBlocked())root.append(el('p',t('cardUnread'),'unread-mark'));
+  const change=isPast()?null:planChanges?.find(c=>c.id===n.id);if(change)root.append(el('p',t(change.kind),'change-mark'));
+  const header=button('',()=>selectNode(n.id),'node-header');
   const titleLine=el('span',undefined,'node-title-line');
-  if(n.kind && n.kind!=='work')titleLine.append(typeIcon(n.kind));
-  titleLine.append(el('strong',title(n),'node-title'));header.append(titleLine);
+  titleLine.append(typeIcon(kind),el('strong',title(n),'node-title'));
+  if(lane)titleLine.append(el('span',laneWord(lane),'risk-level'));
+  const stateLine=el('span',undefined,'node-status');
+  const word=el('span',facts.word,'state-word');
+  const glyph=el('span',statusGlyph(state),'status-glyph');glyph.setAttribute('aria-hidden','true');
+  const stateValue=el('span',undefined,'state-value');stateValue.append(glyph,word);
+  stateLine.append(el('span',facts.kindWord,'kind-word'),stateValue);
+  const clauses=[title(n),facts.kindWord,facts.word];
+  if(facts.age!=null){
+    const age=minutesWord(facts.age);
+    const wording=state==='awaiting'?t('cardWaiting',{age}):age;
+    const mark=el('span',wording,'card-age');mark.dataset.minutes=String(facts.age);
+    if(state==='awaiting')mark.dataset.humanWait='';
+    stateLine.append(mark);clauses.push(wording);
+  }
+  if(facts.attempt){
+    const word=attemptWord(facts.attempt);
+    const caption=el('span','· '+word,'card-attempt');caption.dataset.ordinal=String(facts.attempt);
+    stateLine.append(caption);clauses.push(word);
+  }
+  if(lane)clauses.push(laneWord(lane));
+  header.append(titleLine,stateLine);
+  if(facts.now){
+    const text=t('cardNow',{category:shortActivity(facts.now)});
+    const current=el('span',text,'card-now');current.dataset.category=facts.now;
+    header.append(current);clauses.push(text);
+  }
+  if(facts.unread){
+    const text=t(facts.unread==='unreadable'?'cardUnreadable':'cardUnobserved');
+    header.append(el('span',text,'card-unobserved'));clauses.push(text);
+  }
+  if(graphAttempt(n)?.repeating){
+    header.append(el('span',t('activityNameRepeating'),'card-repeating'));clauses.push(t('activityNameRepeating'));
+  }
+  clauses.push(...facts.totals.map(({category,duration})=>shortActivity(category)+' '+durationWord(duration)));
+  const marks = [];
+  if (cometCount(n) || state === 'returned') marks.push('↩');
+  if ((view.planned_questions || []).some(q=>q.node===n.id)) marks.push(t('questionsMark'));
+  header.title = clauses.join(' · ')+(marks.length?' · '+marks.join(' · '):'')+(state==='returned'&&returnActor(n)?' · '+returnActor(n):'');
+  header.setAttribute('aria-label',clauses.join(' · '));header.setAttribute('aria-expanded',String(expanded));
+  root.append(header);
+  appendStrip(root,model?.strip ?? activityStrip(graphAttempt(n),facts,now),facts);
+  if (level === 'overview') {root.classList.add('overview-card');return root;}
   const reference=el('div',undefined,'ref-line node-reference');
   if(n.planned_checks?.some(c=>c.runs_own_files)){const mark=el('span',t('ownCheckMark'),'own-check-mark');mark.title=t('ownCheckEffect');reference.append(mark);}
   if(n.status==='passed'&&cometCount(n))reference.append(el('span',t('returnTrace',{n:cometCount(n)})));
 
-  if(n.attempts)reference.append(el('span',attempts(n),'attempt-caption'));
   const decision=view.decisions.find(d=>d.node===n.id);
   const footer=el('div',undefined,'node-footer');
-  if(!decision && displayState(n,view.decisions)==='returned') {
+  if(!decision && state==='returned') {
     const reason=returnedLine(n);
     const line=el('span',reason);line.title=line.textContent;footer.append(line);
-    clear(reference);reference.append(el('span',t('returnedActor',{who:t(n.returned_by?.role==='reviewer'?'returnReviewer':'returnLeader')})));
+    clear(reference);const actor=returnActor(n);if(actor)reference.append(el('span',actor));
+  }
+  if(n.attempts){
+    const caption=el('span',attempts(n)||t('finishedAttempts',{n:n.attempts}),'attempt-caption');
+    caption.dataset.attempts=String(n.attempts);reference.append(caption);
   }
   const essentials=el('div',undefined,'node-essentials');
   essentials.append(el('p',nodeSentence(n,view.nodes,language),'node-sentence'));
@@ -2939,7 +4352,7 @@ function nodeCard(n, expanded = false, level = 'detail') {
   if(questions.length)essentials.append(el('p',t('planCardQuestion',{n:questions.length,question:questions.map(q=>answered?q.question:plannedQuestion(q)).join(' · ')}),'planned-question'));
   if(answered){const answer=el('details',undefined,'answered-result');answer.append(el('summary',t('answerExpand')),el('p',t('answerOutcome',{outcome:t(answered.outcome==='approved'?(answered.kind==='authorization'?'answeredPermission':'answeredApproval'):answered.outcome==='rejected'?'answeredRejection':answered.outcome==='revision_requested'?'answeredRevision':'evAnswered'),answer:answered.answer||''})));essentials.append(answer);}
   if(n.notices?.some(item=>item.code==='passes_before_work'))essentials.append(el('p',t('qBeforeWorkCount',{n:n.notices.filter(item=>item.code==='passes_before_work').length}),'check-notice'));
-  root.append(header,essentials,footer,reference);
+  root.append(essentials,footer,reference);
   const answer=essentials.querySelector('.answered-result');if(answer)answer.addEventListener('toggle',()=>{if(root.isConnected&&!root.classList.contains('card-measure'))renderer?.remeasure();});
   return root;
 }
@@ -2952,43 +4365,501 @@ function titleTextRect(title){
 }
 // The scroll edge may hide whole lines, but never bisect their letters.
 function wholeMapLines(card,viewport,scale) {
+  wholeTextLines(card.querySelectorAll('.node-title,.node-status,.card-now,.card-unobserved,.card-repeating,.card-total,.node-essentials p,.node-footer>span,.node-reference>span,.unread-mark,.change-mark,summary'),viewport,scale);
+}
+function wholeTextLines(texts,viewport,scale) {
   if(!document.createRange)return;
-  for(const text of card.querySelectorAll('.node-title,.node-status,.node-essentials p,.node-footer>span,.node-reference>span,.unread-mark,.change-mark,summary')){
+  for(const text of texts){
     text.style.clipPath='';
     const range=document.createRange();range.selectNodeContents(text);
     const lines=[...range.getClientRects()].filter(r=>r.width&&r.height),box=text.getBoundingClientRect();
     if(!lines.length||lines.every(r=>r.top>=viewport.top-.5&&r.bottom<=viewport.bottom+.5))continue;
     const whole=lines.filter(r=>r.top>=viewport.top-.5&&r.bottom<=viewport.bottom+.5);
-    text.style.clipPath=whole.length?`inset(${Math.max(0,(whole[0].top-box.top)/scale)}px 0 ${Math.max(0,(box.bottom-whole.at(-1).bottom)/scale)}px 0)`:'inset(100%)';
+    text.style.clipPath=whole.length?`inset(${Math.max(0,(Math.min(...whole.map(r=>r.top))-box.top)/scale)}px 0 ${Math.max(0,(box.bottom-Math.max(...whole.map(r=>r.bottom)))/scale)}px 0)`:'inset(100%)';
   }
 }
+
+const MINIMAP_WIDTH=142, MINIMAP_HEIGHT=88, MINIMAP_PAD=7;
+const MINI_KINDS={
+  work:{color:'#3fd8e8',points:[[-1,-1],[1,-1],[1,1],[-1,1]]},
+  review:{color:'#3fd8e8',points:Array.from({length:12},(_,i)=>[Math.cos(i*Math.PI/6),Math.sin(i*Math.PI/6)])},
+  decision:{color:'#3fd8e8',points:[[-1,0],[-.5,-1],[.5,-1],[1,0],[.5,1],[-.5,1]]},
+  goal:{color:'#3fd8e8',points:[[-1,1],[0,-1],[1,1]]},
+};
+function createMinimap(area,viewport) {
+  const mini=button('',()=>{},'map-mini');
+  mini.dataset.i18nLabel='minimap';mini.hidden=true;
+  const plot=svg('svg',{viewBox:`0 0 ${MINIMAP_WIDTH} ${MINIMAP_HEIGHT}`,'aria-hidden':'true'});
+  const marks=svg('g'), indicator=svg('rect',{class:'mini-window'});
+  const canvas=el('canvas');canvas.hidden=true;canvas.setAttribute('aria-hidden','true');
+  plot.append(marks,indicator);mini.append(plot,canvas);area.append(mini);
+  let scene, projection, miniFrame, drag;
+  function reserve(layout,scale,height) {
+    const width=viewport.clientWidth;
+    mini.hidden=!width||!layout.cards.length||(layout.bounds.width*scale<=width&&layout.bounds.height*scale<=height);
+    return mini.hidden?0:mini.offsetHeight+12;
+  }
+  function update(layout,box) {
+    const {bounds,cards}=layout;
+    if(mini.hidden){miniFrame=null;return;}
+    if(scene!==layout){
+      scene=layout;
+      const ratio=Math.min((MINIMAP_WIDTH-2*MINIMAP_PAD)/bounds.width,(MINIMAP_HEIGHT-2*MINIMAP_PAD)/bounds.height);
+      const left=(MINIMAP_WIDTH-bounds.width*ratio)/2, top=(MINIMAP_HEIGHT-bounds.height*ratio)/2;
+      const points=cards.map(card=>{
+        const {color,points}=MINI_KINDS[card.kind];
+        const x=left+(card.x+card.width/2)*ratio,y=top+(card.y+card.height/2)*ratio;
+        return {id:card.id,kind:card.kind,color,points:points.map(([dx,dy])=>[x+dx*3.2,y+dy*3.2])};
+      });
+      projection={ratio,left,top,points};
+      marks.replaceChildren(...points.map(mark=>svg('polygon',{'data-node':mark.id,'data-kind':mark.kind,
+        fill:mark.color,points:mark.points.map(point=>point.join(',')).join(' ')})));
+    }
+    const {ratio,left,top}=projection;
+    const x=Math.max(0,-box.x/box.scale), y=Math.max(0,-box.y/box.scale);
+    const right=Math.min(bounds.width,(box.width-box.x)/box.scale), bottom=Math.min(bounds.height,(box.height-box.y)/box.scale);
+    const window={x:left+x*ratio,y:top+y*ratio,width:Math.max(0,right-x)*ratio,height:Math.max(0,bottom-y)*ratio};
+    for(const [key,value] of Object.entries(window))indicator.setAttribute(key,value);
+    miniFrame={width:MINIMAP_WIDTH,height:MINIMAP_HEIGHT,marks:projection.points,window,dpr:box.dpr};
+  }
+  function navigate(event) {
+    const rect=plot.getBoundingClientRect(), {ratio,left,top}=projection;
+    const scale=Number(area.closest('#map').dataset.scale);
+    const x=((event.clientX-rect.left)*MINIMAP_WIDTH/rect.width-left)/ratio;
+    const y=((event.clientY-rect.top)*MINIMAP_HEIGHT/rect.height-top)/ratio;
+    const stage=viewport.querySelector('.map-stage');
+    viewport.scrollTo(x*scale+stage.offsetLeft-viewport.clientWidth/2,y*scale+stage.offsetTop-viewport.clientHeight/2);
+  }
+  mini.addEventListener('pointerdown',e=>{
+    if(e.button!==0||!projection)return;
+    drag=e.pointerId;mini.setPointerCapture(drag);navigate(e);
+  });
+  mini.addEventListener('pointermove',e=>{if(e.pointerId===drag)navigate(e);});
+  mini.addEventListener('lostpointercapture',()=>{drag=null;});
+  mini.addEventListener('keydown',e=>{
+    const offsets={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+    if(!Object.hasOwn(offsets,e.key))return;
+    e.preventDefault();
+    const [x,y]=offsets[e.key];
+    viewport.scrollBy(x*viewport.clientWidth/3,y*viewport.clientHeight/3);
+  });
+  mini.addEventListener('click',e=>{
+    if(e.detail!==0||!projection)return;
+    const r=plot.getBoundingClientRect();
+    navigate({clientX:r.left+r.width/2,clientY:r.top+r.height/2});
+  });
+  return {reserve,update,canvas,frame:()=>miniFrame,setGPU:active=>{
+    canvas.hidden=!active;
+    mini.dataset.renderer=active?'webgl':'svg';
+  }};
+}
+
 function createMap() {
   const map=$('map');map.tabIndex=0;
   const toolbar=el('div',undefined,'map-toolbar'),viewport=el('div',undefined,'map-viewport'),spacer=el('div',undefined,'map-spacer'),stage=el('div',undefined,'map-stage');
   viewport.tabIndex=0;viewport.setAttribute('aria-label',t('mapHelp'));spacer.append(stage);viewport.append(spacer);map.append(toolbar);
-  const key=el('div',undefined,'line-key'), overflow=el('div',undefined,'map-overflow'); overflow.setAttribute('aria-label',t('graphEdges'));overflow.dataset.i18nLabel='graphEdges';
-  const legend=el('details',undefined,'map-key');legend.append(el('summary',t('legend')),key);toolbar.append(legend);map.append(viewport);
-  legend.addEventListener('toggle',()=>{toolbar.style.marginBottom=legend.open?key.offsetHeight+'px':'0px';size();if(automatic)fit();else{panIntent=true;snapTitles();}});
+  const overflow=el('div',undefined,'map-overflow');
+  overflow.setAttribute('aria-label',t('graphEdges'));overflow.dataset.i18nLabel='graphEdges';
+  const area=el('div',undefined,'map-area');
+  area.append(viewport);map.append(area);
   const visibleCount=el('span',undefined,'map-visible'),overflowButtons=new Map();overflow.append(visibleCount);
   let data={nodes:[],edges:[],decisions:[]},chosenNode=null,layout=null,scale=1,automatic=true,level='detail',layouts=null,rawData=null;
-  const nodes=new Map(),chips=new Map(),seen=new Map();let drawing=null,placed=false,initialFitPending=false,layoutKey='',origin={x:0,y:0};
+  Object.defineProperty(map, 'graphScene', {get:() => layout && structuredClone(layout)});
+  const nodes=new Map(),chips=new Map();let drawing=null,fxLayer=null,tagLeads=null,placed=false,initialFitPending=false,layoutKey='',origin={x:0,y:0};
+  const surface=el('div',undefined,'graph-webgl'),canvas=el('canvas');surface.hidden=true;
+  surface.setAttribute('aria-hidden','true');surface.append(canvas);area.prepend(surface);
+  const mini=createMinimap(area,viewport);
+  map.dataset.renderer='svg';
+  const capture=startup.searchParams.get('graphTest')==='1';
+  let gpu=null, gpuRequested=startup.searchParams.get('renderer')==='svg'||typeof WebGL2RenderingContext==='undefined';
+  let lastDraw, drawPending=false, svgStrokes=[], svgMarkers=[], keyboardNode=null, focusId=null, focus;
+  let space, spaceFrame, spacePlane, spaceTags=[], sideScroll=0;
+  const sideRail=el('div',undefined,'space-scroll'), sideTrack=el('div');
+  sideRail.hidden=true;sideRail.tabIndex=0;sideRail.dataset.i18nLabel='spaceSide';
+  sideRail.setAttribute('role','region');sideRail.append(sideTrack);area.append(sideRail);
+  sideRail.addEventListener('scroll',()=>{
+    if(sideRail.hidden||sideRail.scrollLeft===sideScroll)return;
+    sideScroll=sideRail.scrollLeft;space?.refresh();
+  });
+  const phone=matchMedia('(max-width:760px)');
+  const forcedColors=matchMedia('(forced-colors: active)');
+  const highContrast=matchMedia('(prefers-contrast: more)');
+  let motionPaused=false, motionRAF=0, motionFrames=0, pulseStarts=0, lastMotion=[];
+  const fx=createGraphMotion(), marks=new Map(), edgeEffects=new Map();
+  const motionClock=()=>graphTestClock?.time ?? performance.now();
+  const pauseMotion=button('',()=>{
+    motionPaused=!motionPaused;
+    document.body.classList.toggle('graph-paused',motionPaused);
+    $('panel').getAnimations?.().forEach(animation=>animation.cancel());
+    workSummary?.globalMotion();
+    space?.backendChanged();syncMotion();
+  },'graph-motion');
+  const attentionCount=el('span',undefined,'map-activity-count');
+  const flowCount=el('span',undefined,'map-flow-count');
+  const motionAllowed = () => gpu && !forcedColors.matches && !document.hidden && !reduced.matches &&
+    !motionPaused && viewport.clientWidth && graphDetail(level,scale)!=='far';
+  function applyMotion() {
+    if(!layout||!fxLayer)return;
+    const now=motionClock(), frame=fx.frame(now,motionAllowed());
+    const seen=new Set(), traces=new Map(), busy=new Set();
+    const style=(element,property,value)=>{
+      if(!element)return;
+      if(!seen.has(element)){
+        for(const old of marks.get(element)||[])element.style.removeProperty(old);
+        seen.add(element);element.dataset.motionPaint='';
+      }
+      element.style.setProperty(property,value);
+    };
+    for(const element of marks.keys())if(!element.isConnected)marks.delete(element);
+    for(const event of frame){
+      const {id,kind,progress}=event, p=motionEase(progress);
+      const card=nodes.get(id)?.firstElementChild;
+      if(card&&kind!=='halo'&&kind!=='dot'&&kind!=='strip') {
+        const glyph=card.querySelector('.status-glyph');
+        if(kind==='glyph')style(glyph,'--glyph-scale',String(progress<.6 ? .4+1.5*progress : 1.3-.75*(progress-.6)));
+        if(kind==='flicker')style(card,'--flicker',String(Math.sin(Math.PI*progress)*.38));
+        if(['pass','return','session'].includes(kind)){
+          style(card,'--sweep-opacity',String((1-p)*.95));
+          style(card,'--sweep-scale',String(1+p*.18));
+          style(card,'--sweep-color',kind==='return'?'var(--coral)':kind==='session'?'var(--violet)':'var(--muted)');
+        }
+      }
+      if(card&&kind==='halo')style(card,'--halo',String(event.strength));
+      if(card&&kind==='dot'){
+        const dot=[...card.querySelectorAll('.call-dot')].find(dot=>dot.dataset.call===String(event.record));
+        style(dot,'--dot-scale',String(progress<.6 ? .1+1.9*progress : 1.24-.6*(progress-.6)));
+      }
+      if(card&&kind==='strip'){
+        const current=layout.positions[id].strip;
+        if(current){
+          const prior=new Map((event.before?.segments||[]).map(segment=>[segment.id,segment]));
+          for(const segment of current.segments){
+            const from=prior.get(segment.id);
+            const mark=[...card.querySelectorAll('.strip-segment')].find(el=>el.dataset.phase===segment.id);
+            const width=(from?.width||0)+(segment.width-(from?.width||0))*p;
+            style(mark,'--render-width',width*100+'%');
+          }
+          if(current.head!=null)style(card.querySelector('.strip-head'),'--render-left',
+            ((event.before?.head??current.head)+(current.head-(event.before?.head??current.head))*p)*100+'%');
+        }
+      }
+      if(['handoff','reverse','drift'].includes(kind)){
+        const edge=layout.edges.find(edge=>edge.key===id);
+        if(!edge||edge.points.length<2)continue;
+        if(kind==='drift'){if(!traces.has(id))traces.set(id,{edge,event});continue;}
+        const reverse=kind==='reverse',point=pointAlongRoute(edge.points,reverse?1-p:p);
+        const path=edgeEffects.get(id)?.path, token=edgeEffects.get(id)?.token;
+        if(path&&token){
+          path.hidden=reverse;
+          path.style.strokeDasharray=p+' 1';
+          token.setAttribute('cx',point.x);token.setAttribute('cy',point.y);
+          token.dataset.direction=kind;
+          token.style.display='';
+          if(!reverse)busy.add(edge.id);
+        }
+        traces.set(id,{edge,event});
+      }
+    }
+    for(const [element,properties] of marks){
+      if(seen.has(element))continue;
+      for(const property of properties)element.style.removeProperty(property);
+      delete element.dataset.motionPaint;
+      marks.delete(element);
+    }
+    for(const element of seen){
+      const properties=Array.from(element.style).filter(key=>key.startsWith('--')&&key!=='--cut-size');
+      marks.set(element,properties);
+    }
+    for(const [id,{path,token,arrows}] of edgeEffects){
+      const trace=traces.get(id);
+      if(trace?.event.kind!=='handoff')path.style.display='none';
+      else path.style.display='';
+      if(!trace||trace.event.kind==='drift')token.style.display='none';
+      if(trace?.event.kind!=='drift'||busy.has(trace.edge.id)){
+        arrows.style.display='none';
+        continue;
+      }
+      const {edge,event}=trace;
+      const length=edge.points.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-edge.points[i].x,p.y-edge.points[i].y),0);
+      const count=Math.max(1,Math.min(3,Math.floor(length/55)));
+      let d='';
+      for(let i=0;i<count;i++){
+        const u=(event.distance+i*length/count)%length/length;
+        const a=pointAlongRoute(edge.points,Math.max(0,u-.01)),b=pointAlongRoute(edge.points,Math.min(1,u+.01));
+        const c=pointAlongRoute(edge.points,u), angle=Math.atan2(b.y-a.y,b.x-a.x);
+        const dx=Math.cos(angle)*4,dy=Math.sin(angle)*4;
+        d+=`M${c.x-dx-dy} ${c.y-dy+dx}L${c.x} ${c.y}L${c.x-dx+dy} ${c.y-dy-dx}`;
+      }
+      arrows.setAttribute('d',d);arrows.style.display='';
+    }
+    const transfer=[...busy].join(',');
+    if(map.dataset.transfers!==transfer){map.dataset.transfers=transfer;requestDrawing();}
+    if(frame.length)motionFrames++;
+    pulseStarts+=frame.filter(event=>['handoff','reverse'].includes(event.kind)&&
+      !lastMotion.some(old=>old.kind===event.kind&&old.id===event.id&&old.record===event.record)).length;
+    lastMotion=frame;
+    space?.effects(frame);
+  }
+  function syncMotion() {
+    pauseMotion.hidden=!gpu || reduced.matches || forcedColors.matches || !layout?.cards.length;
+    pauseMotion.textContent=t(motionPaused?'graphResume':'graphPause');
+    pauseMotion.setAttribute('aria-pressed',String(motionPaused));
+    if(!motionAllowed()){
+      fx.settle();
+      if(motionRAF)cancelAnimationFrame(motionRAF);motionRAF=0;
+    }
+    applyMotion();
+    if(motionAllowed()&&fx.active()&&!motionRAF&&graphTestClock?.time==null){
+      motionRAF=requestAnimationFrame(()=>{motionRAF=0;syncMotion();});
+    }
+  }
+  overflow.append(flowCount,attentionCount,pauseMotion);
+  flowCount.hidden=attentionCount.hidden=pauseMotion.hidden=true;
+  if(capture)Object.defineProperty(map,'graphTest',{value:{
+    step(time,wall=graphTestClock.wall){
+      graphTestClock.time=time;graphTestClock.wall=wall;timeBar?.tick(time);space?.tick(time);syncMotion();
+      return structuredClone(lastMotion);
+    },
+    updateTime(time,wall){
+      graphTestClock.time=time;graphTestClock.wall=wall;update(rawData,chosenNode);
+      return structuredClone(lastMotion);
+    },
+    frame:()=>structuredClone(lastMotion),
+    history:()=>timeBar?.describe(),
+    seek:time=>timeBar?.seek(time),
+    space:()=>space?.describe(),
+  }});
+  const flatBox=()=>({width:viewport.clientWidth,height:viewport.clientHeight,scale,
+    x:origin.x-viewport.scrollLeft,y:origin.y-viewport.scrollTop,dpr:globalThis.devicePixelRatio||1,
+    insetX:viewport.clientLeft,insetY:viewport.clientTop,focusId,
+    transfers:map.dataset.transfers || '', highContrast:highContrast.matches, background:'#080b10'});
+  const viewBox=()=>({...flatBox(),plane:spacePlane});
+  function spaceNotes(rows) {
+    const body=$('panel').querySelector('.panel-body');
+    if(!body)return;
+    let list=body.querySelector('.space-records');
+    if(!rows.length){list?.remove();return;}
+    const signature=JSON.stringify(rows.map(({ids,text})=>[ids,text]));
+    if(list?.dataset.signature===signature)return;
+    if(!list){
+      list=el('details',undefined,'space-records');
+      list.append(el('summary',t('spaceRecords')),el('ol'));
+      const pending=body.querySelector(':scope>.paper');
+      if(pending)pending.after(list);
+      else body.prepend(list);
+    }
+    const items=rows.map(row=>{
+      const item=el('li',row.text);
+      item.dataset.records=row.ids.join(' ');
+      item.dataset.duration=row.duration??0;
+      return item;
+    });
+    list.lastElementChild.replaceChildren(...items);
+    list.dataset.signature=signature;
+  }
+  function applySpace(next) {
+    if(!next&&!spaceFrame)return;
+    if(next&&!spaceFrame)sideScroll=0;
+    spaceFrame=next;spacePlane=next?.projection.plane;
+    if(next)map.dataset.space='';else delete map.dataset.space;
+    area.classList.toggle('space-stage',!!next);
+    const plane=spacePlane, box=flatBox();
+    const matrix=plane?`matrix(${plane.a/scale},${plane.b/scale},${plane.c/scale},${plane.d/scale},${(plane.e-box.x)/scale},${(plane.f-box.y)/scale})`:'';
+    for(const layer of [drawing,tagLeads,fxLayer]){
+      if(!layer)continue;
+      layer.style.transform=matrix;
+      layer.style.opacity=plane?(layer===fxLayer?Math.max(0,2*plane.opacity-1):plane.opacity):'';
+    }
+    const projection=next?.projection, lean=projection?.lean||0, lanes=projection?.lanes||0;
+    const lerp=(a,b,p)=>a+(b-a)*p;
+    const fold=Math.min(1,lean*1.4);
+    const chipsOnCut=projection&&layout.cards.map(card=>({
+      id:card.id,point:projection.nodeAt(card.id,next.cut.at),
+      width:Math.max(92,Math.min(lanes>.25?projection.laneWidth-14:192,card.width*projection.zoom)),height:36,
+    }));
+    if(chipsOnCut&&lanes<.85){
+      for(const chip of chipsOnCut){
+        if(chipsOnCut.some(other=>other!==chip&&Math.abs(chip.point.y-other.point.y)<40&&
+          Math.abs(chip.point.x-other.point.x)<(chip.width+other.width)/2+4))chip.height=26;
+      }
+      for(const chip of chipsOnCut){
+        for(const other of chipsOnCut){
+          if(other===chip||Math.abs(chip.point.y-other.point.y)>=(chip.height+other.height)/2+3)continue;
+          chip.width=Math.min(chip.width,Math.max(28,Math.abs(chip.point.x-other.point.x)-4));
+        }
+      }
+    }
+    const chipByNode=new Map(chipsOnCut?.map(chip=>[chip.id,chip]));
+    for(const card of layout?.cards||[]){
+      const element=nodes.get(card.id);if(!element)continue;
+      const extras=element.querySelector('.node-essentials');
+      if(extras)extras.inert=fold>.95;
+      if(!projection){
+        setRect(element,card);delete element.dataset.fold;delete element.dataset.compact;
+        for(const key of ['--map-text','--kind-size','--status-size','--fold'])element.style.removeProperty(key);
+        continue;
+      }
+      const {point:p,width:compactWidth,height:compactHeight}=chipByNode.get(card.id);
+      const width=lerp(card.width,compactWidth/scale,lean);
+      const height=lerp(card.height,compactHeight/scale,fold);
+      setRect(element,{x:(p.x-box.x)/scale-width/2,y:(p.y-box.y)/scale-height/2,width,height});
+      element.dataset.fold=String(fold>.95);
+      element.dataset.compact=String(compactHeight===26&&fold>.95);
+      element.style.visibility='visible';
+      for(const label of element.querySelectorAll('[style*="clip-path"]'))label.style.clipPath='';
+      element.style.setProperty('--map-text',Math.max(13/scale,14)+'px');
+      element.style.setProperty('--kind-size',Math.max(14/scale,18)+'px');
+      element.style.setProperty('--status-size',Math.max(15/scale,18)+'px');
+      element.style.setProperty('--fold',String(fold));
+    }
+    for(const tag of layout?.tags||[]){
+      const element=chips.get(tag.id);if(!element)continue;
+      if(projection)element.hidden=true;
+      else setRect(element,tag);
+    }
+    sideRail.hidden=!(lanes>.98&&projection.sideWidth>box.width);
+    if(!sideRail.hidden){
+      sideRail.style.left=viewport.clientLeft+'px';
+      sideRail.style.width=box.width+'px';
+      sideTrack.style.width=projection.sideWidth+'px';
+      if(sideRail.scrollLeft!==sideScroll)sideRail.scrollLeft=sideScroll;
+    }
+    if(tagLeads&&projection)tagLeads.style.opacity='0';
+    if(!projection){sideScroll=0;outside();}
+    requestDrawing();
+    return [...nodes.values()].map(wrapper=>wrapper.firstElementChild);
+  }
+
+  function updateFocus() {
+    if(!layout)return;
+    const keys=new Set(selectedEdge?[selectedEdge]:edgeChoices);
+    const relations=keys.size?layout.edges.filter(edge=>keys.has(edgeKey(edge))):[];
+    focusId=relations.length?('edge:'+relations.map(edge=>edge.id).join(',')):keyboardNode||chosenNode||null;
+    focus=relations.length?{cards:new Set(relations.flatMap(edge=>[edge.from,edge.to])),
+      edges:new Set(relations.map(edge=>edge.id))}:dependencyFocus(layout,focusId);
+    if(!focus.cards.size)focusId=null;
+    for(const [id,element] of nodes) {
+      element.classList.toggle('graph-path',focus.cards.has(id));
+      element.classList.toggle('graph-context',!!focusId&&!focus.cards.has(id));
+    }
+    const order=graphInkOrder(layout,focusId,focus);
+    const layers=[];
+    for(const {model,line,underlay} of svgStrokes) {
+      const {weight,base,ink}=order.strokes.get(model.id);
+      line.dataset.weight=weight;
+      layers.push([base,underlay],[ink,line]);
+    }
+    for(const {model,line} of svgMarkers){
+      const {weight,ink}=order.markers.get(model.id);
+      line.dataset.weight=weight;
+      const tone=weight==='context'&&model.tone==='structure'?'quiet':model.tone;
+      line.dataset.role=tone;line.setAttribute('marker-end',`url(#arrow-${model.relation}-${tone})`);
+      layers.push([ink,line]);
+    }
+    for(const [rank,element] of layers.sort((a,b)=>a[0]-b[0])){
+      element.dataset.order=rank;
+      drawing.append(element);
+    }
+    space?.refresh();
+    requestDrawing();
+  }
+  stage.addEventListener('focusin',e=>{
+    keyboardNode=e.target.matches(':focus-visible')?e.target.closest('.node-card')?.dataset.node:null;
+    if(keyboardNode&&spaceFrame?.projection.lanes>.9){
+      const point=spaceFrame.projection.nodeAt(keyboardNode,spaceFrame.cut.at);
+      if(point.x<80||point.x>viewport.clientWidth-80)scrollSide(point.x-viewport.clientWidth/2);
+    }
+    updateFocus();
+  });
+  stage.addEventListener('focusout',e=>{
+    if(!e.relatedTarget?.closest('.node-card')){keyboardNode=null;updateFocus();}
+  });
+  function useSVG() {
+    gpu=null;surface.hidden=true;mini.setGPU(false);map.dataset.renderer='svg';
+    space?.backendChanged();syncMotion();
+  }
+  function requestDrawing() {
+    if(!layout||!viewport.clientWidth||!viewport.clientHeight)return;
+    if(!gpuRequested&&!forcedColors.matches&&(layout.edges.length||layout.cards.some(card=>card.strip))) {
+      gpuRequested=true;
+      import('./graph-webgl.js').then(({createWebGLGraph})=>{
+        gpu=createWebGLGraph(canvas,useSVG,capture,mini.canvas);
+        if(gpu){space?.backendChanged();syncMotion();requestDrawing();}
+      }).catch(useSVG);
+    }
+    if(!gpu||drawPending||forcedColors.matches)return;
+    const box=viewBox();
+    if(lastDraw?.layout===layout&&Object.keys(box).every(key=>lastDraw.box[key]===box[key]))return;
+    drawPending=true;
+    requestAnimationFrame(()=>{
+      drawPending=false;
+      if(!gpu||document.hidden||!viewport.clientWidth||!viewport.clientHeight)return;
+      const next=viewBox();
+      try {
+        gpu.draw(layout,next,RELATION_MARKS,graphInkOrder(layout,focusId,focus));
+        if(lastDraw?.layout!==layout || ['width','height','x','y','scale','dpr'].some(key=>lastDraw.box[key]!==next[key]))
+          mini.setGPU(!spaceFrame&&gpu.drawMinimap(mini.frame()));
+        lastDraw={layout,box:next};
+        surface.style.left=next.insetX+'px';surface.style.top=next.insetY+'px';
+        surface.hidden=false;map.dataset.renderer='webgl';
+        syncMotion();
+      } catch { useSVG(); }
+    });
+  }
+  Object.defineProperty(map,'graphDrawing',{get:()=>{
+    if(!layout)return null;
+    const box=viewBox(), rect=contentRect(viewport);
+    if(gpu&&lastDraw&&!forcedColors.matches)return {renderer:'webgl',box:{...lastDraw.box},...gpu.describe(),
+      minimapMarks:gpu.describeMinimap(),motionFrames,pulseStarts,...gpu.diagnostics()};
+    const inspect=({model,line,underlay})=>{
+      const matrix=line.getScreenCTM();
+      const points=line.getAttribute('d').slice(1).split(' L').map(pair=>{
+        const [x,y]=pair.split(' ').map(Number);
+        return {x:matrix.a*x+matrix.c*y+matrix.e-rect.left,y:matrix.b*x+matrix.d*y+matrix.f-rect.top};
+      });
+      const css=getComputedStyle(line);
+      const order=[...drawing.children];
+      return {id:model.id,points,visible:css.visibility==='visible',gate:model.gate,relation:model.relation,
+        weight:line.dataset.weight,width:parseFloat(css.strokeWidth),order:order.indexOf(line),underlay:order.indexOf(underlay)};
+    };
+    return {renderer:'svg',box,strokes:svgStrokes.map(inspect),markers:svgMarkers.map(inspect),motionFrames:0,
+      flowMarks:layout.flowMarks.map(model=>({id:model.id,cue:model.cue}))};
+  }});
   const zoomText=el('output');zoomText.setAttribute('aria-live','polite');
   const rememberScroll=()=>{scrollPosition={left:viewport.scrollLeft,top:viewport.scrollTop};};
   let scrollPosition={left:0,top:0};
   const zoom=(amount,point=null)=>{
     if(!layout)return;
     automatic=false;
-    const rect=viewport.getBoundingClientRect(),screenPoint=point?{x:rect.x+point.x,y:rect.y+point.y}:null;
+    const rect=contentRect(viewport),screenPoint=point?{x:rect.left+point.x,y:rect.top+point.y}:null;
     point ||= {x:viewport.clientWidth/2,y:viewport.clientHeight/2};
     const before=layout, anchor={x:(viewport.scrollLeft+point.x-origin.x)/scale,y:(viewport.scrollTop+point.y-origin.y)/scale};
-    const next=zoomLevel(level,scale,amount), changed=level!==next.level;
+    const next=zoomLevel(level,scale,amount);
+    const changed=level!==next.level || next.scale!==scale&&
+      (graphDetail(level,scale)==='far'||graphDetail(next.level,next.scale)==='far');
     level=next.level;scale=next.scale;
     if(changed)update(rawData,chosenNode);else size();
     const mapped=changed?mapAnchor(before,layout,anchor):anchor;
-    const after=viewport.getBoundingClientRect();
-    point=screenPoint?{x:screenPoint.x-after.x,y:screenPoint.y-after.y}:{x:viewport.clientWidth/2,y:viewport.clientHeight/2};
-    viewport.scrollLeft=mapped.x*scale+origin.x-point.x;viewport.scrollTop=mapped.y*scale+origin.y-point.y;
-    rememberScroll();outside();panIntent=true;clearTimeout(snapTimer);snapTimer=setTimeout(()=>{snapTitles();revealSelection();},160);
+    const restoreAnchor=()=>{
+      const after=contentRect(viewport);
+      const x=screenPoint?screenPoint.x-after.left:viewport.clientWidth/2;
+      const y=screenPoint?screenPoint.y-after.top:viewport.clientHeight/2;
+      viewport.scrollLeft=Math.round(mapped.x*scale+origin.x-x);
+      viewport.scrollTop=Math.round(mapped.y*scale+origin.y-y);
+      return {...after,height:toolbar.offsetHeight};
+    };
+    const placement=restoreAnchor();
+    rememberScroll();panIntent=false;clearTimeout(snapTimer);outside();
+    if(screenPoint){
+      // Hold a row that wrapped while the cursor anchor changed the scroll position.
+      const current=contentRect(viewport);
+      if(Math.abs(current.left-placement.left)>=.01||Math.abs(current.top-placement.top)>=.01){
+        toolbar.style.minHeight=Math.max(placement.height,toolbar.offsetHeight)+'px';
+        restoreAnchor();
+        rememberScroll();
+        outside();
+      }
+    }
   };
   const start=()=>{
     const plan=!!data.plan_approval && !(data.plan_approval.verified && data.plan_approval.outcome==='approved');
@@ -3006,29 +4877,41 @@ function createMap() {
   const zoomOut=button('−',()=>zoom(-.1)),zoomIn=button('+',()=>zoom(.1)),fitButton=button(t('fit'),fit);fitButton.dataset.action='fit';
   const overviewNote=el('span',undefined,'overview-note'),overviewLabel=button(t('overviewLevel'),()=>{automatic=true;level='overview';scale=fitScale(layouts.overview.bounds,viewport.clientWidth-24,viewport.clientHeight-24);update(rawData,chosenNode);start();}),detailButton=button(t('detailLevel'),()=>{automatic=false;level='detail';scale=1;update(rawData,chosenNode);start();});
   overviewLabel.dataset.i18n='overviewLevel';detailButton.dataset.i18n='detailLevel';
-  overviewNote.append(overviewLabel,detailButton);overflow.append(button(t('listAll'),()=>{$('accessible').open=true;$('accessible').scrollIntoView({block:'start'});},'small'));
+  const listAll=button(t('listAll'),()=>{$('accessible').open=true;$('accessible').scrollIntoView({block:'start'});},'small');
+  listAll.dataset.i18n='listAll';
+  overviewNote.append(overviewLabel,detailButton);overflow.append(listAll);
   toolbar.append(zoomOut,zoomIn,fitButton,zoomText,overviewNote,overflow);
   zoomOut.dataset.i18nLabel='zoomOut';zoomIn.dataset.i18nLabel='zoomIn';viewport.dataset.i18nLabel='mapHelp';
   const mapTitle=el('div',undefined,'map-title'), name=el('strong',t('graph')), direction=el('span',t('mapDirection'));
   name.dataset.i18n='graph';direction.dataset.i18n='mapDirection';mapTitle.append(name,direction);toolbar.prepend(mapTitle);translate();
+  function updateCounts(visible) {
+    const goals=layout.cards.filter(card=>card.kind==='goal').length;
+    Object.assign(visibleCount.dataset,{plan:layout.cards.length-goals,wholeResult:goals,visible});
+    visibleCount.textContent=t(graphDetail(level,scale)==='far'?'visibleFarCards':'visiblePlan',
+      {total:layout.cards.length-goals,result:goals?t('visibleResult',{n:goals}):'',n:visible});
+  }
   function outside() {
-    if(!layout || !viewport.clientWidth)return;
-    const w=viewport.clientWidth,h=viewport.clientHeight,ox=origin.x,oy=origin.y;
+    if(!layout)return;
+    if(!viewport.clientWidth){mini.update(layout,viewBox());updateCounts(0);return;}
+    if(spaceFrame)return;
+    const w=viewport.clientWidth,h=viewport.clientHeight,ox=origin.x,oy=origin.y,far=graphDetail(level,scale)==='far',vr=contentRect(viewport);
     const groups={offLeft:[],offRight:[],offTop:[],offBottom:[]}; let visible=0;
     for(const n of data.nodes) {
       const p=layout.positions[n.id],x=p.x*scale+ox-viewport.scrollLeft,y=p.y*scale+oy-viewport.scrollTop;
-      const element=nodes.get(n.id),title=element?.querySelector('.node-title'),vr=contentRect(viewport),tr=titleTextRect(title);
-      const rect=tr?{x:tr.left-vr.left,y:tr.top-vr.top,width:tr.width,height:tr.height}:{x,y,width:p.width*scale,height:p.height*scale};
+      const element=nodes.get(n.id),title=element?.querySelector('.node-title'),tr=far?null:titleTextRect(title);
+      const cardRect={x,y,width:p.width*scale,height:p.height*scale};
+      const rect=tr?{x:tr.left-vr.left,y:tr.top-vr.top,width:tr.width,height:tr.height}:cardRect;
       const horizontal=x>=-.5&&x+p.width*scale<=w+.5;
       const direction=offscreenDirection(horizontal?rect:{x,y,width:p.width*scale,height:p.height*scale},w,h);
       if(direction)groups[direction].push(n);
       if(horizontal&&titleVisibility(rect,w,h))visible++;
       if(element){element.style.visibility=horizontal&&intersectsViewport({x,y,width:p.width*scale,height:p.height*scale},w,h)?'visible':'hidden';wholeMapLines(element,vr,scale);}
     }
-    for(const c of layout.chips){const chip=chips.get(c.first);if(chip)chip.hidden=scale<1 || !!chip.dataset.tooWide || !!offscreenDirection({x:c.x*scale+ox-viewport.scrollLeft,y:c.y*scale+oy-viewport.scrollTop,width:c.width*scale,height:c.height*scale},w,h);}
+    if(tagLeads)tagLeads.style.display=far?'none':'';
+    for(const tag of layout.tags){const element=chips.get(tag.id);if(element)element.hidden=far || !!offscreenDirection({x:tag.x*scale+ox-viewport.scrollLeft,y:tag.y*scale+oy-viewport.scrollTop,width:tag.width*scale,height:tag.height*scale},w,h);}
     // The viewport clips routes naturally: an off-screen neighbour leaves a visible continuing stub.
     recordGraphRead();
-    visibleCount.textContent=t('visiblePlan',{total:data.nodes.filter(n=>!n.runLevel).length,n:visible});
+    updateCounts(visible);
     for(const [direction,b] of overflowButtons)b.hidden=!groups[direction].length;
     for(const [direction,items] of Object.entries(groups))if(items.length) {
       let b=overflowButtons.get(direction);
@@ -3043,6 +4926,8 @@ function createMap() {
         viewport.scrollTop=Math.max(0,p.y*scale-Math.max(12,(h-p.height*scale)/2)+oy);outside();viewport.focus({preventScroll:true});
       };
     }
+    mini.update(layout,viewBox());
+    requestDrawing();
   }
   let snapTimer=null,panIntent=false;
   function snapTitles(){
@@ -3061,95 +4946,153 @@ function createMap() {
     const fits=layout && layout.bounds.width*scale<=viewport.clientWidth && layout.bounds.height*scale<=viewport.clientHeight;
     fitButton.textContent=t(fits?'fit':'scrollView');fitButton.title=t(fits?'fit':'scrollViewHelp');
     fitButton.removeAttribute('aria-pressed');
-    overviewNote.title=t('overviewHelp');overviewNote.hidden=false;overviewLabel.setAttribute('aria-pressed',String(level==='overview'));detailButton.setAttribute('aria-pressed',String(level==='detail'));map.dataset.level=level;map.dataset.fitted=String(automatic&&fits);map.dataset.scale=String(scale);
+    overviewNote.title=t('overviewHelp');overviewNote.hidden=false;overviewLabel.setAttribute('aria-pressed',String(level==='overview'));detailButton.setAttribute('aria-pressed',String(level==='detail'));map.dataset.level=level;map.dataset.lod=graphDetail(level,scale);map.dataset.fitted=String(automatic&&fits);map.dataset.scale=String(scale);
   }
   function size() {
     if(!layout)return;
     if(map.getBoundingClientRect){
+      const phone=matchMedia('(max-width:760px)').matches;
       const selectedHeight=(layout.positions[chosenNode]?.height||0)*scale;
-      const available=Math.max(300,selectedHeight+(toolbar.offsetHeight||60)+50,innerHeight-map.getBoundingClientRect().top-38);
-      map.style.height=available+'px';
-      const panel=$('panel');
-      const headingHeight=panel.querySelector('.panel-bar')?.offsetHeight||0;
-      // Leave room for body padding and a line of text below the pinned heading.
-      panel.style.height=Math.max(available,headingHeight+80)+'px';
+      // Size the scrolling area independently of wrapping navigation controls.
+      const minimum=Math.max(phone?214:230,selectedHeight+48);
+      const available=Math.max(minimum,innerHeight-map.getBoundingClientRect().top-38-(phone?120:60));
+      const scrollbar=viewport.offsetHeight-viewport.clientHeight||0;
+      const dock=mini.reserve(layout,scale,available-scrollbar);
+      area.style.height=Math.max(minimum,available-dock)+dock+'px';
+      map.style.height='auto';
+      map.parentElement.style.setProperty('--drawer-top',(map.offsetTop+toolbar.offsetHeight+8)+'px');
+      map.parentElement.style.setProperty('--drawer-height',Math.max(230,map.offsetHeight-toolbar.offsetHeight-16)+'px');
     }
     const w=viewport.clientWidth||900,h=viewport.clientHeight||600;
     if(!placed)origin={x:Math.max(0,(w-layout.bounds.width*scale)/2),y:Math.max(0,(h-layout.bounds.height*scale)/2)};
     Object.assign(stage.style,{left:origin.x+'px',top:origin.y+'px',width:layout.bounds.width+'px',height:layout.bounds.height+'px',transform:`scale(${scale})`});
     stage.style.setProperty('--map-text',Math.max(14,12/scale)+'px');
-    Object.assign(spacer.style,{width:layout.bounds.width*scale>w?layout.bounds.width*scale+'px':'100%',height:layout.bounds.height*scale>h?layout.bounds.height*scale+'px':'100%'});
+    stage.style.setProperty('--kind-size',Math.max(20,20/scale)+'px');
+    stage.style.setProperty('--status-size',Math.max(20,16/scale)+'px');
+    // Keep the final card clear of the reserved scrollbar gutter at minimum zoom.
+    Object.assign(spacer.style,{
+      width:layout.bounds.width*scale>w?Math.ceil(layout.bounds.width*scale+(viewport.clientLeft||0))+'px':'100%',
+      height:layout.bounds.height*scale>h?layout.bounds.height*scale+'px':'100%',
+    });
     if(!$('panel').hidden && $('panel').onscroll)$('panel').onscroll();
-    zoomText.textContent=t(level==='overview'?'overviewLevel':'detailLevel')+' '+Math.round(scale*100)+'%';zoomOut.disabled=level==='overview'&&scale<=MIN_FIT_SCALE;zoomOut.title=zoomOut.disabled?t('minZoom'):t('zoomOut');zoomIn.disabled=level==='detail'&&scale>=1.6;updateReadout();rememberScroll();outside();
+    zoomText.textContent=t(level==='overview'?'overviewLevel':'detailLevel')+' '+Math.round(scale*100)+'%';zoomOut.disabled=level==='overview'&&scale<=MIN_MAP_SCALE;zoomOut.title=zoomOut.disabled?t('minZoom'):t('zoomOut');zoomIn.disabled=level==='detail'&&scale>=1.6;updateReadout();rememberScroll();outside();space?.refresh();
   }
+  const maxCardWidth=()=>matchMedia('(max-width:760px)').matches ? Math.max(156,(viewport.clientWidth || innerWidth-72)-24) : Infinity;
+  let measuredWidth;
   const setRect=(element,rect)=>Object.assign(element.style,{left:rect.x+'px',top:rect.y+'px',width:rect.width+'px',height:rect.height+'px'});
   function update(next,id) {
+    const initial=next.run!==rawData?.run || next.project!==rawData?.project;
+    if(initial)fx.observe(null,motionClock(),false,true);
     rawData=next;next=planFlow(next,language);
+    toolbar.style.minHeight='';
     if(layout)size();
     const planKey=JSON.stringify([next.nodes.map(n=>[n.id,n.title,n.kind,n.target]),next.edges.map(e=>[e.from,e.to,e.relation,e.label])]);
     if(planKey!==layoutKey){layoutKey=planKey;if(!placed){automatic=true;level='detail';}}
-    const reveal=id&&id!==chosenNode;data=next;chosenNode=id;map.classList.toggle('has-expanded',!!id);
-    layouts=Object.fromEntries(['detail','overview'].map(level=>[level,layeredLayout(data.nodes,data.edges.map(e=>({...e,label:e.label?label(e.label):''})),data.decisions,true,{level,language,wrapLongChains:true,measure:(n,width)=>{
-      const sample=nodeCard(n,n.id===id,level);sample.classList.add('card-measure');sample.style.width=width+'px';sample.style.setProperty('--map-text','14px');stage.append(sample);
+    data=next;chosenNode=id;
+    measuredWidth=maxCardWidth();
+    layouts=Object.fromEntries(['detail','overview'].map(level=>[level,layeredLayout(data.nodes,data.edges.map(e=>({...e,displayLabel:e.label?label(e.label):''})),data.decisions,true,{level,language,instrument:true,wrapLongChains:true,maxCardWidth:measuredWidth,measure:(n,width)=>{
+      const sample=nodeCard(n,n.id===id,level);sample.classList.add('card-measure');sample.style.width=width+'px';
+      const fontSize=graphDetail(level,scale)==='far'?Math.max(14,12/scale):14;
+      sample.style.setProperty('--map-text',fontSize+'px');
+      sample.style.setProperty('--kind-size',20/MIN_FIT_SCALE+'px');stage.append(sample);
       if(nodes.get(n.id)?.querySelector('.answered-result')?.open && sample.querySelector('.answered-result'))sample.querySelector('.answered-result').open=true;
-      const height=sample.offsetHeight;sample.remove();return height;
+      const height=sample.offsetHeight?Math.ceil(sample.getBoundingClientRect().height/scale):0;
+      sample.remove();return height;
     }})]));
     layouts.overview=compactOverview(layouts.overview,viewport.clientWidth-24);
+    const now=(isPast()?next.observed_at_ms:graphTestClock?.wall) ?? next.observed_at_ms ?? graphNow();
+    for(const name of ['detail','overview'])layouts[name]=createGraphScene(data.nodes,layouts[name],data.decisions,name,now,language);
     layout=layouts[level];
     size();
     if(!placed && viewport.clientWidth){const fitted=fitGraph(layouts,viewport.clientWidth-24,viewport.clientHeight-24);level=fitted.level;scale=fitted.scale;layout=layouts[level];}
-    const focused=document.activeElement?.closest?.('[data-node]')?.dataset.node,focusedChip=document.activeElement?.dataset?.chip;
-    const activeIds=new Set(data.nodes.map(n=>n.id));
+    const focused=document.activeElement?.closest?.('[data-node]')?.dataset.node;
+    const activeIds=new Set(layout.cards.map(card=>card.id));
     for(const [key,element] of nodes)if(!activeIds.has(key)){element.remove();nodes.delete(key);}
-    for(const n of data.nodes) {
+    const byId = new Map(data.nodes.map(n => [n.id, n]));
+    for(const model of layout.cards) {
+      const n = byId.get(model.id);
       const expanded=n.id===chosenNode;
-      const signature=JSON.stringify([level,n,data.decisions.filter(d=>d.node===n.id),planChanges?.find(c=>c.id===n.id)]);
+      const {activity, ...cardContent}=n;
+      const signature=JSON.stringify([level,cardContent,model.facts,model.strip,graphAttempt(n)?.repeating,data.decisions.filter(d=>d.node===n.id),planChanges?.find(c=>c.id===n.id)]);
       let element=nodes.get(n.id);
       if(!element){element=el('div',undefined,'node-position');nodes.set(n.id,element);stage.append(element);}
       if(element.dataset.signature!==signature) {
-        const card=nodeCard(n,expanded,level),before=seen.get(n.id),tone=cardTone(n);
-        // One-shot motion only for a change observed while the page was open.
-        if(before&&cometCount(n)>before.comets)card.classList.add('changed');
-        else if(before&&before.tone!==tone&&['passed','current'].includes(tone))card.classList.add('changed');
+        const card=nodeCard({...n,kind:model.kind},expanded,model.level,model.state,model);
         element.replaceChildren(card);element.dataset.signature=signature;
       }
-      seen.set(n.id,{tone:cardTone(n),comets:cometCount(n)});
     }
-    clear(key);
     name.textContent=planCounts(data.plan_counts||{work:data.nodes.filter(n=>n.kind==='work').length,review:data.nodes.filter(n=>n.kind==='review').length,decision:data.nodes.filter(n=>n.kind==='decision').length},language);mapTitle.classList.toggle('returned-title',$('flow').classList.contains('sent-plan'));
-    for(const [state,word] of [['open','lineSampleOpen'],['closed','lineSampleClosed'],['review','lineSampleReview']]){
-      if(!layout.routes.some(r=>(r.relation==='reviews'?'review':r.gateState==='open'?'open':'closed')===state))continue;
-      const sample=el('span',undefined,'line-sample '+state),caption=el('span',t(word));caption.dataset.i18n=word;sample.append(el('i'),caption);key.append(sample);
-    }
-    const states=el('div',undefined,'state-legend');
-    for(const state of [...new Set(data.nodes.map(n=>displayState(n,data.decisions)))]) states.append(el('span',`${statusGlyph(state)} ${stateWords(state,language).name}`,'state-key state-'+state));
-    if(data.nodes.some(n=>cometCount(n)>0)&&!data.nodes.some(n=>displayState(n,data.decisions)==='returned'))states.append(el('span','↩ '+t('returned'),'state-key'));
-    if(data.nodes.some(n=>n.kind==='review')) { const mark=el('span',undefined,'state-key review-key'); mark.append(typeIcon('review'),el('span',t('review')));states.append(mark); }
-    if(data.planned_questions?.length)states.append(el('span',t('questionsMark'),'state-key'));
-    key.append(states);
     // Reorder existing controls without replacing them: tab order follows the drawing.
-    for(const id of layout.order){const e=nodes.get(id);setRect(e,layout.positions[id]);stage.append(e);}
+    for(const card of layout.cards){const e=nodes.get(card.id);setRect(e,card);stage.append(e);}
+    const tierTwo=layout.cards.filter(card=>card.tier===2).length;
+    attentionCount.hidden=!tierTwo;
+    attentionCount.textContent=t('activityAttentionCount',{n:tierTwo});
+    const counts={delivered:0,progress:0,waiting:0,blocked:0};
+    const buckets={delivered:'delivered',frontier:'progress',waiting:'waiting',unreachable:'waiting',blocked:'blocked',returned:'blocked'};
+    for(const edge of layout.edges)if(edge.flow)counts[buckets[flowCue(edge.flow)]]++;
+    flowCount.hidden=!layout.edges.some(edge=>edge.flow);
+    flowCount.textContent=t('flowCounts',counts);
     if(drawing)drawing.remove();drawing=svg('svg',{width:layout.bounds.width,height:layout.bounds.height,class:'edge-layer','aria-hidden':'true'});
+    svgStrokes=[];svgMarkers=[];
     const defs=svg('defs');
-    for(const state of ['open','closed','waiting_for_you']) {
-      const marker=svg('marker',{id:'arrow-'+state,viewBox:'0 0 10 10',refX:10,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'});marker.append(svg('path',{d:'M0 0 10 5 0 10Z',class:state}));defs.append(marker);
+    for(const relation of Object.keys(RELATION_MARKS))for(const tone of ['structure','quiet','live','failure']){
+      const marker=svg('marker',{id:'arrow-'+relation+'-'+tone,viewBox:'0 0 10 10',refX:10,refY:5,markerWidth:7,markerHeight:7,orient:'auto','data-role':tone});
+      marker.append(edgeMarker(relation));defs.append(marker);
     }
     drawing.append(defs);stage.prepend(drawing);
-    for(const element of chips.values())element.remove();chips.clear();
-    for(const route of layout.routes) {
-      const {chip:c}=route;
-      const d=roundedRoute(route.points);
-      const flowing=route.gateState==='open'&&['running','reviewing','retrying'].includes(displayState(data.nodes.find(n=>n.id===route.to)||{}, data.decisions));
-      const line=svg('path',{d,'data-from':route.from,'data-to':route.to,class:'edge-path '+route.gateState+(route.relation==='reviews'?' review':'')+(flowing?' flowing':''),'marker-end':`url(#arrow-${route.gateState})`});
-      drawing.append(svg('path',{d,class:'edge-underlay'}),flowing?inPhase(line,2000):line);
-      if(!c||chips.has(c.first))continue;
-      const chip=el('div',undefined,'edge-chip '+route.gateState);
-      const source=data.nodes.find(n=>n.id===route.from),targets=layout.routes.filter(r=>r.chip===c).map(r=>title(data.nodes.find(n=>n.id===r.to))).join(', ');
-      chip.setAttribute('aria-label',`${edgeRelationLabel(route,language)}. ${title(source)} → ${targets}`);
-      chip.append(el('span',route.text));chip.dataset.chip=c.key;setRect(chip,c);stage.append(chip);if(chip.firstElementChild.offsetWidth>c.width-20)chip.dataset.tooWide='true';chips.set(c.first,chip);
+    for(const {id,cue,paths} of layout.flowMarks){
+      drawing.append(svg('path',{'data-flow-id':id,'data-flow':cue,class:'flow-mark '+cue,'data-role':toneForFlow(cue),
+        d:paths.map(path=>roundedRoute(path,0)).join(' ')}));
     }
-    // All focusable controls are ordered by column and then vertical position.
-    [...nodes.values(),...chips.values()].sort((a,b)=>parseFloat(a.style.left)-parseFloat(b.style.left)||parseFloat(a.style.top)-parseFloat(b.style.top)).forEach(e=>stage.append(e));
+    for(const element of chips.values())element.remove();chips.clear();
+    for(const model of layout.strokes){
+      const d=roundedRoute(model.points,0);
+      const underlay=svg('path',{d,class:'edge-underlay '+model.trace,'data-role':model.tone,'stroke-dashoffset':-model.distance});
+      const line=svg('path',{d,class:'edge-path '+model.trace,'data-role':model.tone,'data-stroke-id':model.id,'stroke-dashoffset':-model.distance});
+      svgStrokes.push({model,line,underlay});
+    }
+    const edgesById=new Map(layout.edges.map(edge=>[edge.id,edge]));
+    for(const model of layout.markers){
+      const {relation,members}=model;
+      const attributes=members.length===1?{...edgeAttributes(edgesById.get(members[0])),'data-edge-id':members[0]}:{};
+      const line=svg('path',{d:roundedRoute(model.points,0),...attributes,class:'edge-marker',
+        'data-marker-id':model.id,'data-role':model.tone,'marker-end':`url(#arrow-${relation})`});
+      svgMarkers.push({model,line});
+    }
+    const lineLength=([a,b])=>Math.hypot(a.x-b.x,a.y-b.y);
+    const routedTags=new Map(layout.tags.map(tag=>[tag.id,tag]));
+    spaceTags=layout.edges.flatMap(edge=>{
+      const tag=routedTags.get(edge.id);
+      if(tag)return [{key:edge.key,...tag}];
+      const points=edge.points;
+      if(points.length<2)return [];
+      const [a,b]=points.slice(1).map((p,i)=>[points[i],p]).reduce((longest,part)=>
+        lineLength(part)>lineLength(longest)?part:longest);
+      return [{key:edge.key,...edgeTag(edge,language),anchor:{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}];
+    });
+    tagLeads?.remove();
+    tagLeads=svg('svg',{width:layout.bounds.width,height:layout.bounds.height,class:'tag-leads','aria-hidden':'true'});
+    for(const tag of layout.tags){
+      const {x,y}=tag.anchor;
+      const edgeX=Math.max(tag.x,Math.min(x,tag.x+tag.width)),edgeY=Math.max(tag.y,Math.min(y,tag.y+tag.height));
+      if(x!==edgeX||y!==edgeY)tagLeads.append(svg('path',{d:`M${x} ${y}L${edgeX} ${edgeY}`,'data-role':tag.tone}));
+      const element=el('span',tag.text,'edge-tag');
+      Object.assign(element.dataset,{edgeId:tag.id,flow:tag.cue,role:tag.tone});
+      element.setAttribute('aria-hidden','true');
+      setRect(element,tag);stage.append(element);chips.set(tag.id,element);
+    }
+    stage.append(tagLeads);
+    fxLayer?.remove();
+    fxLayer=svg('svg',{width:layout.bounds.width,height:layout.bounds.height,class:'graph-fx','aria-hidden':'true'});
+    edgeEffects.clear();
+    for(const edge of layout.edges){
+      const path=svg('path',{class:'route-fill',d:roundedRoute(edge.points,0),pathLength:1});
+      const token=svg('circle',{class:'route-token',r:4});
+      const arrows=svg('path',{class:'route-drift'});
+      for(const mark of [path,arrows,token]){mark.style.display='none';fxLayer.append(mark);}
+      edgeEffects.set(edge.key,{path,arrows,token});
+    }
+    stage.append(fxLayer);
     const directionKey='mapDirection';
     direction.textContent=t(directionKey);direction.dataset.i18n=directionKey;
     mapTitle.classList.remove('map-complete');
@@ -3169,12 +5112,16 @@ function createMap() {
       }
     }
 
-    outside();
+    if(!isPast())fx.observe(layout,motionClock(),motionAllowed());
+    updateFocus();outside();syncMotion();
     if(focused)nodes.get(focused)?.querySelector('button')?.focus({preventScroll:true});
-    if(focusedChip)[...chips.values()].find(e=>e.dataset.chip===focusedChip&&e.tagName==='BUTTON')?.focus({preventScroll:true});
   }
   map.addEventListener('keydown',e=>{
     if(!['map-viewport','map'].includes(e.target.id||e.target.className))return;
+    if(space?.key(e)){e.preventDefault();return;}
+    if(spaceFrame?.projection.lanes>.9&&['ArrowLeft','ArrowRight'].includes(e.key)){
+      e.preventDefault();scrollSide(e.key==='ArrowLeft'?-120:120);return;
+    }
     if(['+','=','-','0','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))e.preventDefault();
     if(e.key==='+'||e.key==='=')zoom(.1);if(e.key==='-')zoom(-.1);if(e.key==='0')fit();
     if(e.key.startsWith('Arrow')){automatic=false;panIntent=true;}
@@ -3182,12 +5129,48 @@ function createMap() {
     if(e.key==='ArrowUp')viewport.scrollTop-=80;if(e.key==='ArrowDown')viewport.scrollTop+=80;
   });
   let drag=null;
-  viewport.addEventListener('pointerdown',e=>{if(e.target.closest('button,summary,a'))return;automatic=false;drag={x:e.clientX,y:e.clientY,left:viewport.scrollLeft,top:viewport.scrollTop};if(e.pointerType==='touch'){drag=null;return;}viewport.setPointerCapture(e.pointerId);viewport.classList.add('panning');});
-  viewport.addEventListener('pointermove',e=>{if(drag){viewport.scrollLeft=drag.left+drag.x-e.clientX;viewport.scrollTop=drag.top+drag.y-e.clientY;}});
-  const release=()=>{drag=null;viewport.classList.remove('panning');panIntent=true;snapTitles();};viewport.addEventListener('pointerup',release);viewport.addEventListener('pointercancel',release);
+  viewport.addEventListener('pointerdown',e=>{
+    if(e.button!==0 || e.target.closest('button,summary,a'))return;
+    const orbit=space?.startDrag(e,map.dataset.fitted==='true');
+    drag={x:e.clientX,y:e.clientY,left:viewport.scrollLeft,top:viewport.scrollTop,orbit,
+      touch:e.pointerType==='touch',card:!!e.target.closest('.node-position')};
+    if(drag.touch)return;
+    automatic=false;viewport.setPointerCapture(e.pointerId);viewport.classList.add('panning');
+  });
+  viewport.addEventListener('pointermove',e=>{
+    if(drag?.orbit){space.moveDrag(e);return;}
+    if(drag&&!drag.touch){
+      if(spaceFrame?.projection.lanes>.7){scrollSide(drag.x-e.clientX);drag.x=e.clientX;return;}
+      viewport.scrollLeft=drag.left+drag.x-e.clientX;
+      viewport.scrollTop=drag.top+drag.y-e.clientY;
+    }
+  });
+  function release(event){
+    const start=drag;drag=null;viewport.classList.remove('panning');panIntent=true;
+    if(start?.orbit&&space.releaseDrag()){panIntent=false;return;}
+    if(layout && start && !start.card && event.type==='pointerup' && Math.hypot(start.x-event.clientX,start.y-event.clientY)<5 &&
+      start.left===viewport.scrollLeft && start.top===viewport.scrollTop){
+      const rect=contentRect(viewport),box=viewBox();
+      const screenPoint={x:event.clientX-rect.left,y:event.clientY-rect.top};
+      if(spaceFrame){space.pick(screenPoint,viewport);panIntent=false;return;}
+      const point={x:(screenPoint.x-box.x)/scale,y:(screenPoint.y-box.y)/scale};
+      const hit=pickGraphEdges(layout,point,scale);
+      const keys=layout.edges.filter(edge=>hit.includes(edge.id)).map(edgeKey);
+      if(keys.length===1){selectEdge(keys[0],viewport);return;}
+      if(keys.length>1){chooseEdge(keys,viewport);return;}
+    }
+    snapTitles();
+  }
+  viewport.addEventListener('pointerup',release);viewport.addEventListener('pointercancel',release);
+  function scrollSide(amount) {
+    if(!spaceFrame)return;
+    sideScroll=Math.max(0,Math.min(spaceFrame.projection.sideWidth-viewport.clientWidth,sideScroll+amount));
+    space.refresh();
+  }
   viewport.addEventListener('wheel',e=>{
+    if(spaceFrame?.projection.lanes>.7){e.preventDefault();scrollSide(e.deltaX||e.deltaY);return;}
     panIntent=true;
-    if(e.ctrlKey || e.metaKey){e.preventDefault();const r=viewport.getBoundingClientRect();zoom(e.deltaY<0?.1:-.1,{x:e.clientX-r.x,y:e.clientY-r.y});}
+    if(e.ctrlKey || e.metaKey){e.preventDefault();const r=contentRect(viewport);zoom(e.deltaY<0?.1:-.1,{x:e.clientX-r.left,y:e.clientY-r.top});}
     else automatic=false;
   },{passive:false});
   let lastWidth=0,lastHeight=0;
@@ -3196,11 +5179,21 @@ function createMap() {
     const w=viewport.clientWidth,h=viewport.clientHeight;
     if(w===lastWidth&&h===lastHeight)return;
     lastWidth=w;lastHeight=h;
-    size();
+    if(w && measuredWidth!==maxCardWidth())update(rawData,chosenNode);
+    else size();
   }
+  reduced.addEventListener('change',()=>{syncMotion();space?.backendChanged();});
+  phone.addEventListener('change',()=>{if(phone.matches)space?.view('flat');space?.refresh();});
+  highContrast.addEventListener('change',requestDrawing);
+  forcedColors.addEventListener('change',()=>{
+    map.dataset.renderer=forcedColors.matches?'svg':gpu?'webgl':'svg';
+    surface.hidden=forcedColors.matches||!gpu;mini.setGPU(!forcedColors.matches&&!!gpu&&!!mini.frame());
+    space?.backendChanged();syncMotion();requestDrawing();
+  });
   new ResizeObserver(()=>resize()).observe(viewport);
+  addEventListener('resize',requestDrawing);
   function revealSelection() {
-    const p=layout?.positions[chosenNode];if(!p || !viewport.clientWidth)return;
+    const p=layout?.positions[chosenNode];if(spaceFrame||!p || !viewport.clientWidth)return;
     const w=viewport.clientWidth,h=viewport.clientHeight,ox=origin.x,oy=origin.y;
     const left=p.x*scale+ox,top=p.y*scale+oy,right=left+p.width*scale,bottom=top+p.height*scale;
     if(left<viewport.scrollLeft+12)viewport.scrollLeft=Math.max(0,left-12);
@@ -3209,11 +5202,35 @@ function createMap() {
     else if(bottom>viewport.scrollTop+h-12)viewport.scrollTop=bottom-h+12;
     rememberScroll();outside();
   }
-  return {update,select:id=>{
+  function observeReplay(history) {
+    const model=planFlow(history,language);
+    const cards=model.nodes.map(node=>graphMotionCard(node,model.decisions,history.observed_at_ms,language));
+    const positions=Object.fromEntries(cards.map(card=>[card.id,card]));
+    const routes=new Map(layout?.edges.map(edge=>[edge.key,edge.points]));
+    const edges=model.edges.map(edge=>({...edge,key:edgeKey(edge),points:routes.get(edgeKey(edge))||[],
+      targetRunning:runningCard(positions[edge.to]?.state)}));
+    fx.observe({cards,positions,edges},motionClock(),motionAllowed());
+  }
+  function enableSpace(createSpaceView) {
+    if(space)return;
+    viewport.setAttribute("aria-keyshortcuts", "1 2 3 Shift+ArrowUp Shift+ArrowDown Shift+ArrowLeft Shift+ArrowRight");
+    space=createSpaceView({area,viewport,toolbar,svg,t,duration:ms=>historyDuration(ms,true),stamp:historyStamp,
+      read:()=>layout&&timeCut&&viewport.clientWidth?{layout,cut:timeCut,box:flatBox(),sideScroll,
+        selection:{node:selected,relation:selectedEdge},tags:spaceTags,
+        focus:{active:!!focusId,cards:focus?.cards||new Set(),
+          relations:new Set(layout.edges.filter(e=>focus?.edges.has(e.id)).map(e=>e.key))}}:null,
+      apply:applySpace,load:()=>timeBar.history(),clock:motionClock,deterministic:()=>graphTestClock?.time!=null,
+      canAnimate:()=>!reduced.matches&&!motionPaused,canOrbit:()=>!!gpu&&!forcedColors.matches,
+      isPhone:()=>phone.matches,select:selectEdge,choose:chooseEdge,selectNode,
+      notes:spaceNotes,nodeTitle:id=>data.nodes.find(node=>node.id===id)?.title||id});
+    space.refresh();
+  }
+  return {update,observeReplay,enableSpace,timeCut:()=>space?.refresh(),resetSpace:()=>space?.reset(),resetMotion:()=>fx.observe(null,motionClock(),false,true),
+    baselineMotion:()=>fx.observe(layout,motionClock(),false,true),select:id=>{
     chosenNode=id;
     for(const [key,element] of nodes){element.firstElementChild.classList.toggle('expanded',key===id);element.querySelector('.node-header').setAttribute('aria-expanded',String(key===id));}
-    resize(true);size();revealSelection();
-  },wake:size,remeasure:()=>update(rawData,chosenNode)};
+    updateFocus();resize(true);size();revealSelection();
+  },wake(){syncMotion();space?.backendChanged();size();if(!document.hidden)requestDrawing();},remeasure:()=>update(rawData,chosenNode)};
 }
 renderer = createMap(); if(view)renderer.update(view,selected);
 }

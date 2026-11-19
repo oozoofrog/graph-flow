@@ -82,7 +82,7 @@ assert.equal(titleVisibility({x:0,y:80,width:100,height:20},100,100),true);
 assert.equal(titleVisibility({x:0,y:81,width:100,height:20},100,100),false);
 assert.equal(titleVisibility({x:-1,y:0,width:100,height:20},100,100),false);
 assert(STRINGS.ko.countDecision.includes('단계'));assert(STRINGS.ko.countPlannedDecision.includes('응답'));
-assert(STRINGS.ko.visiblePlan.includes('+ 전체 결과 확인 1개'));
+assert(STRINGS.ko.visiblePlan.includes('{result}'));assert(STRINGS.ko.visibleResult.includes('+ 전체 결과 확인 {n}개'));
 assert(STRINGS.ko.planItemsTable.includes('일·검토·결정 카드'));
 ''')
         source = PAGE.read_text()

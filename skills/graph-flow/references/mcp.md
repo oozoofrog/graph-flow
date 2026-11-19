@@ -47,6 +47,7 @@ All tools accept optional `run`. In the table, brackets mark optional arguments,
 | `constraint_add` | `learn add` | `from_node`, `text`, `review_when`, `[paths[]]`, `[tags[]]`, `[project]` | L |
 | `constraint_promote` | `learn promote` | `id`, `run_command`, `[project]` | L |
 | `constraint_retire` | `learn retire` | `id`, `reason`, `[project]` | L |
+| `run_activity` | `activity` | `[node]` | L, W |
 | `run_trace` | `trace` | None | L |
 | `host_set` | `host set` | `capabilities[]` | L |
 | `run_init` | `init` | `run_id`, `[project]` | L |
@@ -69,7 +70,7 @@ With `GF_ROLE=leader` and `/work/notes` an existing git repository, send these c
 The first and last server responses have this shape; the intervening `tools/list` response contains the leader's tools and their schemas:
 
 ```jsonl
-{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","serverInfo":{"name":"graph-flow","version":"0.3.0"},"capabilities":{"tools":{}}}}
+{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","serverInfo":{"name":"graph-flow","version":"0.4.0"},"capabilities":{"tools":{}}}}
 {"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"{\"ok\": true, \"run\": \"/work/notes/.graph-flow/runs/notes-export\"}"}],"isError":false}}
 ```
 
@@ -80,3 +81,5 @@ The first and last server responses have this shape; the intervening `tools/list
 `run_trace` accepts optional `conformance: true` and returns the same `human`, `stuck`, node `cmd_checks`, `integrity` and P1–P12 `conformance` measurements as `gf --json trace --conformance`; see [trace records](records.md#9-trace-p12).
 
 Follow the [human identity rule](../SKILL.md#human-identity).
+
+`run_activity` always limits workers to `GF_NODE`. See the [activity schema and retention](records.md#local-activity-observations).

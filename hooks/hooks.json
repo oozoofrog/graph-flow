@@ -1,0 +1,59 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -S -B \"${CLAUDE_PLUGIN_ROOT}/skills/graph-flow/scripts/gf\" _observe-activity >/dev/null 2>&1 || :",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -S -B \"${CLAUDE_PLUGIN_ROOT}/skills/graph-flow/scripts/gf\" _observe-activity >/dev/null 2>&1 || :",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -S -B \"${CLAUDE_PLUGIN_ROOT}/skills/graph-flow/scripts/gf\" _observe-activity >/dev/null 2>&1 || :",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -S -B \"${CLAUDE_PLUGIN_ROOT}/skills/graph-flow/scripts/gf\" _observe-activity >/dev/null 2>&1 || :",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -S -B \"${CLAUDE_PLUGIN_ROOT}/skills/graph-flow/scripts/gf\" _observe-activity >/dev/null 2>&1 || :",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
