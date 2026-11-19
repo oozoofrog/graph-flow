@@ -39,3 +39,6 @@ An architecture decision record (ADR) explains one choice that future maintainer
 - [0004 Use the domain glossary as an entry point](0004-use-the-domain-glossary-as-an-entry-point.md)
 - [0005 Use existing human slots for co-work](0005-use-existing-human-slots-for-co-work.md)
 - [0006 Keep one English reference and a Korean reading copy](0006-keep-one-english-reference.md)
+- [0007 Show trails in a separate local reader](0007-show-trails-in-a-separate-local-reader.md)
+- [0008 Keep authored material in project documents](0008-keep-authored-material-in-project-documents.md)
+- [0009 Turn confirmed links into checks](0009-turn-confirmed-links-into-checks.md)

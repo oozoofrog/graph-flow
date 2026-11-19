@@ -41,6 +41,7 @@ A link reads from subject to object. These are all link types. A reason states w
 | submits | Plan node → Commit or File | The submission names this commit or lists this file. |
 | tests | Check → Plan node, Plan, or Requirement | The criterion examines a stated property of the object. |
 | draws from | Lesson or Decision → any map node | The subject cites the object as a basis. |
+| conflicts with | Any map node → any map node | The author states that both items cannot hold as written. |
 | relates to | Any map node → any map node | The author explains a connection outside the other link types. |
 
 **Example.** A person defines *original note* as the note that stays in the notebook after export. The requirement *Export preserves the original note* uses that term. The plan node *Write the export* addresses that requirement. It submits a commit that changes the exporter. A failed check can lead the person to ask whether attachments also belong to the original note.
@@ -119,11 +120,11 @@ Verify: Replay each mode with the same underlying decision and evidence. Repeat 
 
 The human answer surface MUST offer a prediction or a skip before it reveals evidence for an eligible gate. It MUST retain the person's choice in the existing signed answer text without changing their verdict or explanation.
 
-Eligible gates come from human-check, lane-3, and hold questions with a named prediction target. OQ-3 sets the sampling rule. The person can reveal evidence immediately by skipping. A first attempt, red check, or past rollback gives priority when several targets qualify.
+An eligible gate is a human-check, lane-3, or hold question with a named prediction target and a risk signal. A risk signal is a first attempt, a red check, or a recorded rollback for the same unit. Other gates show evidence at once. The person can reveal evidence immediately by skipping.
 
 An answer without this interaction has no recorded prediction. The answer identifies the forecast target and attempt. Ordinary free text supplies no scored forecast.
 
-Verify: Predict failure, skip, and use the ordinary terminal path in separate fixtures. Check the display order and answer text. Expect identical verdicts. Exclude late guesses and absent predictions from accuracy.
+Verify: Predict failure, skip, and use the ordinary terminal path in separate fixtures. Add a gate without a risk signal and expect no prediction prompt. Check the display order and answer text. Expect identical verdicts. Exclude late guesses and absent predictions from accuracy.
 
 ### CEM-R8 — Review a constraint at run close
 
@@ -172,6 +173,18 @@ Map access MUST respect the existing role and project scope of each source. The 
 
 Verify: Test role-scoped reads, a foreign project, a path outside the root, and a private key path. Expect no disclosure through labels, links, or counts. Check imports and network destinations.
 
+### CEM-R13 — Surface conflicts
+
+An agent MAY propose a `conflicts with` link between two map nodes. The proposal MUST cite both source references and state the conflict in one sentence. The proposal MUST stay unconfirmed until the person confirms it. A confirmed conflict MUST show on both map nodes until the person resolves or withdraws it.
+
+Verify: Use a fixture with a Thought and a Requirement that disagree. Propose the link and check both citations and the unconfirmed label. Confirm it and check the label on both map nodes. Resolve it and expect the label to go and the history to stay. [Luhmann](https://zettelkasten.de/communications-with-zettelkastens/) · [ADR 0003](../adr/0003-keep-link-confirmation-with-the-person.md)
+
+### CEM-R14 — Turn confirmed links into checks
+
+`gf map check` MUST exit non-zero when a requirement in the current plan has no `tests` link from a check. It MUST also exit non-zero when a confirmed link cites a missing source. A plan MAY add `gf map check` to its integration checks. The map MUST NOT add or change a check by itself.
+
+Verify: Run `gf map check` on a plan with full coverage and expect exit 0. Remove one `tests` link and expect a non-zero exit that names the requirement. Remove one cited source and expect a non-zero exit that names the link. [ADR 0009](../adr/0009-turn-confirmed-links-into-checks.md) · [Tan, transcript (machine-generated)](https://ai.engineer/api/code/reading-download/transcripts/lauren-tan.md)
+
 ## Security and invariants
 
 The requirement numbers below use the CEM prefix.
@@ -185,6 +198,7 @@ The requirement numbers below use the CEM prefix.
 | R8, R9 | P11, P12. Accepted results can inform later plans. The person's own lesson has no effect on the current plan. |
 | R3, R11 | P2, P4, P8, P9. Attempts, owned paths, scoped rejection, and lane approvals stay under plan and gate control. |
 | R3, R11, R12 | P5, P9, P10. Agents use their own roles and never handle human keys or edit run records directly. |
+| R13, R14 | P1, P6, P11. A conflict stays a proposal until the person confirms it. `gf map check` only reads. A plan opts in to it. |
 
 Only plan and gate code issue binding approval requests. Only the person answers them. The current signature binds the answer to its question and evidence. It authenticates neither unsigned execution records nor a person's private thought process. 
 
@@ -192,11 +206,18 @@ Same-account processes share operating-system access. Agents never set the human
 
 The design adds no execution node, required answer, or blocking state. The counter-proposal trial compares one review boundary at a time. Run each task at least twice per variant. Compare flips, disagreement between repeats, elapsed time, required answers, optional waits, and review cost. [Design checklist](../design-sources.md)
 
+## Decided questions
+
+| ID | Decision (2026-11-20) | Record |
+| --- | --- | --- |
+| OQ-1 | A separate local reader opens trails. Answers stay on the dashboard. | [ADR 0007](../adr/0007-show-trails-in-a-separate-local-reader.md) |
+| OQ-2 | Authored thoughts, terms, and links live in Git-tracked project documents. | [ADR 0008](../adr/0008-keep-authored-material-in-project-documents.md) |
+| OQ-3 | Only gates with a risk signal offer a prediction. | [CEM-R7](#cem-r7--predict-before-evidence) |
+
 ## Open questions
 
 | ID | Question | Options and consequences |
 | --- | --- | --- |
-| OQ-1 | Where does a person first open a trail? | Dashboard view: the trail sits beside the decision. Separate local reader: the trail opens outside a run and links back for answers. |
-| OQ-2 | Where do authored thoughts and links live? | Project documents: Git review exposes their history to collaborators. Private project-scoped records: personal notes stay local and need separate backup. |
-| OQ-3 | Which eligible gates offer prediction by default? | All eligible gates: broad coverage costs more taps. Gates with risk signals: fewer prompts yield a more selective sample. |
 | OQ-4 | What counts as a short wait? | One project threshold: comparisons share a cutoff. A threshold per decision kind: comparisons reflect different reading loads. |
+| OQ-5 | How are authored documents laid out? | One file per item: small diffs, many files. One file per domain: easy reading, larger merge conflicts. |
+| OQ-6 | How does the person confirm a link outside a run? | Open a free decision in a run: uses the signed path, needs a run. A commit signed with the person's Git key: works anywhere, needs key setup. A person-only terminal command: no run needed, adds a second human path. |

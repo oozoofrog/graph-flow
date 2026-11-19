@@ -16,7 +16,7 @@ An independent graph database could support edits to copied plan facts. It would
 
 ## Consequences
 
-Rebuilds reproduce old trails while their sources remain available. A missing source leaves a visible gap. An old file path never silently starts pointing at new evidence. The location of authored material remains open in OQ-2.
+Rebuilds reproduce old trails while their sources remain available. A missing source leaves a visible gap. An old file path never silently starts pointing at new evidence. [ADR 0008](0008-keep-authored-material-in-project-documents.md) sets the location of authored material.
 
 ## Principles served
 

@@ -4,7 +4,7 @@ Status: Proposed
 
 ## Context
 
-A person often remembers the name of a real task before they remember a file path. Evans describes a shared language for the domain model. A definition gives both participants a way to ask whether they mean the same thing. [Evans](https://www.domainlanguage.com/ddd/reference/)
+A person often remembers the name of a real task before they remember a file path. Evans describes a shared language for the domain model. A definition gives both participants a way to ask whether they mean the same thing. [Evans](https://www.domainlanguage.com/ddd/reference/) Tan reports that a user-facing feature map "gives you some shared vocabulary" for people and agents. [Tan, transcript (machine-generated)](https://ai.engineer/api/code/reading-download/transcripts/lauren-tan.md)
 
 ## Decision
 
