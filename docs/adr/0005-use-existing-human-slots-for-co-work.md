@@ -1,6 +1,6 @@
 # 0005 Use existing human slots for co-work
 
-Status: Proposed
+Status: Accepted (2026-11-20, design review in PR #6)
 
 ## Context
 
@@ -8,7 +8,7 @@ Plan approval already requires the person's attention. Human checks and holds al
 
 ## Decision
 
-Use existing human slots for learning, discussion, debate, and brainstorming. Keep predictions, personal explanations, and link choices voluntary. Use the existing signed answer text for the person's explicit choices. Display optional free constraint questions at close without waiting for answers. Keep all learning data outside gate computation. [CEM-R5 through CEM-R10](../spec/co-evolution-map.md#cem-r5--let-the-person-test-their-understanding)
+Use existing human slots for learning, discussion, debate, and brainstorming. Keep predictions, personal explanations, and link choices voluntary. Use the existing signed answer text for the person's explicit choices. Display optional free constraint questions at close without waiting for answers. Keep all learning data outside gate computation. Outside a run, the person can open a discussion topic in the reader at any time. The reader never starts or messages an agent. An agent session answers open topics when it next reads the map. [CEM-R16](../spec/co-evolution-map.md#cem-r16--open-a-topic-outside-a-run) [CEM-R5 through CEM-R10](../spec/co-evolution-map.md#cem-r5--let-the-person-test-their-understanding)
 
 ## Alternatives considered
 

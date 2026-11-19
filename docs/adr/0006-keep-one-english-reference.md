@@ -1,6 +1,6 @@
 # 0006 Keep one English reference and a Korean reading copy
 
-Status: Proposed
+Status: Accepted (2026-11-20, design review in PR #6)
 
 ## Context
 
@@ -8,7 +8,7 @@ The person has chosen English for the canonical documents and Korean for discuss
 
 ## Decision
 
-Write the canonical spec and ADRs in short technical English. Prepare the Korean reading copy after the English draft. Give the copy its source revision and corresponding IDs. Keep the same requirement strength in both languages. Use the person's language for map labels, explanations, options, and consequences. Preserve original terms and source text alongside translations when needed. [CEM-R4](../spec/co-evolution-map.md#cem-r4--use-the-persons-language)
+Write the canonical spec and ADRs in short technical English. Prepare the Korean reading copy after the English draft. Give the copy its source revision and corresponding IDs. Record the SHA-256 hash of the English source in each copy. A repository test fails when the hash differs from the current English source. Keep the same requirement strength in both languages. Use the person's language for map labels, explanations, options, and consequences. Preserve original terms and source text alongside translations when needed. [CEM-R4](../spec/co-evolution-map.md#cem-r4--use-the-persons-language)
 
 ## Alternatives considered
 
@@ -16,7 +16,7 @@ Two independent specifications would require a choice of authority whenever thei
 
 ## Consequences
 
-A Korean reader can dispute one requirement by ID. A change to the English source marks its older reading copy as stale. Translation requires a meaning check as well as an ID comparison. Missing text carries an explicit gap label.
+A Korean reader can dispute one requirement by ID. A change to the English source makes the repository test fail until someone updates the reading copy. Translation requires a meaning check as well as an ID comparison. Missing text carries an explicit gap label.
 
 ## Principles served
 

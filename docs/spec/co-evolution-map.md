@@ -87,9 +87,9 @@ Verify: Create a person-authored link. Compare its label with a derived link and
 
 ### CEM-R4 — Use the person's language
 
-Every map node and link MUST have a plain-language label and explanation in the person's language. A missing explanation MUST have an explicit gap label. The Korean reading copy MUST identify its canonical English revision. It MUST preserve requirement IDs, link meanings, and obligation strength.
+Every map node and link MUST have a plain-language label and explanation in the person's language. A missing explanation MUST have an explicit gap label. The Korean reading copy MUST identify its canonical English revision. It MUST preserve requirement IDs, link meanings, and obligation strength. It MUST record the SHA-256 hash of its English source. A repository test MUST fail when that hash differs from the current English source.
 
-Verify: Inspect one example of each type in Korean. Compare ID sets mechanically. Have a bilingual reader compare obligations and link meanings. Change the English revision and check the stale-copy label. [ADR 0006](../adr/0006-keep-one-english-reference.md)
+Verify: Inspect one example of each type in Korean. Compare ID sets mechanically. Have a bilingual reader compare obligations and link meanings. Change the English source and expect `scripts/tests/test_reading_copies.py` to fail. [ADR 0006](../adr/0006-keep-one-english-reference.md)
 
 ### CEM-R5 — Let the person test their understanding
 
@@ -105,7 +105,7 @@ Verify: In a human trial, ask the person to explain one trail in their own words
 
 ### CEM-R6 — Fit co-work into existing human slots
 
-Each mode MUST use the human slot below. Skipping all four modes MUST leave required answers, blocking states, and verdicts identical to the baseline run.
+Inside a run, each mode MUST use the human slot below. Skipping all four modes MUST leave required answers, blocking states, and verdicts identical to the baseline run.
 
 | Mode | Existing human slot | Person and agent |
 | --- | --- | --- |
@@ -185,6 +185,18 @@ Verify: Use a fixture with a Thought and a Requirement that disagree. Propose th
 
 Verify: Run `gf map check` on a plan with full coverage and expect exit 0. Remove one `tests` link and expect a non-zero exit that names the requirement. Remove one cited source and expect a non-zero exit that names the link. Confirm an item in an unsigned commit and expect a non-zero exit. [ADR 0010](../adr/0010-confirm-outside-a-run-with-a-signed-commit.md) [ADR 0009](../adr/0009-turn-confirmed-links-into-checks.md) · [Tan, transcript (machine-generated)](https://ai.engineer/api/code/reading-download/transcripts/lauren-tan.md)
 
+### CEM-R15 — Propose term candidates
+
+An agent MAY propose a Domain term candidate from code, specs, or conversation. The candidate MUST cite its source reference. It MUST stay unconfirmed until the person confirms it or rewrites its definition.
+
+Verify: Propose a candidate from one source file. Check the citation and the unconfirmed label. Rewrite the definition as the person and check the new revision and its author. [ADR 0004](../adr/0004-use-the-domain-glossary-as-an-entry-point.md)
+
+### CEM-R16 — Open a topic outside a run
+
+The reader MUST let the person open a topic for discussion, debate, or brainstorming at any time. A topic MUST be a Thought with an open status. The reader MUST NOT start or message an agent. An agent session that reads the map SHOULD answer each open topic with proposals and objections. Each answer MUST stay unconfirmed until the person keeps it. A topic MUST NOT create a run decision or block a run.
+
+Verify: Open a topic with no run. Check the open Thought and that no agent process starts. Add an agent answer and check its unconfirmed label. Start a run and compare required answers with the baseline. [ADR 0005](../adr/0005-use-existing-human-slots-for-co-work.md) · [ADR 0007](../adr/0007-show-trails-in-a-separate-local-reader.md)
+
 ## Security and invariants
 
 The requirement numbers below use the CEM prefix.
@@ -199,6 +211,7 @@ The requirement numbers below use the CEM prefix.
 | R3, R11 | P2, P4, P8, P9. Attempts, owned paths, scoped rejection, and lane approvals stay under plan and gate control. |
 | R3, R11, R12 | P5, P9, P10. Agents use their own roles and never handle human keys or edit run records directly. |
 | R13, R14 | P1, P6, P11. A conflict stays a proposal until the person confirms it. `gf map check` only reads. A plan opts in to it. |
+| R15, R16 | P10. Agent answers and term candidates stay proposals. A topic adds no human stop to a run. |
 
 Only plan and gate code issue binding approval requests. Only the person answers them. The current signature binds the answer to its question and evidence. It authenticates neither unsigned execution records nor a person's private thought process. 
 
@@ -219,4 +232,6 @@ The design adds no execution node, required answer, or blocking state. The count
 
 ## Open questions
 
-No open questions remain in this revision. Add new ones as OQ-7 and later.
+| ID | Question | Options and consequences |
+| --- | --- | --- |
+| OQ-7 | What happens to old unconfirmed proposals? | Fold after a set age: the list stays short, and old ideas are hidden. Keep all visible: nothing is lost, and the list grows. Withdraw when a cited source changes: stale proposals go, and the agent must propose again. |

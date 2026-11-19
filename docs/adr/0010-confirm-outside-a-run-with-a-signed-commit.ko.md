@@ -1,7 +1,7 @@
 # 0010 실행 밖에서는 서명된 커밋으로 확인한다
 
 > 이 문서는 [0010-confirm-outside-a-run-with-a-signed-commit.md](0010-confirm-outside-a-run-with-a-signed-commit.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 버전: 커밋 `991542b`. 원문이 이 버전 뒤에 바뀌었다면 이 문서는 낡은 것입니다.
+> 원문 해시: `sha256:d89c6f366c76e08bbf7b4499943ffb57587b5b34258873a77e5d6c2c42e982bc`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
 상태: 승인됨(Accepted). 2026-11-20에 사람이 OQ-6에서 이 선택지를 골랐습니다.
 

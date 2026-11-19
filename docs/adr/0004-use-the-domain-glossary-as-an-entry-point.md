@@ -1,6 +1,6 @@
 # 0004 Use the domain glossary as an entry point
 
-Status: Proposed
+Status: Accepted (2026-11-20, design review in PR #6)
 
 ## Context
 
@@ -8,7 +8,7 @@ A person often remembers the name of a real task before they remember a file pat
 
 ## Decision
 
-Make each Domain term a map node with a definition, domain, and stable identity. Start a trail from a Domain term or from any other map node. Show incoming “uses term” links at the definition. Preserve the term identity across a name change that keeps its meaning. [CEM-R2](../spec/co-evolution-map.md#cem-r2--follow-a-term-in-either-direction)
+Make each Domain term a map node with a definition, domain, and stable identity. Start a trail from a Domain term or from any other map node. Show incoming “uses term” links at the definition. Preserve the term identity across a name change that keeps its meaning. An agent can propose a Domain term candidate from code or conversation. The candidate stays unconfirmed until the person confirms or rewrites its definition. [CEM-R15](../spec/co-evolution-map.md#cem-r15--propose-term-candidates) [CEM-R2](../spec/co-evolution-map.md#cem-r2--follow-a-term-in-either-direction)
 
 ## Alternatives considered
 

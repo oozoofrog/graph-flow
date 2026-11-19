@@ -1,9 +1,9 @@
 # 0002 지도를 출처 기록에서 만든다
 
 > 이 문서는 [0002-derive-the-map-from-source-records.md](0002-derive-the-map-from-source-records.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 버전: 커밋 `991542b`. 원문이 이 버전 뒤에 바뀌었다면 이 문서는 낡은 것입니다.
+> 원문 해시: `sha256:91313799a7d942f041530e7a1d73a51f500b38efd750de33f3eb1e633d7db349`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
-상태: 제안됨(Proposed)
+상태: 승인됨(Accepted). 2026-11-20, PR #6 설계 검토.
 
 ## 배경
 

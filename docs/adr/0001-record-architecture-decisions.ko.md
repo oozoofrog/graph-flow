@@ -1,9 +1,9 @@
 # 0001 아키텍처 결정을 기록한다
 
 > 이 문서는 [0001-record-architecture-decisions.md](0001-record-architecture-decisions.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 버전: 커밋 `991542b`. 원문이 이 버전 뒤에 바뀌었다면 이 문서는 낡은 것입니다.
+> 원문 해시: `sha256:7e61513910e5c9d189d8acfa5e3d320299f60c618742b466f5bcc72c1981bee7`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
-상태: 제안됨(Proposed)
+상태: 승인됨(Accepted). 2026-11-20, PR #6 설계 검토.
 
 ## 배경
 

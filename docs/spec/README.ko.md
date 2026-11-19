@@ -1,7 +1,7 @@
 # 기능 명세 (한국어 읽기본)
 
 > 이 문서는 [README.md](README.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 버전: 커밋 `991542b`. 원문이 이 버전 뒤에 바뀌었다면 이 문서는 낡은 것입니다.
+> 원문 해시: `sha256:54af28d6e8ca0e1124ac28b879b170925c7182d5ffc48b8d1ffa44cbcefb7afd`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
 graph-flow는 **명세 고정형(spec-anchored)** 명세 주도 개발을 씁니다. 명세는 구현 전에 기대하는 동작을 적습니다. 동작이 바뀌어도 명세는 그 기능과 함께 남습니다. 사람은 코드와 검사를 직접 고칠 수 있습니다. 짧고 관리되는 명세는 변경마다 안정된 기준점을 줍니다. [Böckeler](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html)
 
@@ -14,7 +14,7 @@ graph-flow는 **명세 고정형(spec-anchored)** 명세 주도 개발을 씁니
 5. 프로그램이 실패시킬 수 있는 검사를 우선합니다. 사람의 판단이 필요한 연습은 그렇게 표시합니다.
 6. 아키텍처 선택마다 ADR을 연결합니다. ADR에서도 관련 요구 ID로 되돌아오는 연결을 둡니다.
 7. 정하지 못한 선택은 번호 붙은 열린 질문에 둡니다. 선택지마다 결과를 적습니다.
-8. 동작이 바뀌면 명세와 검사를 같은 변경에서 고칩니다. 한국어 읽기본마다 원문 영어 버전을 밝힙니다.
+8. 동작이 바뀌면 명세와 검사를 같은 변경에서 고칩니다. 한국어 읽기본마다 영어 원문의 SHA-256 해시를 적습니다.
 
 짧은 문장과 개념 하나에 용어 하나를 씁니다. 대문자 의무 키워드는 요구와 표준 문단에만 씁니다. [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) · [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174) · [ASD-STE100](https://www.asd-ste100.org/STE_faq.html)
 

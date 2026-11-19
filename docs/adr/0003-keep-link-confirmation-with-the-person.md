@@ -1,6 +1,6 @@
 # 0003 Keep link confirmation with the person
 
-Status: Proposed
+Status: Accepted (2026-11-20, design review in PR #6)
 
 ## Context
 
@@ -18,7 +18,7 @@ Automatic confirmation would save a gesture but assign the agent's interpretatio
 
 ## Consequences
 
-Plan approval alone confirms no link. Changing an endpoint or reason produces a new revision. Declined and withdrawn links remain in history outside the confirmed trail. Replaying an answer repeats no change. A stale or unverifiable answer supplies no current confirmation. Only a deliberate selection of a specific proposal counts.
+Plan approval alone confirms no link. Changing an endpoint or reason produces a new revision. Declined and withdrawn links remain in history outside the confirmed trail. Replaying an answer repeats no change. A stale or unverifiable answer supplies no current confirmation. Only a deliberate selection of a specific proposal counts. Unconfirmed proposals can accumulate. OQ-7 sets how to handle old proposals.
 
 ## Principles served
 

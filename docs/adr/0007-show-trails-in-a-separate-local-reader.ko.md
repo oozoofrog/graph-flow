@@ -1,7 +1,7 @@
 # 0007 경로는 별도 로컬 뷰어에서 보여 준다
 
 > 이 문서는 [0007-show-trails-in-a-separate-local-reader.md](0007-show-trails-in-a-separate-local-reader.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 버전: 커밋 `991542b`. 원문이 이 버전 뒤에 바뀌었다면 이 문서는 낡은 것입니다.
+> 원문 해시: `sha256:5432fb919888df640b3b9557b5753cc29b2edc34bac7b6b03ae683ca1cd3cfb3`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
 상태: 승인됨(Accepted). 2026-11-20에 사람이 OQ-1에서 이 선택지를 골랐습니다.
 

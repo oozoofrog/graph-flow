@@ -1,6 +1,6 @@
 # 0002 Derive the map from source records
 
-Status: Proposed
+Status: Accepted (2026-11-20, design review in PR #6)
 
 ## Context
 

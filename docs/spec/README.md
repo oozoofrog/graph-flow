@@ -11,7 +11,7 @@ Graph-flow uses **spec-anchored** Spec-Driven Development. The spec states the e
 5. Prefer a check that a program can fail. Label any exercise that requires human judgment.
 6. Link each architectural choice to its ADR. Link back from the ADR to the affected requirement IDs.
 7. Keep unresolved choices under numbered open questions. Give each option a consequence.
-8. Revise the spec and its checks in the same change when behavior changes. Identify the English revision in each Korean reading copy.
+8. Revise the spec and its checks in the same change when behavior changes. Record the SHA-256 hash of the English source in each Korean reading copy.
 
 Use short sentences and one term per concept. Use uppercase requirement keywords only in requirements and the standard paragraph. [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) · [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174) · [ASD-STE100](https://www.asd-ste100.org/STE_faq.html)
 

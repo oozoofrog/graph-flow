@@ -1,6 +1,6 @@
 # 0009 Turn confirmed links into checks
 
-Status: Proposed
+Status: Accepted (2026-11-20, design review in PR #6)
 
 ## Context
 

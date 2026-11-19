@@ -1,7 +1,7 @@
 # 0008 사람이 쓴 내용은 프로젝트 문서에 둔다
 
 > 이 문서는 [0008-keep-authored-material-in-project-documents.md](0008-keep-authored-material-in-project-documents.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 버전: 커밋 `991542b`. 원문이 이 버전 뒤에 바뀌었다면 이 문서는 낡은 것입니다.
+> 원문 해시: `sha256:6fa162705c50fbfda57dc3bfd5bb2f1f1aac7bd529ce31eb50a51b4c36ae28a5`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
 상태: 승인됨(Accepted). 2026-11-20에 사람이 OQ-2에서 이 선택지를 골랐습니다.
 
