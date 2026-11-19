@@ -1,7 +1,7 @@
 # 공진화 지도 (한국어 읽기본)
 
 > 이 문서는 [co-evolution-map.md](co-evolution-map.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 해시: `sha256:0124e26224af1bcc466b434e7adcd2e7b290e3e14fa31bea6c3c63c82eff3d15`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
+> 원문 해시: `sha256:bf6b6fe482bdcd5881a80742c2ee106689f08d0627a0e0cc419b97c942f8158e`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 > 요구 ID와 의무 강도는 원문과 같습니다. 의무 강도는 한국어 표현 뒤에 원문 키워드를 함께 적습니다.
 
 상태: 초안(Draft)
@@ -254,6 +254,7 @@
 | OQ-4 | 짧은 대기 기준은 결정 종류마다 따로 둡니다. | [CEM-R9](#cem-r9--승인-뒤에-일어난-일을-보여-주기) |
 | OQ-5 | 사람이 쓴 항목은 항목마다 파일 하나에 둡니다. | [ADR 0008](../adr/0008-keep-authored-material-in-project-documents.md) |
 | OQ-6 | 실행 밖에서는 사람 자신의 키로 서명한 커밋이 항목을 확인합니다. | [ADR 0010](../adr/0010-confirm-outside-a-run-with-a-signed-commit.md) |
+| OQ-7 | 미확인 제안이 인용한 출처가 바뀌면 그 제안을 철회합니다. | [CEM-R3](#cem-r3--연결의-출처-남기기) |
 
 ## 열린 질문
 
