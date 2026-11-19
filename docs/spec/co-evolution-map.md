@@ -81,9 +81,9 @@ Verify: Use a fixture with every type. Follow the example from Domain term to Fi
 
 ### CEM-R3 — Keep link provenance
 
-The map MUST keep the link origin and confirmation history. The person MUST be able to create an authored link with a reason. An agent proposal MUST remain unconfirmed until the person explicitly confirms that link revision. The default trail MUST distinguish derived links, person-authored links, and confirmed agent proposals. Unconfirmed proposals MUST appear separately.
+The map MUST keep the link origin and confirmation history. The person MUST be able to create an authored link with a reason. An agent proposal MUST remain unconfirmed until the person explicitly confirms that link revision. The default trail MUST distinguish derived links, person-authored links, and confirmed agent proposals. Unconfirmed proposals MUST appear separately. The map MUST withdraw an unconfirmed proposal when a source it cites changes. The withdrawn proposal MUST stay in history.
 
-Verify: Create a person-authored link. Compare its label with a derived link and an agent proposal. Check that plan approval alone leaves the proposal unconfirmed. Confirm one proposal. Edit its reason. Expect the new revision to require confirmation. [ADR 0003](../adr/0003-keep-link-confirmation-with-the-person.md)
+Verify: Create a person-authored link. Compare its label with a derived link and an agent proposal. Check that plan approval alone leaves the proposal unconfirmed. Confirm one proposal. Edit its reason. Expect the new revision to require confirmation. Change a source that an unconfirmed proposal cites, and expect the proposal to move to history. [ADR 0003](../adr/0003-keep-link-confirmation-with-the-person.md)
 
 ### CEM-R4 — Use the person's language
 
@@ -229,9 +229,8 @@ The design adds no execution node, required answer, or blocking state. The count
 | OQ-4 | Each decision kind has its own short-wait threshold. | [CEM-R9](#cem-r9--show-the-person-what-happened-after-approval) |
 | OQ-5 | Each authored item has its own file. | [ADR 0008](../adr/0008-keep-authored-material-in-project-documents.md) |
 | OQ-6 | A commit signed with the person's own key confirms an item outside a run. | [ADR 0010](../adr/0010-confirm-outside-a-run-with-a-signed-commit.md) |
+| OQ-7 | An unconfirmed proposal is withdrawn when a source it cites changes. | [CEM-R3](#cem-r3--keep-link-provenance) |
 
 ## Open questions
 
-| ID | Question | Options and consequences |
-| --- | --- | --- |
-| OQ-7 | What happens to old unconfirmed proposals? | Fold after a set age: the list stays short, and old ideas are hidden. Keep all visible: nothing is lost, and the list grows. Withdraw when a cited source changes: stale proposals go, and the agent must propose again. |
+No open questions remain in this revision. Add new ones as OQ-8 and later.
