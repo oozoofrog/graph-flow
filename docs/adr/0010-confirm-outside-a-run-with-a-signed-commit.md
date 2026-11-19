@@ -16,7 +16,7 @@ A free question inside a run uses the existing signed path. It needs a run for e
 
 ## Consequences
 
-The answer signing format does not change. The person sets up a signing key once. Agent sessions MUST NOT be able to sign with that key. Use a key that needs a passphrase or a touch on each use. An agent commit that changes an item to confirmed fails `gf map check`. As of 2026-11-20 the person's global Git configuration signs no commits.
+The answer signing format does not change. The person sets up a signing key once. Agent sessions never get access to that key. Use a key that needs a passphrase or a touch on each use. An agent commit that changes an item to confirmed fails `gf map check`. As of 2026-11-20 the person's global Git configuration signs no commits.
 
 ## Principles served
 

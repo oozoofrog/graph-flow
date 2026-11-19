@@ -181,9 +181,9 @@ Verify: Use a fixture with a Thought and a Requirement that disagree. Propose th
 
 ### CEM-R14 — Turn confirmed links into checks
 
-`gf map check` MUST exit non-zero when a requirement in the current plan has no `tests` link from a check. It MUST also exit non-zero when a confirmed link cites a missing source. A plan MAY add `gf map check` to its integration checks. The map MUST NOT add or change a check by itself.
+`gf map check` MUST exit non-zero when a requirement in the current plan has no `tests` link from a check. It MUST also exit non-zero when a confirmed link cites a missing source. It MUST exit non-zero when an item confirmed outside a run lacks a valid signature from the allowed-signers list. A plan MAY add `gf map check` to its integration checks. The map MUST NOT add or change a check by itself.
 
-Verify: Run `gf map check` on a plan with full coverage and expect exit 0. Remove one `tests` link and expect a non-zero exit that names the requirement. Remove one cited source and expect a non-zero exit that names the link. [ADR 0009](../adr/0009-turn-confirmed-links-into-checks.md) · [Tan, transcript (machine-generated)](https://ai.engineer/api/code/reading-download/transcripts/lauren-tan.md)
+Verify: Run `gf map check` on a plan with full coverage and expect exit 0. Remove one `tests` link and expect a non-zero exit that names the requirement. Remove one cited source and expect a non-zero exit that names the link. Confirm an item in an unsigned commit and expect a non-zero exit. [ADR 0010](../adr/0010-confirm-outside-a-run-with-a-signed-commit.md) [ADR 0009](../adr/0009-turn-confirmed-links-into-checks.md) · [Tan, transcript (machine-generated)](https://ai.engineer/api/code/reading-download/transcripts/lauren-tan.md)
 
 ## Security and invariants
 
