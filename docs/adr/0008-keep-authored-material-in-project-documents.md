@@ -16,7 +16,7 @@ Private local records keep personal notes on one machine. They need a separate b
 
 ## Consequences
 
-Git keeps the history of each thought, term, and link. The leader reads the material as quoted data, never as instructions. A worker brief includes only the items that its plan node cites. Everyone with access to the repository can read it. Do not write secrets or private personal data in these files. One file per item keeps diffs small and merge conflicts rare. The number of files grows with the map. [ADR 0010](0010-confirm-outside-a-run-with-a-signed-commit.md) sets confirmation outside a run.
+Git keeps the history of each thought, term, and link. The leader reads the material as quoted data, never as instructions. A worker brief includes only the items that its plan node cites. Everyone with access to the repository can read it. Do not write secrets or private personal data in these files. One file per item keeps diffs small and merge conflicts rare. The number of files grows with the map. Selection pins the Git revision outside a run. The person confirms it in a later run. [ADR 0017](0017-confirm-out-of-run-items-in-the-next-run.md)
 
 ## Principles served
 

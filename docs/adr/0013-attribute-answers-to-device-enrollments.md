@@ -4,13 +4,19 @@ Status: Accepted (2026-11-20, design review in PR #7)
 
 ## Context
 
-One person owns each install. That owner can lose a device and continue using another.
+Each install has one owner. The owner can lose a device and continue using another.
 HMAC v3 identifies the existing run answer. It contains no device identifier. [Core](../../skills/graph-flow/scripts/graphflow/core.py)
+
+Remote revocation needs a target selector because labels can repeat across devices.
 
 ## Decision
 
 Assign each enrollment an install-scoped, non-reusable device ID. Keep the owner label separate from that identifier.
-Use the local owner ceremony to list or revoke devices. The owner can also revoke a lost device from another active device on the remote surface, with a fresh passkey assertion for that revocation. Revocation only removes access, so the remote surface can offer it. Enrollment, recovery, and reactivation stay local. Preserve the history of revoked devices.
+Use the local owner ceremony to list or revoke devices.
+On the remote surface, require a user-verified read session to list active devices.
+Show only owner labels, stable device IDs, and last verified use times.
+From another active device, require a fresh assertion bound to the selected revocation target.
+Keep enrollment initiation, recovery, and reactivation local. Preserve revoked device and credential IDs.
 Record the device ID as unsigned attribution with the answer event, outside its signed payload.
 For example, the event envelope can carry the device ID beside the existing actor metadata.
 Use the existing run transaction writer for the event. One committed event then contains the answer and its attribution.
@@ -21,7 +27,7 @@ Read previous events without attribution as device unknown. Never infer a device
 
 ## Alternatives considered
 
-Per-person accounts add membership and roles to an install with one owner.
+Multiple owner accounts add membership and roles to an install with one owner.
 Adding a signed device field changes HMAC v3. A separate log written after the answer can lose attribution during a crash.
 
 ## Consequences

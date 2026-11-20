@@ -7,24 +7,31 @@ Status: Accepted (2026-11-20, design review in PR #7)
 The owner and agents share an OS account. Under threat model A, agents follow the rules even when task data contains injected instructions.
 The human-terminal rule already reserves local signing for the owner. Agents never use that rule to impersonate the owner. [Human identity](../../skills/graph-flow/SKILL.md#human-identity) · [Terminal check](../../skills/graph-flow/scripts/graphflow/cli.py)
 
+Comparing two displayed values allowed approval without entering anything from the candidate device.
+
 ## Decision
 
-Use the local owner ceremony for first enrollment, additional devices, replacement, and recovery. It works on any OS without administrator rights.
-The terminal requires `GF_ROLE=human`, `GF_HUMAN_TERMINAL=1`, and a TTY on standard input. Agents never run the ceremony.
+Use the local owner ceremony for first enrollment, additional devices, replacement, and recovery on POSIX hosts without administrator rights.
+Require `GF_ROLE=human`, `GF_HUMAN_TERMINAL=1`, and a local TTY on standard input.
+Agents never run the ceremony or read, relay, or redeem enrollment codes, reverse codes, or ceremony output.
 
-1. The owner starts the local owner ceremony and selects the operation.
-2. The terminal displays a random, single-use enrollment code valid for at most five minutes.
-3. The owner enters the code on the candidate device at the configured HTTPS origin.
-4. The server consumes the code and reserves that request for the candidate session in one operation.
-5. The device registers its new passkey and answers a fresh assertion challenge with that passkey.
-6. The owner compares the credential fingerprint on both screens and approves the match in the terminal.
-7. The server activates only the approved credential before the request expires.
+1. Start the local owner ceremony and select the operation.
+2. Read its single-use enrollment code. It contains at least 40 random bits and expires within five minutes.
+3. Enter that code on the candidate device at the configured HTTPS origin.
+4. The remote surface atomically consumes the code and reserves the request for one candidate session.
+5. The candidate device registers a new passkey and proves possession with a fresh assertion.
+6. The candidate device displays the reverse code derived from that request and proven credential under RA-R4.
+7. Read the redemption time and client user agent in the ceremony terminal.
+8. Type the candidate device's reverse code into that terminal before the original request expires.
 
-Bind the request to the install, operation, candidate session, credential ID, and public key as each becomes available.
-Keep the code out of logs, URLs, APIs that display codes, and project files.
-For recovery, revoke the lost device before activating its replacement. Preserve historical attribution and run key pins.
-A missing or empty registry never authorizes first use. After registry loss, invalidate old authorizations and repeat local recovery.
-Keep opt-in, device listing, and revocation local. [RA-R1](../spec/remote-approval.md#ra-r1--require-owner-opt-in) · [RA-R4](../spec/remote-approval.md#ra-r4--enroll-through-the-local-owner-ceremony) · [RA-R8](../spec/remote-approval.md#ra-r8--attribute-and-revoke-devices) · [RA-R10](../spec/remote-approval.md#ra-r10--fail-closed-and-recover-locally)
+The terminal never shows the expected reverse code. The reverse code has at least eight base32 characters and 40 bits of keyed output.
+Activate exactly the credential bound to the successful comparison.
+Charge redemption and reverse-code entry against the same install-wide enrollment budget. Discard expired, replayed, and substituted credentials.
+Keep both codes out of logs, URLs, project files, and agent-visible output.
+Revoke a lost device before activating its replacement. Preserve prior attribution and run key pins.
+A missing registry never authorizes a device. Require local recovery after registry loss.
+Keep opt-in local. Permit the minimal remote device list and targeted revocation under RA-R8.
+[RA-R1](../spec/remote-approval.md#ra-r1--require-owner-opt-in) · [RA-R4](../spec/remote-approval.md#ra-r4--enroll-through-the-local-owner-ceremony) · [RA-R8](../spec/remote-approval.md#ra-r8--attribute-and-revoke-devices) · [RA-R10](../spec/remote-approval.md#ra-r10--fail-closed-and-recover-locally)
 
 ## Alternatives considered
 
