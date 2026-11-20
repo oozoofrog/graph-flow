@@ -47,6 +47,6 @@ An architecture decision record (ADR) explains one choice that future maintainer
 - [0012 Keep remote access opt-in](0012-keep-remote-access-opt-in.md)
 - [0013 Attribute answers to device enrollments](0013-attribute-answers-to-device-enrollments.md)
 - [0014 Verify each remote answer before signing](0014-verify-before-signing.md)
-- [0015 Enroll through the local owner ceremony](0015-anchor-enrollment-outside-the-shared-account.md)
+- [0015 Enroll through the local owner ceremony](0015-enroll-through-the-local-owner-ceremony.md)
 - [0016 Assign TLS responsibility to the configured endpoint](0016-assign-tls-responsibility.md)
 - [0017 Confirm out-of-run items in the next run](0017-confirm-out-of-run-items-in-the-next-run.md)

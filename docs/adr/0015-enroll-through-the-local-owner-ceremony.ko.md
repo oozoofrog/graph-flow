@@ -1,9 +1,9 @@
 # 0015 로컬 소유자 절차로 등록한다
 
-> 이 문서는 [0015-anchor-enrollment-outside-the-shared-account.md](0015-anchor-enrollment-outside-the-shared-account.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 해시: `sha256:8124840b0e00c09d421d7d07ee0e4b5dbf24147f0a2671a26b6dd928c4eb6629`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
+> 이 문서는 [0015-enroll-through-the-local-owner-ceremony.md](0015-enroll-through-the-local-owner-ceremony.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
+> 원문 해시: `sha256:816fa5fa89fad33ff0cd0b2e3b5a6dc11ed8eafc3a8d77f3b7888f9b24696c85`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
-상태: 제안됨(Proposed)
+상태: 승인됨(Accepted). 2026-11-20, PR #7 설계 검토.
 
 ## 배경
 

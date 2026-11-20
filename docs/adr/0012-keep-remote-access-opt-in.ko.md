@@ -1,9 +1,9 @@
 # 0012 원격 접근은 소유자가 켤 때만 허용한다
 
 > 이 문서는 [0012-keep-remote-access-opt-in.md](0012-keep-remote-access-opt-in.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 해시: `sha256:1691347e865e0c6be1664ec86401604d1f40ddcd489573c8ec471b857d350691`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
+> 원문 해시: `sha256:681f861f304707e7ff5bab30afd0d03d2bf0772e33ecabc8ec7254cdc115984e`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
-상태: 제안됨(Proposed)
+상태: 승인됨(Accepted). 2026-11-20, PR #7 설계 검토.
 
 ## 배경
 

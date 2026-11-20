@@ -1,6 +1,6 @@
 # 0015 Enroll through the local owner ceremony
 
-Status: Proposed
+Status: Accepted (2026-11-20, design review in PR #7)
 
 ## Context
 

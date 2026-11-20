@@ -1,6 +1,6 @@
 # 0012 Keep remote access opt-in
 
-Status: Proposed
+Status: Accepted (2026-11-20, design review in PR #7)
 
 ## Context
 

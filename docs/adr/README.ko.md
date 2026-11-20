@@ -1,7 +1,7 @@
 # 아키텍처 결정 기록 (한국어 읽기본)
 
 > 이 문서는 [README.md](README.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 해시: `sha256:2b80dac99a94e9f3e5ba0093958696baae45767e26c6e18ea75e197755067732`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
+> 원문 해시: `sha256:10b39a30e98b069c14362f9d2ea3617dded4360c2e3cc6ee2994561ba9dca672`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
 아키텍처 결정 기록(ADR)은 나중에 유지보수할 사람이 이해해야 할 선택 하나를 설명합니다. 대안이 아직 분명할 때 이유를 기록합니다. Nygard의 형식에 이 저장소의 항목 두 개를 더해 씁니다. [Michael Nygard, *Documenting Architecture Decisions*](https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions)
 
@@ -49,9 +49,9 @@
 | 0009 | [확인된 연결을 검사로 만든다](0009-turn-confirmed-links-into-checks.ko.md) | 승인됨 |
 | 0010 | [실행 밖에서는 서명된 커밋으로 확인한다](0010-confirm-outside-a-run-with-a-signed-commit.ko.md) | 대체됨 |
 | 0011 | [코드는 스펙을 따른다](0011-code-follows-the-spec.ko.md) | 승인됨 |
-| 0012 | [원격 접근은 소유자가 켤 때만 허용한다](0012-keep-remote-access-opt-in.ko.md) | 제안됨 |
-| 0013 | [답변을 기기 등록 단위로 기록한다](0013-attribute-answers-to-device-enrollments.ko.md) | 제안됨 |
-| 0014 | [서명 전에 원격 답변마다 검증한다](0014-verify-before-signing.ko.md) | 제안됨 |
-| 0015 | [로컬 소유자 절차로 등록한다](0015-anchor-enrollment-outside-the-shared-account.ko.md) | 제안됨 |
-| 0016 | [TLS 책임을 설정된 엔드포인트에 맡긴다](0016-assign-tls-responsibility.ko.md) | 제안됨 |
+| 0012 | [원격 접근은 소유자가 켤 때만 허용한다](0012-keep-remote-access-opt-in.ko.md) | 승인됨 |
+| 0013 | [답변을 기기 등록 단위로 기록한다](0013-attribute-answers-to-device-enrollments.ko.md) | 승인됨 |
+| 0014 | [서명 전에 원격 답변마다 검증한다](0014-verify-before-signing.ko.md) | 승인됨 |
+| 0015 | [로컬 소유자 절차로 등록한다](0015-enroll-through-the-local-owner-ceremony.ko.md) | 승인됨 |
+| 0016 | [TLS 책임을 설정된 엔드포인트에 맡긴다](0016-assign-tls-responsibility.ko.md) | 승인됨 |
 | 0017 | [실행 밖 항목은 다음 실행에서 확인한다](0017-confirm-out-of-run-items-in-the-next-run.ko.md) | 승인됨 |

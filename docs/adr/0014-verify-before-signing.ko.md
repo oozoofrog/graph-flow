@@ -1,9 +1,9 @@
 # 0014 서명 전에 원격 답변마다 검증한다
 
 > 이 문서는 [0014-verify-before-signing.md](0014-verify-before-signing.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 해시: `sha256:c04ddc8cbf1796575596c722372ce30c386ff9e1c5f919f73ccfafc72122b526`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
+> 원문 해시: `sha256:9a11aa5327fc9d60882e4b74c31c3b88b03b627d051d76a26dcf06953fbbb5b6`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
-상태: 제안됨(Proposed)
+상태: 승인됨(Accepted). 2026-11-20, PR #7 설계 검토.
 
 ## 배경
 
@@ -24,7 +24,7 @@ Python 표준 라이브러리만 쓰는, 프로젝트가 소유한 검증기를 
 증명(attestation) 형식은 `none`과 비어 있는 증명 내용만 받아들입니다.
 등록마다 소유자 한 명이 허가합니다. 검증기는 새 어설션으로 패스키를 가지고 있는지 확인합니다. 여기서는 하드웨어 출처 정보로 권한을 판단하지 않습니다.
 RA-R12의 한도가 있는 CBOR 파서, 프로토콜 검사, 비밀 값 비교를 요구합니다.
-릴리스에서 원격 답변을 켜기 전에 정확한 검증기 버전을 공개 벡터로 확인하고, 독립된 암호 검토를 받습니다. [RA-R12](../spec/remote-approval.ko.md#ra-r12--패스키-프로필-검증하기) · [RA-R13](../spec/remote-approval.ko.md#ra-r13--릴리스-전에-검증기-자격-확인하기)
+릴리스에서 원격 답변을 켜기 전에 정확한 검증기 버전을 공개 벡터로 확인하고, 독립된 암호 검토를 받습니다. 검증기 코드가 생기면 공개 이슈로 그 검토를 요청합니다. [RA-R12](../spec/remote-approval.ko.md#ra-r12--패스키-프로필-검증하기) · [RA-R13](../spec/remote-approval.ko.md#ra-r13--릴리스-전에-검증기-자격-확인하기)
 
 명시적인 지도 확인에도 같은 실행 안 답변 경로를 씁니다. [RA-R7](../spec/remote-approval.ko.md#ra-r7--지도-확인-권한-제한하기) · [ADR 0017](0017-confirm-out-of-run-items-in-the-next-run.ko.md)
 

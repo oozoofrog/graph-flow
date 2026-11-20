@@ -79,7 +79,7 @@ Eligibility MUST come from source records. A free question’s wording MUST NOT 
 It MUST enforce the existing file restrictions and exclude credentials, private records, and unrelated evidence.
 Local tokens, network membership, chat, and proxy identity MUST grant no remote read or answer authority.
 Private responses MUST disable caching. The remote surface MUST serve question content as data without executing it.
-The remote surface MUST exclude local dashboard routes, key repinning, administrative actions, general run history, and execution controls. [ADR 0012](../adr/0012-keep-remote-access-opt-in.md)
+The remote surface MUST exclude local dashboard routes, key repinning, administrative actions, general run history, and execution controls. Device revocation under RA-R8 is the only remote administrative action. [ADR 0012](../adr/0012-keep-remote-access-opt-in.md)
 
 Verify: Compare anonymous, local-token, and enrolled reads. Expire the read session and expect no question data. Request another question’s file, a private record, and an unregistered project. Check cache headers and render instruction-shaped text as inert content. Exercise local-only routes on the remote listener. Expect no disclosure or mutation.
 
@@ -94,7 +94,7 @@ On redemption, the server MUST atomically consume the code and bind that request
 The candidate device MUST register its new passkey and prove possession through a fresh WebAuthn assertion under RA-R12.
 The local owner ceremony MUST require the owner to compare both credential fingerprints and approve the match before activation.
 The request MUST expire with the code. The server MUST reject expiry, replay, and credential substitution before activation.
-A missing or empty registry MUST NOT grant enrollment authority. [ADR 0015](../adr/0015-anchor-enrollment-outside-the-shared-account.md)
+A missing or empty registry MUST NOT grant enrollment authority. [ADR 0015](../adr/0015-enroll-through-the-local-owner-ceremony.md)
 
 Verify: Exercise first enrollment and recovery as an ordinary user on each supported OS. Omit each terminal condition separately.
 Request all four operations through supported agent interfaces, including with instruction-shaped input. Expect refusal.
@@ -141,14 +141,18 @@ Expect neither to confirm an item. Skip the batch and compare required stops and
 
 ### RA-R8 — Attribute and revoke devices
 
-The install MUST restrict device listing and revocation to the local owner ceremony.
+The install MUST restrict device listing to the local owner ceremony.
+The owner MUST be able to revoke a device locally through that ceremony.
+The owner MAY also revoke a device from another active device on the remote surface.
+A remote revocation MUST require a fresh RA-R12 assertion bound to that revocation.
+The remote surface MUST NOT enroll, recover, or reactivate a device.
 An enrollment MUST belong to exactly one install. Revoked identifiers MUST NOT return to service.
 After revocation commits, the server MUST reject that device’s reads, outstanding challenges, and new answers.
 Each accepted remote answer MUST have exactly one durable attribution linked to its committed answer.
 Recovery after interruption MUST preserve this relationship without attributing a local answer to a remote device.
 The verifier MUST ignore attribution when deciding whether an answer is valid. [ADR 0013](../adr/0013-attribute-answers-to-device-enrollments.md)
 
-Verify: Enroll two devices with identical labels. Try revocation through agent interfaces and a read session. Expect refusal. Revoke one device locally while its answer waits. Check the other device and both histories. Interrupt writes at each durability boundary. Retry after restart and compare answer references, device IDs, and verification results.
+Verify: Enroll two devices with identical labels. Try revocation through agent interfaces and through a read session alone. Expect refusal. Revoke one device from the other with a fresh assertion while the first device's answer waits. Expect the waiting answer to fail. Replay that revocation assertion and expect refusal. Try enrollment and reactivation on the remote surface and expect refusal. Interrupt writes at each durability boundary. Retry after restart and compare answer references, device IDs, and verification results.
 
 ### RA-R9 — Bound remote authentication attempts
 
@@ -165,7 +169,7 @@ Disabling remote access or restarting the server MUST invalidate all read sessio
 Network or TLS failure MUST leave local answering available without accepting remote plaintext.
 Recovery MUST use the local owner ceremony under RA-R4 and revoke the lost device before activating its replacement.
 It MUST preserve prior answers, key pins, and device history.
-After registry loss, the install MUST invalidate previous device authorizations and require local recovery before accepting remote answers. [ADR 0015](../adr/0015-anchor-enrollment-outside-the-shared-account.md) · [ADR 0016](../adr/0016-assign-tls-responsibility.md)
+After registry loss, the install MUST invalidate previous device authorizations and require local recovery before accepting remote answers. [ADR 0015](../adr/0015-enroll-through-the-local-owner-ceremony.md) · [ADR 0016](../adr/0016-assign-tls-responsibility.md)
 
 Verify: Disable and re-enable remote access. Restart with one pending request of each kind. Disconnect the route and use an expired certificate with a validating client. Remove the registry and attempt an old assertion. Expect refusal. Recover a lost device locally. Compare prior answers, key pins, and old credential rejection.
 
@@ -207,12 +211,24 @@ Inspect every secret comparison for a constant-time primitive such as `hmac.comp
 The project MUST validate the verifier against public WebAuthn registration and assertion vectors and Wycheproof P-256/SHA-256 ECDSA vectors.
 The tests MUST cover valid, negative, and malformed cases. They MUST record vector revisions and expected results.
 An independent cryptographic reviewer MUST review the exact verifier revision, including parsing, protocol checks, and secret comparisons.
-A release MUST prevent remote answering until vector results pass and the independent review approves that revision. [ADR 0014](../adr/0014-verify-before-signing.md)
+A release MUST prevent remote answering until vector results pass and the independent review approves that revision. The project SHOULD request the review in a public issue when the verifier code exists. [ADR 0014](../adr/0014-verify-before-signing.md)
 
 Verify: Replay the pinned vectors and compare each result with its expected profile outcome.
 Try enabling remote answering with a failed vector, missing approval, and approval for another revision.
 Expect refusal in each release fixture. Check that explicit opt-in still applies to a qualified revision.
 [Public WebAuthn fixtures](https://github.com/Yubico/java-webauthn-server/blob/main/webauthn-server-core/src/test/scala/com/yubico/webauthn/RegistrationTestData.scala) · [Wycheproof DER vectors](https://github.com/C2SP/wycheproof/blob/main/testvectors_v1/ecdsa_secp256r1_sha256_test.json)
+
+### RA-R14 — Guide certificate setup
+
+The project MUST publish a certificate setup guide for the remote surface.
+The guide MUST cover at least one private-network method and one public-domain method.
+For each method, the guide MUST show how to obtain a browser-trusted certificate for the configured hostname.
+It MUST show how to point the remote surface at the certificate and key, and how to check expiry.
+It MUST show how to confirm from a phone that the origin opens without a certificate warning.
+The guide MUST state that a self-signed certificate does not work on a typical phone without a trusted root.
+A release MUST NOT enable remote answering without this guide. [ADR 0016](../adr/0016-assign-tls-responsibility.md)
+
+Verify: Follow each method in the guide on a clean fixture. Open the origin from a phone browser and expect no certificate warning. Register a passkey and answer one question. Repeat with a self-signed certificate and expect the documented failure. Check that a release without the guide refuses remote answering.
 
 ## Security and invariants
 
@@ -238,16 +254,10 @@ Public exposure can reveal service availability or exhaust capacity. Revocation 
 | ID | Owner decision (2026-11-20) | Record |
 | --- | --- | --- |
 | OQ-1 | Use an ES256 WebAuthn passkey with user verification for each remote answer. The project owns the standard-library-only verifier. | [ADR 0014](../adr/0014-verify-before-signing.md) |
-| OQ-2 | Use threat model A and the local owner ceremony. Pair a single-use enrollment code with proof of the new passkey. | [ADR 0015](../adr/0015-anchor-enrollment-outside-the-shared-account.md) |
+| OQ-2 | Use threat model A and the local owner ceremony. Pair a single-use enrollment code with proof of the new passkey. | [ADR 0015](../adr/0015-enroll-through-the-local-owner-ceremony.md) |
+| OQ-3 | Ship direct TLS first. Add proxy support after its backend isolation and origin checks pass the same refusal fixtures. | [ADR 0016](../adr/0016-assign-tls-responsibility.md) |
 | OQ-4 | Queue the selection. Confirm its exact revision through one optional free question in the next run. | [ADR 0017](../adr/0017-confirm-out-of-run-items-in-the-next-run.md) |
 
 ## Open questions
 
-### OQ-3 — Which TLS configuration should ship first?
-
-| Option | Consequence |
-| --- | --- |
-| Direct TLS | The owner supplies a certificate and key. One listener enforces the external origin and transport rules. |
-| Owner-operated reverse proxy | The proxy handles certificates. Deployment needs an authenticated backend and an explicit external origin. |
-
-**Recommendation.** Qualify direct TLS first. Add proxy support when its backend isolation and origin checks pass the same refusal fixtures. [Python SSL contexts](https://docs.python.org/3/library/ssl.html#ssl-contexts)
+None.

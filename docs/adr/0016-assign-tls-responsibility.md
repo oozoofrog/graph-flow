@@ -1,6 +1,6 @@
 # 0016 Assign TLS responsibility to the configured endpoint
 
-Status: Proposed
+Status: Accepted (2026-11-20, design review in PR #7)
 
 ## Context
 
@@ -12,7 +12,7 @@ Python exposes server-side TLS contexts and certificate loading. [Dashboard](../
 
 Configure one external HTTPS origin with an explicit authority and one owner-selected interface address.
 Reject wildcard addresses, including IPv4 and IPv6 wildcards. Never rebind automatically when that interface disappears.
-Use one of these transport arrangements. OQ-3 concerns delivery order.
+Use one of these transport arrangements. Ship direct TLS first (OQ-3). Add the proxy after it passes the same refusal fixtures. A published certificate setup guide is a release condition (RA-R14).
 
 | Arrangement | Responsibility |
 | --- | --- |

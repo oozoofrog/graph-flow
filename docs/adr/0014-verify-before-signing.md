@@ -1,6 +1,6 @@
 # 0014 Verify each remote answer before signing
 
-Status: Proposed
+Status: Accepted (2026-11-20, design review in PR #7)
 
 ## Context
 
@@ -21,7 +21,7 @@ Use a project-owned verifier with only the Python standard library. Limit the fi
 Accept only the `none` attestation format with an empty statement.
 One owner authorizes each enrollment. The verifier checks possession through a fresh assertion. Hardware provenance serves no authorization decision here.
 Require the bounded CBOR parser, protocol checks, and secret comparisons in RA-R12.
-Qualify the exact verifier revision against public vectors and obtain independent cryptographic review before release enablement. [RA-R12](../spec/remote-approval.md#ra-r12--verify-the-passkey-profile) · [RA-R13](../spec/remote-approval.md#ra-r13--qualify-the-verifier-before-release)
+Qualify the exact verifier revision against public vectors and obtain independent cryptographic review before release enablement. Request that review in a public issue when the verifier code exists. [RA-R12](../spec/remote-approval.md#ra-r12--verify-the-passkey-profile) · [RA-R13](../spec/remote-approval.md#ra-r13--qualify-the-verifier-before-release)
 
 Use the same in-run answer path for an explicit map confirmation. [RA-R7](../spec/remote-approval.md#ra-r7--limit-map-confirmation-authority) · [ADR 0017](0017-confirm-out-of-run-items-in-the-next-run.md)
 

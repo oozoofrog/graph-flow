@@ -1,6 +1,6 @@
 # 0013 Attribute answers to device enrollments
 
-Status: Proposed
+Status: Accepted (2026-11-20, design review in PR #7)
 
 ## Context
 
@@ -10,7 +10,7 @@ HMAC v3 identifies the existing run answer. It contains no device identifier. [C
 ## Decision
 
 Assign each enrollment an install-scoped, non-reusable device ID. Keep the owner label separate from that identifier.
-Use the local owner ceremony to list or revoke devices. Preserve the history of revoked devices.
+Use the local owner ceremony to list or revoke devices. The owner can also revoke a lost device from another active device on the remote surface, with a fresh passkey assertion for that revocation. Revocation only removes access, so the remote surface can offer it. Enrollment, recovery, and reactivation stay local. Preserve the history of revoked devices.
 Record the device ID as unsigned attribution with the answer event, outside its signed payload.
 For example, the event envelope can carry the device ID beside the existing actor metadata.
 Use the existing run transaction writer for the event. One committed event then contains the answer and its attribution.
