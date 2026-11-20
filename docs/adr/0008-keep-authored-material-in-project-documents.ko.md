@@ -1,7 +1,7 @@
 # 0008 사람이 쓴 내용은 프로젝트 문서에 둔다
 
 > 이 문서는 [0008-keep-authored-material-in-project-documents.md](0008-keep-authored-material-in-project-documents.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 해시: `sha256:6fa162705c50fbfda57dc3bfd5bb2f1f1aac7bd529ce31eb50a51b4c36ae28a5`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
+> 원문 해시: `sha256:6a4347104c60fb54949c79417da969a3d0c7aaebf12539298759cc1a1808e000`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
 상태: 승인됨(Accepted). 2026-11-20에 사람이 OQ-2에서 이 선택지를 골랐습니다.
 
@@ -19,7 +19,7 @@
 
 ## 결과
 
-Git이 생각, 용어, 연결마다 이력을 남깁니다. 에이전트는 작업 지시서에서 이 내용을 읽을 수 있습니다. 저장소에 접근할 수 있는 사람은 모두 이 내용을 읽을 수 있습니다. 이 파일에는 비밀이나 개인 정보를 쓰지 않습니다. 항목마다 파일 하나를 두면 변경이 작고 병합 충돌이 드뭅니다. 지도가 커질수록 파일 수도 늘어납니다. [ADR 0010](0010-confirm-outside-a-run-with-a-signed-commit.ko.md)이 실행 밖의 확인 방법을 정합니다.
+Git이 생각, 용어, 연결마다 이력을 남깁니다. 리더는 이 내용을 지시가 아닌 인용 자료로 읽습니다. 작업자 지시서에는 그 계획 노드가 인용한 항목만 들어갑니다. 저장소에 접근할 수 있는 사람은 모두 이 내용을 읽을 수 있습니다. 이 파일에는 비밀이나 개인 정보를 쓰지 않습니다. 항목마다 파일 하나를 두면 변경이 작고 병합 충돌이 드뭅니다. 지도가 커질수록 파일 수도 늘어납니다. [ADR 0010](0010-confirm-outside-a-run-with-a-signed-commit.ko.md)이 실행 밖의 확인 방법을 정합니다.
 
 ## 지키는 원칙
 

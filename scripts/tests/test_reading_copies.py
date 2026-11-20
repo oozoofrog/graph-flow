@@ -1,7 +1,8 @@
 """Fail when a Korean reading copy no longer matches its English source.
 
-Each `*.ko.md` file under `docs/` names the SHA-256 hash of its English
-source (the same path without `.ko`). See docs/adr/0006 and CEM-R4.
+Each canonical spec and ADR file has a `*.ko.md` partner. Each partner names
+the SHA-256 hash of its English source (the same path without `.ko`).
+See docs/adr/0006 and CEM-R4.
 """
 
 from pathlib import Path
@@ -21,6 +22,19 @@ def reading_copies():
 class ReadingCopyTests(unittest.TestCase):
     def test_reading_copies_exist(self):
         self.assertTrue(reading_copies(), "no Korean reading copies found under docs/")
+
+    def test_each_canonical_document_has_a_reading_copy(self):
+        canonical = sorted(
+            path
+            for folder in ("docs/spec", "docs/adr")
+            for path in (ROOT / folder).glob("*.md")
+            if not path.name.endswith(".ko.md")
+        )
+        self.assertTrue(canonical, "no canonical spec or ADR documents found")
+        for source in canonical:
+            with self.subTest(source=str(source.relative_to(ROOT))):
+                copy = source.with_name(source.name[: -len(".md")] + ".ko.md")
+                self.assertTrue(copy.is_file(), f"{source.name}: Korean reading copy {copy.name} is missing")
 
     def test_each_copy_matches_its_english_source(self):
         for copy in reading_copies():

@@ -1,7 +1,7 @@
 # 아키텍처 결정 기록 (한국어 읽기본)
 
 > 이 문서는 [README.md](README.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 해시: `sha256:18e8a9ceb1e18d268d20e0bb2100b3c478ffdf006fe64c10c62fd50539077965`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
+> 원문 해시: `sha256:f2998507c2e8c008dc699daa0d7a0179cc3cda7321c593fb2c30ede8955f3433`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
 아키텍처 결정 기록(ADR)은 나중에 유지보수할 사람이 이해해야 할 선택 하나를 설명합니다. 대안이 아직 분명할 때 이유를 기록합니다. Nygard의 형식에 이 저장소의 항목 두 개를 더해 씁니다. [Michael Nygard, *Documenting Architecture Decisions*](https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions)
 
@@ -48,3 +48,4 @@
 | 0008 | [사람이 쓴 내용은 프로젝트 문서에 둔다](0008-keep-authored-material-in-project-documents.ko.md) | 승인됨 |
 | 0009 | [확인된 연결을 검사로 만든다](0009-turn-confirmed-links-into-checks.ko.md) | 승인됨 |
 | 0010 | [실행 밖에서는 서명된 커밋으로 확인한다](0010-confirm-outside-a-run-with-a-signed-commit.ko.md) | 승인됨 |
+| 0011 | [코드는 스펙을 따른다](0011-code-follows-the-spec.ko.md) | 승인됨 |

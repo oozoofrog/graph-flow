@@ -81,9 +81,13 @@ Verify: Use a fixture with every type. Follow the example from Domain term to Fi
 
 ### CEM-R3 — Keep link provenance
 
-The map MUST keep the link origin and confirmation history. The person MUST be able to create an authored link with a reason. An agent proposal MUST remain unconfirmed until the person explicitly confirms that link revision. The default trail MUST distinguish derived links, person-authored links, and confirmed agent proposals. Unconfirmed proposals MUST appear separately. The map MUST withdraw an unconfirmed proposal when a source it cites changes. The withdrawn proposal MUST stay in history.
+The map MUST keep the link origin and confirmation history. The person MUST be able to create an authored link with a reason. An agent proposal MUST remain unconfirmed until the person explicitly confirms that link revision. The default trail MUST distinguish derived links, person-authored links, and confirmed agent proposals. Unconfirmed proposals MUST appear separately.
 
-Verify: Create a person-authored link. Compare its label with a derived link and an agent proposal. Check that plan approval alone leaves the proposal unconfirmed. Confirm one proposal. Edit its reason. Expect the new revision to require confirmation. Change a source that an unconfirmed proposal cites, and expect the proposal to move to history. [ADR 0003](../adr/0003-keep-link-confirmation-with-the-person.md)
+The map MUST derive person authorship and confirmation only from verified evidence for the exact item revision. Verified evidence is a verified in-run answer or an out-of-run signature that OQ-8 accepts. Until OQ-8 is decided, no out-of-run signature counts. A claim in a file is not evidence. An item without verified evidence MUST appear as unconfirmed. A change to the reason or endpoints of a confirmed item MUST make it unconfirmed.
+
+The map MUST withdraw an unconfirmed proposal when a source it cites changes in the selected project snapshot. The withdrawn proposal MUST stay in history. A replay of an earlier snapshot MUST show the status at that snapshot.
+
+Verify: Create a person-authored link. Compare its label with a derived link and an agent proposal. Check that plan approval alone leaves the proposal unconfirmed. Confirm one proposal. Edit its reason and expect it to need confirmation again. Add a file that claims person authorship without evidence. Leave `gf map check` out of the plan and expect the unconfirmed label. Change a source that an unconfirmed proposal cites and expect the proposal in history. Replay the earlier snapshot and expect the original status. [ADR 0003](../adr/0003-keep-link-confirmation-with-the-person.md)
 
 ### CEM-R4 — Use the person's language
 
@@ -111,28 +115,28 @@ Inside a run, each mode MUST use the human slot below. Skipping all four modes M
 | --- | --- | --- |
 | Learning | Human-check, lane-3, or hold question. Run close. | The person predicts a result. At close, the agent offers the three questions against the evidence. |
 | Discussion | Plan approval or run close | The agent cites the reason for a requirement or lesson. The person can correct that reason in their own words. |
-| Debate | Existing direction decision before the split | The reviewer presents an alternative and its strongest objection to the original split. The person chooses or gives another direction. |
+| Debate | Existing direction decision before the split. Without one, an optional comment at plan approval. | The reviewer presents an alternative and its strongest objection to the original split. The person chooses or gives another direction. |
 | Brainstorming | Existing direction decision before the split, or plan approval | The person and agent offer possible approaches. The person can keep a thought without selecting it for the plan. |
 
 Verify: Replay each mode with the same underlying decision and evidence. Repeat with the mode skipped. Compare required answer counts, readiness, and final status. Count voluntary free answers separately. [ADR 0005](../adr/0005-use-existing-human-slots-for-co-work.md)
 
 ### CEM-R7 — Predict before evidence
 
-The human answer surface MUST offer a prediction or a skip before it reveals evidence for an eligible gate. It MUST retain the person's choice in the existing signed answer text without changing their verdict or explanation.
+The human answer surface MUST offer a prediction or a skip before it reveals evidence for an eligible gate. The prediction states whether the unit will later need rework. Rework is a recorded rejection, reopen, or rollback after this answer. The surface MUST retain the person's choice in the existing signed answer text without a change to the verdict or explanation.
 
-An eligible gate is a human-check, lane-3, or hold question with a named prediction target and a risk signal. A risk signal is a first attempt, a red check, or a recorded rollback for the same unit. Other gates show evidence at once. The person can reveal evidence immediately by skipping.
+An eligible gate is a human-check, lane-3, or hold question with a risk signal. A risk signal is a first attempt, a red check, or a recorded rollback for the same unit. Other gates show evidence at once. The person can reveal evidence immediately by skipping.
 
-An answer without this interaction has no recorded prediction. The answer identifies the forecast target and attempt. Ordinary free text supplies no scored forecast.
+An answer without this interaction has no recorded prediction. The answer identifies the unit and attempt. Ordinary free text supplies no scored forecast. A grade-1 failure rejects work before any human question. A grade-1 result therefore cannot be a prediction target. [gate.py](../../skills/graph-flow/scripts/graphflow/gate.py)
 
-Verify: Predict failure, skip, and use the ordinary terminal path in separate fixtures. Add a gate without a risk signal and expect no prediction prompt. Check the display order and answer text. Expect identical verdicts. Exclude late guesses and absent predictions from accuracy.
+Verify: Predict rework, predict no rework, skip, and use the ordinary terminal path in separate fixtures. Add a gate without a risk signal and expect no prediction prompt. Check the display order and answer text. Expect identical verdicts.
 
-### CEM-R8 — Review a constraint at run close
+### CEM-R8 — Review each new constraint
 
-At run close the person MUST have an optional free question for each new constraint. Its options MUST cover keep, rewrite the reason in my words, and drop. An unanswered constraint MUST still apply within its scope and show an unratified label on the plan card.
+The person MUST have an optional free question for each constraint that `gf learn add` records for a run. This includes a constraint that the leader adds after the final gate. Its options MUST cover keep, rewrite the reason in my words, and drop. An unanswered constraint MUST still apply within its scope and show an unratified label on the plan card.
 
 The projected constraint shows `ratified_by` with the decision ID for keep or rewrite. A rewrite keeps the person's reason beside the original constraint. It leaves the approved command intact. A drop cites the decision in the existing retirement process. Changes apply to future plans. A signed answer for an earlier constraint revision remains historical.
 
-Verify: Exercise all three choices and silence. Compare the next plan card, constraint status, reason, and decision reference. Check that run close needs no reply.
+Verify: Exercise all three choices and silence. Add a constraint after the final gate and expect its question. Compare the next plan card, constraint status, reason, and decision reference. Check that run close needs no reply and that no required stop appears. [leader.md §8–9](../../skills/graph-flow/references/leader.md)
 
 ### CEM-R9 — Show the person what happened after approval
 
@@ -143,29 +147,29 @@ The cross-run `gf summary` MUST report the measures below from source records. P
 | Later rework | Count approvals followed by a recorded rejection, reopen, or rollback for the same unit. Count each approval once. |
 | Short waits | Count approvals with recorded ask-to-answer time below the threshold for their decision kind. Show each threshold in seconds. |
 | Approval rate | For each kind, divide approvals by answered decisions with an approval outcome available. |
-| Prediction calibration | For scored pass and fail forecasts, show counts and observed pass rates in each group. Use only the corresponding grade-1 result. |
+| Prediction calibration | For each forecast group (rework, no rework), show counts and the observed rework rate. Score a forecast after its run closes. Show units that are still open as pending. |
 | Baseline and skips | Show accuracy minus the majority-outcome rate on the same scored cases. Report explicit skips per recorded prediction or skip. |
-| Constraint ratification | Divide distinct new constraints with keep or rewrite answers by all new constraints at close. Show drops separately. |
+| Constraint ratification | Divide distinct constraints with keep or rewrite answers by all constraints that `gf learn add` recorded for the run. Show drops separately. |
 
 Match each observation by project, run, unit, and applicable attempt. Separate later rework from any claim about its cause. Show numerator and denominator for rates. Show “unavailable” for an empty denominator or missing evidence. Label incomplete coverage and distinguish missing responses from explicit skips.
 
 Approval timing describes the interval between records. It cannot establish attention or understanding.
 
-Verify: Score three passes and one failure with four pass forecasts. Expect zero improvement over baseline. Add a skip and an older run without predictions. Check every count against a hand-counted event history.
+Verify: Record four "no rework" forecasts. Reopen one of those units later. Expect zero improvement over baseline. Add a pending unit, a skip, and an older run without predictions. Check every count against a hand-counted event history.
 
 ### CEM-R10 — Compare splits before commitment
 
-Debate mode applies to proposed lane-2 or lane-3 work. It MUST offer a counter-proposal in an existing direction decision before the split. A reviewer from another model family MUST supply the alternative split and objection. Missing review capacity MUST leave the original decision available.
+Debate mode applies to proposed lane-2 or lane-3 work. When a direction decision already precedes the split, debate mode MUST offer the counter-proposal in that decision. Otherwise it MAY show the counter-proposal at plan approval as an optional comment. It MUST NOT create a new question for debate. A reviewer from another model family MUST supply the alternative split and objection. Missing review capacity MUST leave the original decision available.
 
-Use a free direction question with concrete options. If the split needs no direction decision, show the alternative at plan approval as an optional comment. Record the chosen option and associated plan nodes when the person chooses. Report the non-default choice rate and later rejection rate for those units. Omit untraceable choices from both denominators.
+Give the direction question concrete options. Record the chosen option and associated plan nodes when the person chooses. Report the non-default choice rate and later rejection rate for those units. Omit untraceable choices from both denominators.
 
-Verify: Check the reviewer family, options, objection, and sequence relative to the plan revision. Compare the choice and later rejections with the selected units. Remove the slot or reviewer and compare required stops.
+Verify: Check the reviewer family, options, objection, and sequence relative to the plan revision. Compare the choice and later rejections with the selected units. Test a plan without a direction decision and expect zero additional questions. Remove the slot or reviewer and compare required stops.
 
 ### CEM-R11 — Preserve execution and signing rules
 
-Map content MUST NOT authorize execution or change gate evidence. The map MUST NOT introduce plan fields, execution node kinds, or dependencies. Map interactions MUST preserve the existing human answer path and HMAC v3 format. Agents MUST NOT write or prefill a person's answer, prediction, or ratification.
+Map content MUST NOT authorize execution or change gate evidence. The map MUST NOT introduce plan fields, execution node kinds, or dependencies. Map interactions MUST preserve the existing human answer path and HMAC v3 format. Agents MUST NOT write or prefill a person's answer, prediction, or ratification. The reader MUST NOT read `human.key`. It MUST take answer verification only from the existing verifier as a read-only result. An answer without a verified result MUST count as unverified.
 
-Verify: Replay accepted, rejected, stale, and unsigned fixtures through the existing integrity checks. Compare signing vectors, verdicts, scoped returns, and readiness with the baseline.
+Verify: Replay accepted, rejected, stale, and unsigned fixtures through the existing integrity checks. Compare signing vectors, verdicts, scoped returns, and readiness with the baseline. Tamper with one answer record. Make the verifier unavailable for another answer. Expect the reader to show both answers as unverified.
 
 ### CEM-R12 — Preserve local access boundaries
 
@@ -181,9 +185,9 @@ Verify: Use a fixture with a Thought and a Requirement that disagree. Propose th
 
 ### CEM-R14 — Turn confirmed links into checks
 
-`gf map check` MUST exit non-zero when a requirement in the current plan has no `tests` link from a check. It MUST also exit non-zero when a confirmed link cites a missing source. It MUST exit non-zero when an item confirmed outside a run lacks a valid signature from the allowed-signers list. A plan MAY add `gf map check` to its integration checks. The map MUST NOT add or change a check by itself.
+`gf map check` MUST exit non-zero when a requirement in the current plan revision has no derived or confirmed `tests` link from a check. An unconfirmed proposal MUST NOT count as coverage. It MUST also exit non-zero when a confirmed link cites a missing source. It MUST exit non-zero when an item confirmed outside a run lacks a signature that OQ-8 accepts. A plan MAY add `gf map check` to its integration checks. The map MUST NOT add or change a check by itself.
 
-Verify: Run `gf map check` on a plan with full coverage and expect exit 0. Remove one `tests` link and expect a non-zero exit that names the requirement. Remove one cited source and expect a non-zero exit that names the link. Confirm an item in an unsigned commit and expect a non-zero exit. [ADR 0010](../adr/0010-confirm-outside-a-run-with-a-signed-commit.md) [ADR 0009](../adr/0009-turn-confirmed-links-into-checks.md) · [Tan, transcript (machine-generated)](https://ai.engineer/api/code/reading-download/transcripts/lauren-tan.md)
+Verify: Run `gf map check` on a plan with full coverage and expect exit 0. Remove one `tests` link and expect a non-zero exit that names the requirement. Make an agent proposal the only `tests` link and expect a non-zero exit. Remove one cited source and expect a non-zero exit that names the link. Confirm an item in an unsigned commit and expect a non-zero exit. [ADR 0010](../adr/0010-confirm-outside-a-run-with-a-signed-commit.md) · [ADR 0009](../adr/0009-turn-confirmed-links-into-checks.md) · [Tan, transcript (machine-generated)](https://ai.engineer/api/code/reading-download/transcripts/lauren-tan.md)
 
 ### CEM-R15 — Propose term candidates
 
@@ -193,9 +197,9 @@ Verify: Propose a candidate from one source file. Check the citation and the unc
 
 ### CEM-R16 — Open a topic outside a run
 
-The reader MUST let the person open a topic for discussion, debate, or brainstorming at any time. A topic MUST be a Thought with an open status. The reader MUST NOT start or message an agent. An agent session that reads the map SHOULD answer each open topic with proposals and objections. Each answer MUST stay unconfirmed until the person keeps it. A topic MUST NOT create a run decision or block a run.
+The reader MUST let the person open a topic for discussion, debate, or brainstorming at any time. A topic MUST be a Thought with an open status. The reader MUST NOT start or message an agent. Only a leader session MAY read open topics. A worker brief MUST NOT include topic text. The leader MUST treat topic text as quoted data, not as instructions. The leader SHOULD answer each open topic with proposals and objections. It MUST answer each topic revision at most once. Each answer MUST stay unconfirmed until the person keeps it. A topic MUST NOT create a run decision or block a run.
 
-Verify: Open a topic with no run. Check the open Thought and that no agent process starts. Add an agent answer and check its unconfirmed label. Start a run and compare required answers with the baseline. [ADR 0005](../adr/0005-use-existing-human-slots-for-co-work.md) · [ADR 0007](../adr/0007-show-trails-in-a-separate-local-reader.md)
+Verify: Open a topic with no run. Check the open Thought and that no agent process starts. Add a leader answer and check its unconfirmed label. Read the map twice and expect one answer. Put an instruction-shaped topic in the map while a worker runs. Expect no change to the worker brief and no worker action. Start a run and compare required answers with the baseline. [ADR 0005](../adr/0005-use-existing-human-slots-for-co-work.md) · [ADR 0007](../adr/0007-show-trails-in-a-separate-local-reader.md)
 
 ## Security and invariants
 
@@ -233,4 +237,8 @@ The design adds no execution node, required answer, or blocking state. The count
 
 ## Open questions
 
-No open questions remain in this revision. Add new ones as OQ-8 and later.
+| ID | Question | Options and consequences |
+| --- | --- | --- |
+| OQ-8 | What does an out-of-run confirmation trust? (Review finding F01. The person will discuss this.) | A hardware key that needs a touch for each signature, with signer-list changes signed by a trusted key: strong, and needs setup. No out-of-run confirmation: simplest, and replaces ADR 0010. A person-only terminal command that reuses `human.key` and the TTY rule: no new key, and adds a second human answer path. |
+
+Until OQ-8 is decided, no out-of-run signature confirms an item.

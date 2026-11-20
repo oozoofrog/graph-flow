@@ -15,6 +15,19 @@ Graph-flow uses **spec-anchored** Spec-Driven Development. The spec states the e
 
 Use short sentences and one term per concept. Use uppercase requirement keywords only in requirements and the standard paragraph. [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) · [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174) · [ASD-STE100](https://www.asd-ste100.org/STE_faq.html)
 
+## Code follows the spec
+
+1. Treat the spec as the statement of expected behavior. Code follows the spec.
+2. When code and spec differ, fix the code by default.
+3. Change the spec only when the code is right for one of these reasons:
+   - **Agent limit:** an agent cannot build the behavior as stated, because of its capabilities or the rules that bind it.
+   - **Code limit:** the language, platform, runtime, or existing system prevents the behavior as stated.
+   - **Improvement:** the code gives better behavior than the spec states.
+4. Name the reason and its evidence in the spec change. An agent proposes the change. The person accepts the spec revision.
+5. Never leave a known difference unresolved. Until it is resolved, record a `conflicts with` link between the requirement and the code.
+
+[ADR 0011](../adr/0011-code-follows-the-spec.md)
+
 ## Spec status
 
 | Status | Meaning |

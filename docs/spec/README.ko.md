@@ -1,7 +1,7 @@
 # 기능 명세 (한국어 읽기본)
 
 > 이 문서는 [README.md](README.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 해시: `sha256:54af28d6e8ca0e1124ac28b879b170925c7182d5ffc48b8d1ffa44cbcefb7afd`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
+> 원문 해시: `sha256:6312f95ca6fcc74d8b26a708e8baa5dec2c88daef0c4f8a51623818a1099a540`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
 graph-flow는 **명세 고정형(spec-anchored)** 명세 주도 개발을 씁니다. 명세는 구현 전에 기대하는 동작을 적습니다. 동작이 바뀌어도 명세는 그 기능과 함께 남습니다. 사람은 코드와 검사를 직접 고칠 수 있습니다. 짧고 관리되는 명세는 변경마다 안정된 기준점을 줍니다. [Böckeler](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html)
 
@@ -17,6 +17,19 @@ graph-flow는 **명세 고정형(spec-anchored)** 명세 주도 개발을 씁니
 8. 동작이 바뀌면 명세와 검사를 같은 변경에서 고칩니다. 한국어 읽기본마다 영어 원문의 SHA-256 해시를 적습니다.
 
 짧은 문장과 개념 하나에 용어 하나를 씁니다. 대문자 의무 키워드는 요구와 표준 문단에만 씁니다. [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) · [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174) · [ASD-STE100](https://www.asd-ste100.org/STE_faq.html)
+
+## 코드는 스펙을 따른다
+
+1. 명세를 기대하는 동작의 기준으로 삼습니다. 코드는 명세를 따릅니다.
+2. 코드와 명세가 다르면 기본적으로 코드를 고칩니다.
+3. 다음 이유 가운데 하나로 코드가 옳을 때만 명세를 바꿉니다.
+   - **에이전트의 제한:** 에이전트가 능력이나 지켜야 할 규칙 때문에 명세대로 만들 수 없습니다.
+   - **코드 자체의 한계:** 언어, 플랫폼, 실행 환경, 기존 시스템이 명세대로의 동작을 막습니다.
+   - **기능 향상:** 코드가 명세보다 나은 동작을 냅니다.
+4. 명세 변경에 이유와 증거를 적습니다. 에이전트가 변경을 제안하고, 사람이 명세 개정을 받아들입니다.
+5. 알게 된 차이를 해소하지 않은 채 두지 않습니다. 해소될 때까지 요구와 코드 사이에 `conflicts with` 연결을 기록합니다.
+
+[ADR 0011](../adr/0011-code-follows-the-spec.ko.md)
 
 ## 명세 상태
 

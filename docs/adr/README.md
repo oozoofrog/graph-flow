@@ -43,3 +43,4 @@ An architecture decision record (ADR) explains one choice that future maintainer
 - [0008 Keep authored material in project documents](0008-keep-authored-material-in-project-documents.md)
 - [0009 Turn confirmed links into checks](0009-turn-confirmed-links-into-checks.md)
 - [0010 Confirm outside a run with a signed commit](0010-confirm-outside-a-run-with-a-signed-commit.md)
+- [0011 Code follows the spec](0011-code-follows-the-spec.md)
