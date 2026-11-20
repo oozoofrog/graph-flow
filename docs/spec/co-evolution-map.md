@@ -239,6 +239,6 @@ The design adds no execution node, required answer, or blocking state. The count
 
 | ID | Question | Options and consequences |
 | --- | --- | --- |
-| OQ-8 | What does an out-of-run confirmation trust? (Review finding F01. The person will discuss this.) | A hardware key that needs a touch for each signature, with signer-list changes signed by a trusted key: strong, and needs setup. No out-of-run confirmation: simplest, and replaces ADR 0010. A person-only terminal command that reuses `human.key` and the TTY rule: no new key, and adds a second human answer path. |
+| OQ-8 | What does an out-of-run confirmation trust? (Review finding F01.) The person confirms mostly away from home. On 2026-11-20 the person chose to design a remote approval surface first. [Issue 4](https://github.com/oozoofrog/graph-flow/issues/4) | A hardware key that needs a touch for each signature, with signer-list changes signed by a trusted key: strong, and needs setup. No out-of-run confirmation: simplest, and replaces ADR 0010. A person-only terminal command that reuses `human.key` and the TTY rule: no new key, and adds a second human answer path. |
 
 Until OQ-8 is decided, no out-of-run signature confirms an item.
