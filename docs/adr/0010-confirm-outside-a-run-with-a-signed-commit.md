@@ -1,6 +1,8 @@
 # 0010 Confirm outside a run with a signed commit
 
-Status: Accepted (2026-11-20, the person chose this option for OQ-6)
+Status: Superseded by [ADR 0017](0017-confirm-out-of-run-items-in-the-next-run.md) (2026-11-20)
+
+[ADR 0017](0017-confirm-out-of-run-items-in-the-next-run.md) replaces this decision.
 
 ## Context
 
@@ -16,7 +18,7 @@ A free question inside a run uses the existing signed path. It needs a run for e
 
 ## Consequences
 
-The answer signing format does not change. The person sets up a signing key once. Agent sessions never get access to that key. Use a key that needs a passphrase or a touch on each use. An agent commit that changes an item to confirmed fails `gf map check`. A design review found that the trust root is not yet defined. Same-account agents could change a signer list or use a key without a passphrase. OQ-8 sets the trust root. Until then, no out-of-run signature confirms an item. [OQ-8](../spec/co-evolution-map.md#open-questions)
+The answer signing format does not change. The person sets up a signing key once. Agent sessions never get access to that key. Use a key that needs a passphrase or a touch on each use. An agent commit that changes an item to confirmed fails `gf map check`. A design review found that the trust root is not yet defined. Same-account agents could change a signer list or use a key without a passphrase. OQ-8 sets the trust root. Until then, no out-of-run signature confirms an item. [OQ-8](../spec/co-evolution-map.md#decided-questions)
 
 ## Principles served
 

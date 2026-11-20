@@ -2,6 +2,31 @@
 
 Status: Draft
 
+## At a glance
+
+This summary has no force. The requirements below govern.
+
+| ID | In one line |
+| --- | --- |
+| CEM-R1 | The same sources always rebuild the same map. Missing sources show as gaps. |
+| CEM-R2 | Every link can be followed in both directions, with its reason and source. |
+| CEM-R3 | Only a verified in-run answer confirms an item. Agent proposals stay unconfirmed. |
+| CEM-R4 | Every item has a plain explanation in the person's language. Korean copies track their English source. |
+| CEM-R5 | Three questions let the person test their own understanding, with no score. |
+| CEM-R6 | Learning, discussion, debate, and brainstorming use existing human slots. Out-of-run selections wait for the next run. |
+| CEM-R7 | At risky gates, the person predicts later rework before seeing evidence. |
+| CEM-R8 | The person can keep, rewrite, or drop each new constraint. |
+| CEM-R9 | Summaries show what happened after approvals and how predictions held up. |
+| CEM-R10 | A reviewer from another model family offers a counter-proposal before the split. |
+| CEM-R11 | The map never authorizes work or changes signing. |
+| CEM-R12 | The map keeps local access boundaries. |
+| CEM-R13 | Agents can point out conflicts. The person confirms them. |
+| CEM-R14 | `gf map check` fails on missing coverage and reports items it cannot verify here. |
+| CEM-R15 | Agents can propose domain terms. The person confirms or rewrites the definition. |
+| CEM-R16 | The person can open a topic at any time. Only the leader answers it, as quoted data. |
+
+Decisions made by the person: OQ-1 to OQ-8 under [Decided questions](#decided-questions), and ADRs 0001–0011 and 0017 in the [ADR list](../adr/README.md).
+
 ## Purpose and scope
 
 The person can follow an idea to the code that implements it. An agent can follow the same path back to the person's reason. Together they can question a choice, change a term, or test an expectation. Co-evolution means that both the tool and the person's practice can improve. [Engelbart](https://dougengelbart.org/content/view/116/)
@@ -83,7 +108,10 @@ Verify: Use a fixture with every type. Follow the example from Domain term to Fi
 
 The map MUST keep the link origin and confirmation history. The person MUST be able to create an authored link with a reason. An agent proposal MUST remain unconfirmed until the person explicitly confirms that link revision. The default trail MUST distinguish derived links, person-authored links, and confirmed agent proposals. Unconfirmed proposals MUST appear separately.
 
-The map MUST derive person authorship and confirmation only from verified evidence for the exact item revision. Verified evidence is a verified in-run answer or an out-of-run signature that OQ-8 accepts. Until OQ-8 is decided, no out-of-run signature counts. A claim in a file is not evidence. An item without verified evidence MUST appear as unconfirmed. A change to the reason or endpoints of a confirmed item MUST make it unconfirmed.
+The map MUST derive person authorship and confirmation only from verified evidence for the exact item revision. Verified evidence is a verified in-run answer. A claim in a file is not evidence. The map MUST NOT treat an item as confirmed without verified evidence.
+For a queued selection, the map MUST require the CEM-R6 issuer, purpose, evidence, and exact answer form.
+It MUST retain the proposer and record a rejection in history outside the confirmed trail.
+If the cited confirmation lacks its original verification context, the map MUST show the CEM-R14 status. A change to the reason or endpoints of a confirmed item MUST make it unconfirmed.
 
 The map MUST withdraw an unconfirmed proposal when a source it cites changes in the selected project snapshot. The withdrawn proposal MUST stay in history. A replay of an earlier snapshot MUST show the status at that snapshot.
 
@@ -118,7 +146,48 @@ Inside a run, each mode MUST use the human slot below. Skipping all four modes M
 | Debate | Existing direction decision before the split. Without one, an optional comment at plan approval. | The reviewer presents an alternative and its strongest objection to the original split. The person chooses or gives another direction. |
 | Brainstorming | Existing direction decision before the split, or plan approval | The person and agent offer possible approaches. The person can keep a thought without selecting it for the plan. |
 
-Verify: Replay each mode with the same underlying decision and evidence. Repeat with the mode skipped. Compare required answer counts, readiness, and final status. Count voluntary free answers separately. [ADR 0005](../adr/0005-use-existing-human-slots-for-co-work.md)
+Outside a run, the person's selection MUST queue a Git-backed item as `pending confirmation`.
+The queue MUST pin project, item ID, repository-relative path, and Git commit and blob IDs.
+It MUST store SHA-256 of the exact file bytes with that pin.
+The queue MUST pin the selected Git blob even if the working file already differs. Selection MUST NOT create a run decision.
+
+At the next run's plan approval or run close, the leader MUST present the queue with `gf map present`.
+Graph-flow MUST issue one optional batch for the queued revisions at that slot.
+Repeated presentation MUST reuse an existing open batch, including at run close. An empty queue MUST produce no decision.
+The command MUST take no leader-authored text or item choices. Graph-flow MUST use a fixed template in the person's language.
+It MUST read each pinned file verbatim from Git and display its content as inert evidence, including the reason.
+The decision MUST use `issuer: map` and `purpose: map_confirmation`. Its `evidence` MUST bind the ordered item IDs, paths, Git references, and content hashes.
+If the current file differs or disappears, the surface MUST mark that item `changed after selection`.
+The answer path MUST recheck the current bytes and refuse confirmation of that revision. A new revision requires a new selection.
+Unavailable pinned content MUST disable confirmation. CEM-R3 withdrawal still applies when a cited source changes.
+
+The local dashboard and remote surface MUST offer confirm, keep pending, and reject for each revision.
+The surfaces MUST NOT preselect confirmation. Both MUST build the answer text from the person's choices.
+Use one ASCII line per evidence entry, in bound order. Join lines with LF and omit the final LF.
+Each line contains an action, one space, the typed item ID, `@`, and the content hash.
+Write the SHA-256 hash as 64 lowercase hexadecimal digits.
+The actions are `confirm`, `pending`, and `reject`. For example, `confirm link:L12@<hash>` uses the full hash in place of `<hash>`.
+Encode each ID component as UTF-8. Percent-encode all bytes outside ASCII letters, digits, hyphen, period, underscore, and tilde using uppercase hexadecimal.
+Separate type and ID with one literal colon.
+The map MUST accept only this form in a verified `answered` decision matching the issuer, purpose, and evidence above.
+It MUST reject malformed text, missing or duplicate entries, extra entries, and mismatched hashes before applying any choice.
+A confirm applies to that revision alone. A pending choice keeps it queued. A reject removes it from the queue and preserves its history.
+The map MUST apply a verified answer idempotently.
+
+The batch MUST NOT block readiness, verdicts, or run close.
+At run close, graph-flow MUST record `decision.superseded` for each unanswered batch in the closing transaction.
+Explicit skip and silence MUST leave eligible entries pending without a fabricated answer.
+Run close MUST supersede unanswered batches before checking for blocking decisions.
+If an answer races with close, the transaction MUST leave exactly one terminal decision state. [ADR 0017](../adr/0017-confirm-out-of-run-items-in-the-next-run.md)
+
+Verify: Queue three items. Check the template, pinned Git bytes, evidence, and canonical answer on both surfaces.
+Confirm one, keep one pending, and reject one. Replay the answer and inspect history.
+Edit a file after selection and again after display. Expect refusal for the changed revision.
+Supply a free question, a duplicate line, and a wrong hash. Expect no confirmation.
+Skip the batch at plan approval and close the run. Repeat with silence, a close-time batch, and a racing answer.
+Inspect the supersede event for each unanswered batch. Expect no open decision after close.
+Replay each co-work mode with and without participation. Compare required stops, verdicts, readiness, and final status.
+Count voluntary answers separately. [ADR 0005](../adr/0005-use-existing-human-slots-for-co-work.md)
 
 ### CEM-R7 — Predict before evidence
 
@@ -169,11 +238,12 @@ Verify: Check the reviewer family, options, objection, and sequence relative to 
 
 Map content MUST NOT authorize execution or change gate evidence. The map MUST NOT introduce plan fields, execution node kinds, or dependencies. Map interactions MUST preserve the existing human answer path and HMAC v3 format. Agents MUST NOT write or prefill a person's answer, prediction, or ratification. The reader MUST NOT read `human.key`. It MUST take answer verification only from the existing verifier as a read-only result. An answer without a verified result MUST count as unverified.
 
-Verify: Replay accepted, rejected, stale, and unsigned fixtures through the existing integrity checks. Compare signing vectors, verdicts, scoped returns, and readiness with the baseline. Tamper with one answer record. Make the verifier unavailable for another answer. Expect the reader to show both answers as unverified.
+Verify: Replay accepted, rejected, stale, and unsigned fixtures through the existing integrity checks. Compare signing vectors, verdicts, scoped returns, and readiness with the baseline. Tamper with one answer record. Make the verifier unavailable for another answer. Expect invalid evidence for the tampered answer. Expect `unverifiable here` for the unavailable verification context under CEM-R14.
 
 ### CEM-R12 — Preserve local access boundaries
 
-Map access MUST respect the existing role and project scope of each source. The runtime MUST use the Python standard library and limit network access to the existing loopback boundary.
+Map access MUST respect the existing role and project scope of each source. The map reader MUST use the Python standard library and stay on loopback.
+The separate remote surface MUST expose map decisions only under RA-R3 and RA-R7. [Remote scope](remote-approval.md#ra-r3--restrict-remote-reads-and-operations)
 
 Verify: Test role-scoped reads, a foreign project, a path outside the root, and a private key path. Expect no disclosure through labels, links, or counts. Check imports and network destinations.
 
@@ -185,9 +255,31 @@ Verify: Use a fixture with a Thought and a Requirement that disagree. Propose th
 
 ### CEM-R14 — Turn confirmed links into checks
 
-`gf map check` MUST exit non-zero when a requirement in the current plan revision has no derived or confirmed `tests` link from a check. An unconfirmed proposal MUST NOT count as coverage. It MUST also exit non-zero when a confirmed link cites a missing source. It MUST exit non-zero when an item confirmed outside a run lacks a signature that OQ-8 accepts. A plan MAY add `gf map check` to its integration checks. The map MUST NOT add or change a check by itself.
+Confirmation is verifiable only on the person's install with the original key, run records, and bound project location.
+Git carries the selected content and answer reference. It supplies no portable proof.
 
-Verify: Run `gf map check` on a plan with full coverage and expect exit 0. Remove one `tests` link and expect a non-zero exit that names the requirement. Make an agent proposal the only `tests` link and expect a non-zero exit. Remove one cited source and expect a non-zero exit that names the link. Confirm an item in an unsigned commit and expect a non-zero exit. [ADR 0010](../adr/0010-confirm-outside-a-run-with-a-signed-commit.md) · [ADR 0009](../adr/0009-turn-confirmed-links-into-checks.md) · [Tan, transcript (machine-generated)](https://ai.engineer/api/code/reading-download/transcripts/lauren-tan.md)
+| Item or coverage result | Required behavior of `gf map check` |
+| --- | --- |
+| Pass | Each current plan requirement MUST have a derived or locally verified `tests` link from a check. |
+| Failure | The check MUST name uncovered requirements, missing sources of verified links, and demonstrably invalid confirmation claims. |
+| Unverifiable here | With a referenced confirmation outside its verification context, the check MUST report `unverifiable here` and name each affected item. |
+
+A claim without an answer reference MUST fail. A free question, signed commit, altered signature, or answer for another revision MUST fail when examinable.
+A fresh clone, CI, another machine, key repin, or project move can lack the original verification context.
+Affected items MUST count as neither passes nor failures. Unconfirmed proposals MUST NOT establish coverage.
+If coverage depends solely on unavailable confirmation evidence, the requirement MUST also show `unverifiable here`.
+The check MUST still report every independent failure.
+It MUST exit 1 for any failure, 6 for unavailable verification alone, and 0 for complete success.
+Consumers MUST distinguish exit 6 from both success and a failed check. A plan MAY include the check.
+The map MUST NOT add or change a check by itself.
+
+Verify: Check complete coverage on the original install. Expect exit 0.
+Remove coverage, leave only an agent proposal, or remove a verified link's source. Expect exit 1 with the affected ID.
+Try a signed commit, a tampered answer, and a valid answer for another revision. Expect exit 1 with each affected ID.
+Repeat the valid fixture in a fresh clone, in CI, and on another machine without the original key and records.
+Repeat after key repin and after moving the project. Expect exit 6 and every affected ID. Expect no pass or failure for those items.
+Add an independent uncovered requirement. Expect exit 1, its ID, and the unchanged list of unverifiable items.
+[ADR 0017](../adr/0017-confirm-out-of-run-items-in-the-next-run.md) · [ADR 0009](../adr/0009-turn-confirmed-links-into-checks.md) · [Tan, transcript (machine-generated)](https://ai.engineer/api/code/reading-download/transcripts/lauren-tan.md)
 
 ### CEM-R15 — Propose term candidates
 
@@ -197,7 +289,7 @@ Verify: Propose a candidate from one source file. Check the citation and the unc
 
 ### CEM-R16 — Open a topic outside a run
 
-The reader MUST let the person open a topic for discussion, debate, or brainstorming at any time. A topic MUST be a Thought with an open status. The reader MUST NOT start or message an agent. Only a leader session MAY read open topics. A worker brief MUST NOT include topic text. The leader MUST treat topic text as quoted data, not as instructions. The leader SHOULD answer each open topic with proposals and objections. It MUST answer each topic revision at most once. Each answer MUST stay unconfirmed until the person keeps it. A topic MUST NOT create a run decision or block a run.
+The reader MUST let the person open a topic for discussion, debate, or brainstorming at any time. A topic MUST be a Thought with an open status. The reader MUST NOT start or message an agent. An agent MUST NOT read open topics unless it acts in a leader session. A worker brief MUST NOT include topic text. The leader MUST treat topic text as quoted data, not as instructions. The leader SHOULD answer each open topic with proposals and objections. It MUST answer each topic revision at most once. Each answer MUST stay unconfirmed until the person keeps it. A topic MUST NOT create a run decision or block a run.
 
 Verify: Open a topic with no run. Check the open Thought and that no agent process starts. Add a leader answer and check its unconfirmed label. Read the map twice and expect one answer. Put an instruction-shaped topic in the map while a worker runs. Expect no change to the worker brief and no worker action. Start a run and compare required answers with the baseline. [ADR 0005](../adr/0005-use-existing-human-slots-for-co-work.md) · [ADR 0007](../adr/0007-show-trails-in-a-separate-local-reader.md)
 
@@ -217,7 +309,7 @@ The requirement numbers below use the CEM prefix.
 | R13, R14 | P1, P6, P11. A conflict stays a proposal until the person confirms it. `gf map check` only reads. A plan opts in to it. |
 | R15, R16 | P10. Agent answers and term candidates stay proposals. A topic adds no human stop to a run. |
 
-Only plan and gate code issue binding approval requests. Only the person answers them. The current signature binds the answer to its question and evidence. It authenticates neither unsigned execution records nor a person's private thought process. 
+Only plan and gate code issue binding approval requests. Only the person answers them. The current signature binds the answer to its question and evidence. It authenticates neither unsigned execution records nor a person's private thought process.
 
 Same-account processes share operating-system access. Agents never set the human role or call the human answer command. Activity metadata supplies no personal text. New run events, if needed, use the existing transaction writer and documented event table. [Identity rules](../../skills/graph-flow/SKILL.md#human-identity) · [Dashboard](../../skills/graph-flow/references/dashboard.md) · [Principles](../../skills/graph-flow/references/principles.md)
 
@@ -227,18 +319,15 @@ The design adds no execution node, required answer, or blocking state. The count
 
 | ID | Decision (2026-11-20) | Record |
 | --- | --- | --- |
-| OQ-1 | A separate local reader opens trails. Answers stay on the dashboard. | [ADR 0007](../adr/0007-show-trails-in-a-separate-local-reader.md) |
+| OQ-1 | A separate local reader opens trails. The dashboard takes answers. The remote surface also accepts eligible in-run decisions. | [ADR 0007](../adr/0007-show-trails-in-a-separate-local-reader.md) |
 | OQ-2 | Authored thoughts, terms, and links live in Git-tracked project documents. | [ADR 0008](../adr/0008-keep-authored-material-in-project-documents.md) |
 | OQ-3 | Only gates with a risk signal offer a prediction. | [CEM-R7](#cem-r7--predict-before-evidence) |
 | OQ-4 | Each decision kind has its own short-wait threshold. | [CEM-R9](#cem-r9--show-the-person-what-happened-after-approval) |
 | OQ-5 | Each authored item has its own file. | [ADR 0008](../adr/0008-keep-authored-material-in-project-documents.md) |
-| OQ-6 | A commit signed with the person's own key confirms an item outside a run. | [ADR 0010](../adr/0010-confirm-outside-a-run-with-a-signed-commit.md) |
+| OQ-6 | The earlier decision chose a signed commit. ADR 0017 replaced it (OQ-8). | [ADR 0010](../adr/0010-confirm-outside-a-run-with-a-signed-commit.md) |
 | OQ-7 | An unconfirmed proposal is withdrawn when a source it cites changes. | [CEM-R3](#cem-r3--keep-link-provenance) |
+| OQ-8 | Queue the selected revision. Confirm it through the map-issued batch at the next run’s plan approval or run close. | [ADR 0017](../adr/0017-confirm-out-of-run-items-in-the-next-run.md) |
 
 ## Open questions
 
-| ID | Question | Options and consequences |
-| --- | --- | --- |
-| OQ-8 | What does an out-of-run confirmation trust? (Review finding F01.) A person can confirm away from the machine that runs graph-flow. On 2026-11-20 the maintainer chose to design a remote approval surface first. graph-flow is public, so that design serves any user, network, and operating system. [Issue 4](https://github.com/oozoofrog/graph-flow/issues/4) | A hardware key that needs a touch for each signature, with signer-list changes signed by a trusted key: strong, and needs setup. No out-of-run confirmation: simplest, and replaces ADR 0010. A person-only terminal command that reuses `human.key` and the TTY rule: no new key, and adds a second human answer path. |
-
-Until OQ-8 is decided, no out-of-run signature confirms an item.
+None.
