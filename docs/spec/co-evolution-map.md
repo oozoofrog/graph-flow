@@ -83,7 +83,7 @@ Verify: Use a fixture with every type. Follow the example from Domain term to Fi
 
 The map MUST keep the link origin and confirmation history. The person MUST be able to create an authored link with a reason. An agent proposal MUST remain unconfirmed until the person explicitly confirms that link revision. The default trail MUST distinguish derived links, person-authored links, and confirmed agent proposals. Unconfirmed proposals MUST appear separately.
 
-The map MUST derive person authorship and confirmation only from verified evidence for the exact item revision. Verified evidence is a verified in-run answer or an out-of-run signature that OQ-8 accepts. Until OQ-8 is decided, no out-of-run signature counts. A claim in a file is not evidence. An item without verified evidence MUST appear as unconfirmed. A change to the reason or endpoints of a confirmed item MUST make it unconfirmed.
+The map MUST derive person authorship and confirmation only from verified evidence for the exact item revision. Verified evidence is a verified in-run answer. A claim in a file is not evidence. An item without verified evidence MUST appear as unconfirmed. A change to the reason or endpoints of a confirmed item MUST make it unconfirmed.
 
 The map MUST withdraw an unconfirmed proposal when a source it cites changes in the selected project snapshot. The withdrawn proposal MUST stay in history. A replay of an earlier snapshot MUST show the status at that snapshot.
 
@@ -118,7 +118,13 @@ Inside a run, each mode MUST use the human slot below. Skipping all four modes M
 | Debate | Existing direction decision before the split. Without one, an optional comment at plan approval. | The reviewer presents an alternative and its strongest objection to the original split. The person chooses or gives another direction. |
 | Brainstorming | Existing direction decision before the split, or plan approval | The person and agent offer possible approaches. The person can keep a thought without selecting it for the plan. |
 
-Verify: Replay each mode with the same underlying decision and evidence. Repeat with the mode skipped. Compare required answer counts, readiness, and final status. Count voluntary free answers separately. [ADR 0005](../adr/0005-use-existing-human-slots-for-co-work.md)
+Outside a run, selection MUST queue the exact item revision as `pending confirmation`. The item remains unconfirmed.
+At the next run’s plan approval or run close, the leader MUST present pending revisions in one optional free question.
+The question MUST offer a choice for each revision. The person MAY answer locally or through the remote surface.
+Skipping the question MUST leave required answers, blocking states, and verdicts unchanged. [ADR 0017](../adr/0017-confirm-out-of-run-items-in-the-next-run.md)
+
+Verify: Queue two revisions and confirm only one. Expect the other to stay pending. Skip the whole question and compare required stops.
+Replay each mode with the same underlying decision and evidence. Repeat with the mode skipped. Compare required answer counts, readiness, and final status. Count voluntary free answers separately. [ADR 0005](../adr/0005-use-existing-human-slots-for-co-work.md)
 
 ### CEM-R7 — Predict before evidence
 
@@ -185,9 +191,9 @@ Verify: Use a fixture with a Thought and a Requirement that disagree. Propose th
 
 ### CEM-R14 — Turn confirmed links into checks
 
-`gf map check` MUST exit non-zero when a requirement in the current plan revision has no derived or confirmed `tests` link from a check. An unconfirmed proposal MUST NOT count as coverage. It MUST also exit non-zero when a confirmed link cites a missing source. It MUST exit non-zero when an item confirmed outside a run lacks a signature that OQ-8 accepts. A plan MAY add `gf map check` to its integration checks. The map MUST NOT add or change a check by itself.
+`gf map check` MUST exit non-zero when a requirement in the current plan revision has no derived or confirmed `tests` link from a check. An unconfirmed proposal MUST NOT count as coverage. It MUST also exit non-zero when a confirmed link cites a missing source. It MUST exit non-zero when an item marked confirmed lacks a verified in-run answer for its exact revision. A plan MAY add `gf map check` to its integration checks. The map MUST NOT add or change a check by itself.
 
-Verify: Run `gf map check` on a plan with full coverage and expect exit 0. Remove one `tests` link and expect a non-zero exit that names the requirement. Make an agent proposal the only `tests` link and expect a non-zero exit. Remove one cited source and expect a non-zero exit that names the link. Confirm an item in an unsigned commit and expect a non-zero exit. [ADR 0010](../adr/0010-confirm-outside-a-run-with-a-signed-commit.md) · [ADR 0009](../adr/0009-turn-confirmed-links-into-checks.md) · [Tan, transcript (machine-generated)](https://ai.engineer/api/code/reading-download/transcripts/lauren-tan.md)
+Verify: Run `gf map check` on a plan with full coverage and expect exit 0. Remove one `tests` link and expect a non-zero exit that names the requirement. Make an agent proposal the only `tests` link and expect a non-zero exit. Remove one cited source and expect a non-zero exit that names the link. Mark an item confirmed with only a signed commit and expect a non-zero exit. Cite a verified answer for another revision and expect a non-zero exit. [ADR 0017](../adr/0017-confirm-out-of-run-items-in-the-next-run.md) · [ADR 0009](../adr/0009-turn-confirmed-links-into-checks.md) · [Tan, transcript (machine-generated)](https://ai.engineer/api/code/reading-download/transcripts/lauren-tan.md)
 
 ### CEM-R15 — Propose term candidates
 
@@ -232,13 +238,10 @@ The design adds no execution node, required answer, or blocking state. The count
 | OQ-3 | Only gates with a risk signal offer a prediction. | [CEM-R7](#cem-r7--predict-before-evidence) |
 | OQ-4 | Each decision kind has its own short-wait threshold. | [CEM-R9](#cem-r9--show-the-person-what-happened-after-approval) |
 | OQ-5 | Each authored item has its own file. | [ADR 0008](../adr/0008-keep-authored-material-in-project-documents.md) |
-| OQ-6 | A commit signed with the person's own key confirms an item outside a run. | [ADR 0010](../adr/0010-confirm-outside-a-run-with-a-signed-commit.md) |
+| OQ-6 | The earlier decision chose a signed commit. ADR 0017 replaced it (OQ-8). | [ADR 0010](../adr/0010-confirm-outside-a-run-with-a-signed-commit.md) |
 | OQ-7 | An unconfirmed proposal is withdrawn when a source it cites changes. | [CEM-R3](#cem-r3--keep-link-provenance) |
+| OQ-8 | Queue the selected revision. Confirm it through a verified in-run answer at the next run’s plan approval or run close. | [ADR 0017](../adr/0017-confirm-out-of-run-items-in-the-next-run.md) |
 
 ## Open questions
 
-| ID | Question | Options and consequences |
-| --- | --- | --- |
-| OQ-8 | What does an out-of-run confirmation trust? (Review finding F01.) A person can confirm away from the machine that runs graph-flow. On 2026-11-20 the maintainer chose to design a remote approval surface first. graph-flow is public, so that design serves any user, network, and operating system. [Issue 4](https://github.com/oozoofrog/graph-flow/issues/4) | A hardware key that needs a touch for each signature, with signer-list changes signed by a trusted key: strong, and needs setup. No out-of-run confirmation: simplest, and replaces ADR 0010. A person-only terminal command that reuses `human.key` and the TTY rule: no new key, and adds a second human answer path. |
-
-Until OQ-8 is decided, no out-of-run signature confirms an item.
+None.
