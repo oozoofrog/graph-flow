@@ -2,6 +2,29 @@
 
 Status: Draft
 
+## At a glance
+
+This summary has no force. The requirements below govern.
+
+| ID | In one line |
+| --- | --- |
+| RA-R1 | Remote access is off until the owner turns it on locally. Agents cannot start it. |
+| RA-R2 | One HTTPS origin and one address. No plaintext, no wildcard bind, connection and time limits. |
+| RA-R3 | A verified session sees only open questions and their evidence. Revocation is the only remote admin action. |
+| RA-R4 | Devices are enrolled at the local owner ceremony with a one-time code and a reverse code. |
+| RA-R5 | Every answer needs a fresh passkey check bound to that exact answer. |
+| RA-R6 | Remote answers use the existing signer and produce the same signature as local answers. |
+| RA-R7 | Map confirmations use only the tool-issued map decision for exact revisions. |
+| RA-R8 | Each remote answer records its device. The owner can list and revoke devices. |
+| RA-R9 | Attempts are rate-limited without locking the owner out of local answering. |
+| RA-R10 | Failures close the remote surface. Recovery happens locally. |
+| RA-R11 | Phone screens keep the existing question reading order. |
+| RA-R12 | The passkey verifier checks the full ES256 WebAuthn profile. |
+| RA-R13 | Public test vectors and an independent review come before release. |
+| RA-R14 | A certificate setup guide is a release condition. |
+
+Decisions made by the owner: OQ-1 to OQ-4 under [Decided questions](#decided-questions), and ADRs 0012–0017 in the [ADR list](../adr/README.md).
+
 ## Purpose and scope
 
 An owner away from the install can read a pending question, inspect its evidence, and answer from an enrolled device.

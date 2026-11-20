@@ -2,6 +2,31 @@
 
 Status: Draft
 
+## At a glance
+
+This summary has no force. The requirements below govern.
+
+| ID | In one line |
+| --- | --- |
+| CEM-R1 | The same sources always rebuild the same map. Missing sources show as gaps. |
+| CEM-R2 | Every link can be followed in both directions, with its reason and source. |
+| CEM-R3 | Only a verified in-run answer confirms an item. Agent proposals stay unconfirmed. |
+| CEM-R4 | Every item has a plain explanation in the person's language. Korean copies track their English source. |
+| CEM-R5 | Three questions let the person test their own understanding, with no score. |
+| CEM-R6 | Learning, discussion, debate, and brainstorming use existing human slots. Out-of-run selections wait for the next run. |
+| CEM-R7 | At risky gates, the person predicts later rework before seeing evidence. |
+| CEM-R8 | The person can keep, rewrite, or drop each new constraint. |
+| CEM-R9 | Summaries show what happened after approvals and how predictions held up. |
+| CEM-R10 | A reviewer from another model family offers a counter-proposal before the split. |
+| CEM-R11 | The map never authorizes work or changes signing. |
+| CEM-R12 | The map keeps local access boundaries. |
+| CEM-R13 | Agents can point out conflicts. The person confirms them. |
+| CEM-R14 | `gf map check` fails on missing coverage and reports items it cannot verify here. |
+| CEM-R15 | Agents can propose domain terms. The person confirms or rewrites the definition. |
+| CEM-R16 | The person can open a topic at any time. Only the leader answers it, as quoted data. |
+
+Decisions made by the person: OQ-1 to OQ-8 under [Decided questions](#decided-questions), and ADRs 0001–0011 and 0017 in the [ADR list](../adr/README.md).
+
 ## Purpose and scope
 
 The person can follow an idea to the code that implements it. An agent can follow the same path back to the person's reason. Together they can question a choice, change a term, or test an expectation. Co-evolution means that both the tool and the person's practice can improve. [Engelbart](https://dougengelbart.org/content/view/116/)
