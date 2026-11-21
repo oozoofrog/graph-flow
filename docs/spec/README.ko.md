@@ -1,7 +1,7 @@
 # 기능 명세 (한국어 읽기본)
 
 > 이 문서는 [README.md](README.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 해시: `sha256:6312f95ca6fcc74d8b26a708e8baa5dec2c88daef0c4f8a51623818a1099a540`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
+> 원문 해시: `sha256:a340e50ff63dc3f735adf59aa69802043bcadb77aede5974f53b5324537b2f1d`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
 graph-flow는 **명세 고정형(spec-anchored)** 명세 주도 개발을 씁니다. 명세는 구현 전에 기대하는 동작을 적습니다. 동작이 바뀌어도 명세는 그 기능과 함께 남습니다. 사람은 코드와 검사를 직접 고칠 수 있습니다. 짧고 관리되는 명세는 변경마다 안정된 기준점을 줍니다. [Böckeler](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html)
 
@@ -50,4 +50,4 @@ graph-flow는 **명세 고정형(spec-anchored)** 명세 주도 개발을 씁니
 
 **지키는 원칙.** P1은 의무마다 실패할 수 있는 검사를 잇습니다. P6은 기계적인 ID 검사를 돕습니다. P10은 문서 검토를 실행 승인과 따로 둡니다. [원칙](../../skills/graph-flow/references/principles.md)
 
-[공진화 지도](co-evolution-map.ko.md) · [ADR 절차](../adr/README.ko.md) · [ADR 0001](../adr/0001-record-architecture-decisions.ko.md)
+[실행 대시보드](dashboard.ko.md) · [원격 승인 화면](remote-approval.ko.md) · [공진화 지도](co-evolution-map.ko.md) · [ADR 절차](../adr/README.ko.md) · [ADR 0001](../adr/0001-record-architecture-decisions.ko.md)
