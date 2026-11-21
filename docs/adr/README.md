@@ -50,3 +50,6 @@ An architecture decision record (ADR) explains one choice that future maintainer
 - [0015 Enroll through the local owner ceremony](0015-enroll-through-the-local-owner-ceremony.md)
 - [0016 Assign TLS responsibility to the configured endpoint](0016-assign-tls-responsibility.md)
 - [0017 Confirm out-of-run items in the next run](0017-confirm-out-of-run-items-in-the-next-run.md)
+- [0018 Put waiting items first](0018-put-waiting-items-first.md)
+- [0019 Use a document style for the dashboard](0019-use-a-document-style.md)
+- [0020 Require a note for structural plan revisions](0020-require-a-plan-revision-note.md)

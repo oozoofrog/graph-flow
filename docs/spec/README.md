@@ -47,4 +47,4 @@ For example, a plan can list `{"id":"CEM-R3","text":"The map MUST keep the link 
 
 **Principles served.** P1 connects each obligation to a falsifiable check. P6 supports mechanical ID checks. P10 keeps document review outside run approval. [Principles](../../skills/graph-flow/references/principles.md)
 
-[Co-evolution map](co-evolution-map.md) · [ADR process](../adr/README.md) · [ADR 0001](../adr/0001-record-architecture-decisions.md)
+[Run dashboard](dashboard.md) · [Remote approval surface](remote-approval.md) · [Co-evolution map](co-evolution-map.md) · [ADR process](../adr/README.md) · [ADR 0001](../adr/0001-record-architecture-decisions.md)
