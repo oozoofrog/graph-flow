@@ -1,7 +1,7 @@
 # 아키텍처 결정 기록 (한국어 읽기본)
 
 > 이 문서는 [README.md](README.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 해시: `sha256:aeee9b426ca9b5159d60d5a2d2b94aa512a28ab006f15abf5443a23c172bb1ae`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
+> 원문 해시: `sha256:31281016f17706cb0d112f28553df4a47878df6f7c7eb7876c103076bb84a68b`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
 아키텍처 결정 기록(ADR)은 나중에 유지보수할 사람이 이해해야 할 선택 하나를 설명합니다. 대안이 아직 분명할 때 이유를 기록합니다. Nygard의 형식에 이 저장소의 항목 두 개를 더해 씁니다. [Michael Nygard, *Documenting Architecture Decisions*](https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions)
 
@@ -58,3 +58,5 @@
 | 0018 | [소유자의 대기 항목을 먼저 표시한다](0018-put-waiting-items-first.ko.md) | 승인됨 |
 | 0019 | [대시보드에 문서 형식을 쓴다](0019-use-a-document-style.ko.md) | 승인됨 |
 | 0020 | [계획 구조 수정에 수정 노트를 요구한다](0020-require-a-plan-revision-note.ko.md) | 승인됨 |
+| 0021 | [요청한 쪽의 추천과 그 이유를 함께 보여 준다](0021-show-the-requesters-recommendation-with-its-reason.ko.md) | 승인됨 |
+| 0022 | [소유자에게 보내는 모든 요청에 처음 읽는 사람을 위한 안내를 둔다](0022-require-a-low-context-guide-on-every-owner-request.ko.md) | 승인됨 |

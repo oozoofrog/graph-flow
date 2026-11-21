@@ -1,6 +1,6 @@
 # Run dashboard
 
-Status: Accepted (2026-11-21, owner design review in issue #11)
+Status: Accepted (revision 2, 2026-11-21, owner design review in issue #11; revision 1 accepted 2026-11-21)
 
 ## At a glance
 
@@ -16,32 +16,36 @@ This summary has no force. The requirements below govern.
 | DASH-R6 | Progress opens a task list with status and assignee. |
 | DASH-R7 | Status words agree across views. The graph explains its symbols. |
 | DASH-R8 | A failed task leads to the reason and evidence from that attempt. |
-| DASH-R9 | A structural change needs a reason, a decision and both outcomes. |
+| DASH-R9 | Each structural revision has a fresh note with a complete guide. |
 | DASH-R10 | The revision card shows its note, exact changes and collapsed remainder. |
-| DASH-R11 | The leader relays the decision, reason and outcomes from the same note. |
+| DASH-R11 | The leader receives and relays the complete revision note. |
 | DASH-R12 | A signing control says what the owner signs. Inspection records no answer. |
-| DASH-R13 | A disabled answer names the remaining action beside the control. |
+| DASH-R13 | A long card links to its answers and shows what remains to read. |
 | DASH-R14 | Both themes use readable type, spacing and restrained controls. |
 | DASH-R15 | English and Korean cover every dashboard label. |
 | DASH-R16 | Missing fields in old records have explicit labels. |
 | DASH-R17 | The existing token, Host checks and signing path protect answers. |
 | DASH-R18 | The redesign runs with the existing local dependencies. |
-| DASH-R19 | The signature binds the displayed note. Later edits stay identifiable. |
-| DASH-R20 | Plan reading takes place in the task list or the revision card. |
+| DASH-R19 | The signature binds the whole revision note, including the guide. |
+| DASH-R20 | Open the recorded note and changes for a revision, or the task list for a first plan. |
 | DASH-R21 | Key recovery and leader repairs have distinct actions and counts. |
 | DASH-R22 | The revision exposes changes to permissions, checks and attempt limits. |
-| DASH-R23 | At 390 CSS pixels the owner can read and answer without the graph. |
+| DASH-R23 | At 390 CSS pixels each change stacks its field and labelled before and after values. |
 | DASH-R24 | The public screen harness reproduces every verification fixture. |
-| DASH-R25 | Each owner operation shows progress, result, failure and recovery. |
+| DASH-R25 | Recording locks every answer on the card. A failed action has a named retry. |
 | DASH-R26 | Korean text reads as Korean and uses one term per concept. |
+| DASH-R27 | A reader new to the run gets an attributed guide before the technical evidence. |
+| DASH-R28 | Unfamiliar terms open and close a nearby glossary definition. |
+| DASH-R29 | Each request kind supplies its guide at the source. Older requests show what was recorded. |
+| DASH-R30 | The guide explains the requester’s recommendation. The answer controls stay neutral. |
 
-Design decisions — [ADR 0018](../adr/0018-put-waiting-items-first.md) · [ADR 0019](../adr/0019-use-a-document-style.md) · [ADR 0020](../adr/0020-require-a-plan-revision-note.md)
+Design decisions — [ADR 0018](../adr/0018-put-waiting-items-first.md) · [ADR 0019](../adr/0019-use-a-document-style.md) · [ADR 0020](../adr/0020-require-a-plan-revision-note.md) · [ADR 0021](../adr/0021-show-the-requesters-recommendation-with-its-reason.md) · [ADR 0022](../adr/0022-require-a-low-context-guide-on-every-owner-request.md)
 
 ## Purpose and scope
 
 The owner of an install opens a run to answer a specific request. The first screen lets the owner find that request, understand its consequences and identify the act of signing. The progress view shows who is working on each task. The log lets the owner trace a failure to the attempt that produced it. [Dashboard redesign](https://github.com/oozoofrog/graph-flow/issues/11) · [Revision approval](https://github.com/oozoofrog/graph-flow/issues/10)
 
-This design covers the local dashboard and the plan contract for structural revisions. Phone layout and remote access belong to issue #4. The card’s reading order, evidence links and answer labels work independently of graph coordinates, hover and input device. A future phone layout can reuse them. This design adds no remote endpoint or human stop. [Remote approval](remote-approval.md) · [Issue #4](https://github.com/oozoofrog/graph-flow/issues/4)
+This design covers the local dashboard and the inputs used to explain owner requests. Phone layout and remote access belong to issue #4. The card’s reading order, evidence links and answer labels work independently of graph coordinates, hover and input device. A future phone layout can reuse them. This design adds no remote endpoint or human stop. [Remote approval](remote-approval.md) · [Issue #4](https://github.com/oozoofrog/graph-flow/issues/4)
 
 ## Domain terms
 
@@ -57,7 +61,7 @@ This design covers the local dashboard and the plan contract for structural revi
 | Free question | A request for information or direction. A reply returns to the requester. |
 | Reading gate | The material the owner has to open before a particular answer becomes available. |
 | Structural revision | A change to an existing plan that changes its structural identity under the plan contract. |
-| Revision note | The leader’s four-part explanation for one structural revision. |
+| Revision note | The leader’s explanation for one structural revision, including the decision, reason, outcomes and guide fields. |
 | Risk lane | The level of risk that determines which checks and approvals a task needs. |
 
 The role and session already exist on event actors. Issue #3 supplies additional identity fields when available (`host`, `host_session`, `session_name`, `agent_kind`, `agent_model`). That work is paused. Requester attribution uses the initiating event even before those fields ship. [Issue #3](https://github.com/oozoofrog/graph-flow/issues/3) · [Plan contract](../../skills/graph-flow/references/plan.md#plan-approval)
@@ -89,6 +93,7 @@ Use this table as the expected result for the per-kind checks in DASH-R1–R3 an
 - DASH-R9 and R19 extend the plan-set input, event and approval binding. ADR 0020 specifies the run fields, structural identity exclusions and V1 validation boundary. DASH-R11 changes the leader's one-sentence relay for a structural revision. [Plan identity](../../skills/graph-flow/references/plan.md#L124) · [Run fields](../../skills/graph-flow/references/plan.md#L156) · [Leader guidance](../../skills/graph-flow/references/leader.md#L69)
 - DASH-R12 retains the send-back-first and empty-evidence rules. The current plan screen conflicts with this order. The implementation updates signing labels, retains the accept-despite-failures cue and aligns the existing page tests. [Empty evidence](../../skills/graph-flow/references/dashboard.md#L427) · [Control order](../../skills/graph-flow/references/dashboard.md#L435) · [Held work](../../skills/graph-flow/references/dashboard.md#L441) · [Plan actions](../../skills/graph-flow/scripts/graphflow/page.js#L3117)
 - DASH-R20 replaces the graph-viewport reading rule and its page assertions with explicit openings in the task list or card. DASH-R13 retains the other applicable gates. [Current reading gate](../../skills/graph-flow/scripts/graphflow/page.js#L2967) · [Page tests](../../skills/graph-flow/tests/test_page.py)
+- DASH-R29 adds required guide content to the plan’s optional context fields and to free-question input. Under DASH-R30 the leader guidance prohibits marking the answer controls and permits a reasoned recommendation in the guide. [Plan inputs](../../skills/graph-flow/references/plan.md#L81) · [Leader guidance](../../skills/graph-flow/references/leader.md#L141)
 
 ## Requirements
 
@@ -153,17 +158,17 @@ Verify: In B follow the API task back to revision 1, attempt 1. Expect the faile
 
 ### DASH-R9 — Require a note for a structural revision
 
-For each structural revision, `gf plan set <file> --note <json-file>` MUST take a fresh revision note with four nonblank strings: `reason`, `decision`, `if_approved` and `if_sent_back`. The decision MUST state the choice in one sentence. The transaction MUST record the supplied note in `plan.set.data.revision_note` and in the approval ask under DASH-R19. It MUST NOT inherit a previous revision's note or use run-level `context.why` as the note. Run context continues to describe the plan as a whole. The note MUST NOT affect structural identity. If input is missing or invalid, the command MUST identify the offending input and refuse before writing a revision or replacing an approval.
+For each structural revision, `gf plan set <file> --note <json-file>` MUST take a fresh revision note with the four nonblank strings `reason`, `decision`, `if_approved` and `if_sent_back`, plus the guide fields in DASH-R29. The decision MUST state the choice in one sentence. The transaction MUST record the supplied note in `plan.set.data.revision_note` and in the approval ask under DASH-R19. It MUST NOT inherit a previous revision's note or use run-level `context.why` as the note. Run context continues to describe the plan as a whole. The note MUST NOT affect structural identity. If input is missing or invalid, the command MUST identify the offending input and refuse before writing a revision or replacing an approval.
 
-Verify: Change a check command in an approved plan. Omit the note, then omit, blank or mistype each part. Expect a nonzero exit, the input name and identical plan and event bytes. Supply the complete note and expect one new revision and its ask. Reuse the plan file with another structural change and no note. Expect refusal despite the previous note and existing context. Post a first plan without a note, approve it and repost it identically. Expect no new revision. Edit only its title and expect reuse of the verified approval.
+Verify: Change a check command in an approved plan. Omit the note, then omit, blank or mistype each part. Expect a nonzero exit, the input name and identical plan and event bytes. Supply the complete note and expect one new revision and its ask. Reuse the plan file with another structural change and no note. Expect refusal despite the previous note and existing context. Post a first plan with its plan-level guide and no revision note, approve it and repost it identically. Expect no new revision. Edit only its title and expect reuse of the verified approval.
 
 ### DASH-R10 — Read the note before the changes
 
-For a structural revision the card MUST show the bound note first, labelled “Leader’s explanation”, with the signed question as its heading. Next it MUST show only the changed tasks and changed plan-level fields, with the unchanged remainder collapsed. Each change MUST name the field and show its old and new values or mark an addition or removal. For each changed task a separate “Recorded history” section MUST show its most recent returned attempt and failed check, or say “No returned attempt” when none is recorded. DASH-R3 governs the effects beside the controls. DASH-R22 identifies changes that raise risk.
+For a structural revision the card MUST use the signed question as its heading and present the guide from the bound note as “Leader’s explanation” immediately after the requester lines. Under “Check the details” the change list MUST show the changed tasks and changed plan-level fields with the unchanged remainder collapsed. Each change MUST name the field and show its old and new values or mark an addition or removal. For each changed task a separate “Recorded history” section MUST show its most recent returned attempt and failed check, or say “No returned attempt” when none is recorded. DASH-R3 governs the effects beside the controls. DASH-R22 identifies changes that raise risk.
 
 Verify: In B expect the note, the API check’s old and new criteria, the added packaging task, then a closed disclosure for unchanged work. Under API history expect attempt 1 and the failed empty-query check even when the leader gives a different reason. For the added task expect “No returned attempt”. Remove the rejection in a variant and retain the note. Expect that same gap for the API task and the unchanged author text. Remove a task and change a run-level check in further variants. Expect the removed ID and both check values.
 
-**Example note for fixture B**
+**Example revision note for fixture B**
 
 | Part | What the owner reads |
 | --- | --- |
@@ -171,12 +176,15 @@ Verify: In B expect the note, the API check’s old and new criteria, the added 
 | Reason | The gate returned API attempt 1 after the empty-query check failed. |
 | If approved | The API task can start under the revised check once its other conditions are met. Packaging waits for the guide. |
 | If sent back | New starts stay blocked. The leader revises the plan and brings it back for approval. |
+| Background | 1. The search did not handle an empty query as expected. 2. The first attempt came back for correction. |
+| What to weigh | Packaging adds work. It can start only after the guide is ready. |
+| Recommendation and reason | Approve. Checking what happens when someone searches with no text addresses the failure that stopped the first attempt. |
 
 ### DASH-R11 — Relay the revision in chat
 
-For a structural revision, the successful `plan set` result MUST return the revision, decision ID and all four stored note fields. When directing the owner to that approval, the leader MUST relay the same note and identify that revision and decision in chat. The signature MUST remain on the owner’s answer surface.
+For a structural revision, the successful `plan set` result MUST return the revision, decision ID and the complete stored note, including its guide fields. When directing the owner to that approval, the leader MUST relay the same note and identify that revision and decision in chat. The signature MUST remain on the owner’s answer surface.
 
-Verify: Compare B’s command result with its `plan.set` note and approval ask. Expect the same revision, decision ID and all four strings. Human judgment: use that result to relay the revision in chat. Check that the owner can find the decision, reason and both consequences without reading a restatement of the plan.
+Verify: Compare B’s command result with its `plan.set` note and approval ask. Expect the same revision, decision ID and identical values for every note field. Human judgment: use that result to relay the revision in chat. Check that the owner can find the decision, reason and both consequences without reading a restatement of the plan.
 
 **Signing and reading gates**
 
@@ -188,7 +196,7 @@ Verify: Check each decision row in the fixture table in both locales. In A, B’
 
 ### DASH-R13 — Explain and enforce each reading gate
 
-Beside each disabled answer the card MUST name the outstanding condition and how to meet it, or explain why it cannot be met. The hint MUST update as each condition is met. The card MUST enforce every applicable condition in the table before enabling the specified answer. When a failure is recorded, only the evidence disclosure satisfies the evidence-reading condition. Merely listing material MUST NOT count as opening it. DASH-R20 defines plan-approval reading.
+Beside each disabled answer the card MUST name the outstanding condition and how to meet it, or explain why it cannot be met. The hint MUST update as each condition is met. The card MUST enforce every applicable condition in the table before enabling the specified answer. When a failure is recorded, only the evidence disclosure satisfies the evidence-reading condition. Merely listing material MUST NOT count as opening it. On a long card (the answers fall below the first viewport), one line immediately after the guide and before the evidence MUST state the remaining reading requirement and link to that card’s answers. The line MUST update after each required opening, including when none remain. DASH-R20 defines plan-approval reading.
 
 | Input and answer | Required action and adjacent hint | Verify on an unread fixture |
 | --- | --- | --- |
@@ -200,7 +208,7 @@ Beside each disabled answer the card MUST name the outstanding condition and how
 | Decision changes during reading | Acknowledge the new decision and repeat its applicable reading. Name the change and remaining material. | Change D’s displayed evidence during reading. Expect disabled signing until acknowledgement and fresh reading. |
 | Stale display at submission | Refresh and read the current request. | Submit the old `displayed` identity to `/api/answer`. Expect `stale_decision`, a reread hint and zero new answers. |
 
-Verify: Start each row with fresh fixture state. Assert the adjacent hint and control state before and after each action. Apply the same checks to A, B and J using DASH-R20.
+Verify: Start each row with fresh fixture state. Assert the adjacent hint and control state before and after each action. In a long D, tab to the link and press Enter. Expect focus at D’s answers with acceptance still disabled. Tap the link in a fresh copy and expect the same destination and gate state. Open the evidence and expect the line and adjacent hint to clear the reading requirement. Apply the same checks to A, B and J using DASH-R20.
 
 **Presentation and compatibility**
 
@@ -236,15 +244,15 @@ Verify: Render A–E in the isolated screen harness with third-party Python pack
 
 ### DASH-R19 — Bind the displayed revision note
 
-For structural approval the transaction MUST copy the four exact strings to `decision.ask.data.evidence.revision_note` and use its `decision` string as `question`. The card MUST display those strings verbatim in either locale. The displayed identity and v3 answer signature MUST bind this question and evidence. Editing the note of an open proposal MUST supersede its ask and issue a replacement before it can be signed. Repeating identical input MUST reuse the open ask. After a verified approval, a wording-only note edit MUST preserve the signature and append the edit as a later `plan.set` record linked to that approval. The dashboard and history MUST show the note copy from the signed ask beside its answer and label any subsequent text “Later edit”. A note edit alone MUST NOT require another signature.
+For structural approval the transaction MUST copy the complete, unaltered revision note (including every DASH-R29 field) to `decision.ask.data.evidence.revision_note` and use its `decision` string as `question`. The card MUST display the authored text verbatim in either locale. The displayed identity and v3 answer signature MUST bind this question and evidence. Editing the note of an open proposal MUST supersede its ask and issue a replacement before it can be signed. Repeating identical input MUST reuse the open ask. After a verified approval, a wording-only note edit MUST preserve the signature and append the edit as a later `plan.set` record linked to that approval. The dashboard and history MUST show the note copy from the signed ask beside its answer and label any subsequent text “Later edit”. A note edit alone MUST NOT require another signature.
 
-Verify: In B compare the ask, card heading and displayed note field by field. Repost the same plan and note while the ask is open and expect the same decision ID. Edit only the reason while the ask is open. Submit the old displayed identity to the replacement ask and again against the superseded ask. Expect `stale_decision` and no answer. Sign the replacement and verify the v3 signature with its recorded question and evidence. Change only a copied note field in the verification input and expect verification to fail. Edit the approved note. Expect the same plan identity, one signed answer, the bound note from the answered ask in both views, and a separate later edit. Recompute the displayed question hash from the signed question, evidence and remaining identity inputs. Expect the value captured at signing.
+Verify: In B compare the ask, card heading and displayed note field by field. Repost the same plan and note while the ask is open and expect the same decision ID. Edit only the reason while the ask is open. Submit the old displayed identity to the replacement ask and again against the superseded ask. Expect `stale_decision` and no answer. Sign the replacement and verify the v3 signature with its recorded question and evidence. In separate verification inputs change only one background step, risk, safeguard, recommendation or recommendation reason. Expect each change to invalidate the signature. Edit the approved note. Expect the same plan identity, one signed answer, the bound note from the answered ask in both views, and a separate later edit. Recompute the displayed question hash from the signed question, evidence and remaining identity inputs. Expect the value captured at signing.
 
 ### DASH-R20 — Read the plan without the graph
 
-For first approval the owner MUST open every task once in the task list on My turn. For structural approval the owner MUST open the note and every changed entry, including plan-level changes. The card MUST allow the unchanged remainder to stay collapsed. For re-approval without a structural change, the owner MUST open each current task once. A legacy continuation MUST also require opening each recorded pre-approval submission and every file listed for it. Replacing an unverifiable plan MUST also require opening its run-level checks entry. For an older structural request without a note the card MUST show the missing-note notice and require opening the available changes. Reading gates MUST NOT depend on graph visibility, scrolling a card into view, or visiting Graph. The dashboard MUST track openings for the current displayed decision and identify the remaining entries beside approval.
+For first approval the owner MUST open every task once in the task list on My turn. For structural approval the owner MUST open the recorded note and every changed entry, including plan-level changes. The guide stays visible above the details. Opening the recorded note under “Check the details” satisfies the note condition. The card MUST allow the unchanged remainder to stay collapsed. For re-approval without a structural change, the owner MUST open each current task once. A legacy continuation MUST also require opening each recorded pre-approval submission and every file listed for it. Replacing an unverifiable plan MUST also require opening its run-level checks entry. For an older structural request without a note the card MUST show the missing-note notice and require opening the available changes. Reading gates MUST NOT depend on graph visibility, scrolling a card into view, or visiting Graph. The dashboard MUST track openings for the current displayed decision and identify the remaining entries beside approval.
 
-Verify: Start A and B unread with Graph closed. In A open all but one task, then the last. The last task’s name clears and approval enables. In B, scrolling or opening only the note leaves both changes outstanding. Open the API change and the added task. Expect approval enabled with unchanged work still closed. Repeat in reverse to check that the unopened note alone blocks approval. In each J variant open the task list entries. In the legacy variant, open the submission and leave one of its listed files unread. Expect its name beside disabled approval until opened. In the replacement variant, expect the run checks to remain named until opened. In pre-note B open the available changes. None of these cases requires visiting Graph.
+Verify: Start A and B unread with Graph closed. In A open all but one task, then the last. The last task’s name clears and approval enables. In a long B, reading the guide and following its answer link leaves the note and both changes outstanding. Opening just the note leaves two changes on the summary line. Open the API change, then the added task. Expect the count to go from two to one to none, in agreement with the hint beside approval. Expect approval enabled with unchanged work still closed. Repeat in reverse to check that the unopened note alone blocks approval. In each J variant open the task list entries. In the legacy variant, open the submission and leave one of its listed files unread. Expect its name beside disabled approval until opened. In the replacement variant, expect the run checks to remain named until opened. In pre-note B open the available changes. None of these cases requires visiting Graph.
 
 ### DASH-R21 — Identify recovery and repair actions
 
@@ -260,9 +268,9 @@ Verify: Make one B variant per listed change, including separate command removal
 
 ### DASH-R23 — Keep My turn usable at narrow widths
 
-At a viewport width of 390 CSS px, the card MUST show its question, reasons, answer controls and current gate hint without horizontal scrolling or opening Graph. Every answer control MUST be reachable by keyboard.
+At a viewport width of 390 CSS px, the card MUST show its question, reasons, answer controls and current gate hint without horizontal scrolling or opening Graph. At widths of 390 CSS px or less, each row of a before/after change table MUST stack its field, before value and after value vertically, each with a visible label and enough width to keep a file name from wrapping one character per line. Every answer control MUST be reachable by keyboard.
 
-Verify: Render unread B at 390 × 844 CSS px in each locale. Check the page width and each named element’s bounds against the viewport with Graph closed. Tab through the enabled actions in DOM order, meet each gate by keyboard and reach every answer control. Repeat after opening the note and changes.
+Verify: Render unread B at 390 × 844 CSS px in each locale. Check the page width and each named element’s bounds against the viewport with Graph closed. Tab through the enabled actions in DOM order, meet each gate by keyboard and reach every answer control. Repeat after opening the note and changes. Use a B ownership change that adds `tests/test_core.py`. At 390 and 320 CSS px check that each labelled cell begins below the preceding cell in its row and that this file name fits on one line in both locales.
 
 ### DASH-R24 — Ship reproducible dashboard fixtures
 
@@ -272,15 +280,60 @@ Verify: From a clean checkout follow `dev/screens/README.md` with a temporary fi
 
 ### DASH-R25 — Show the state of each owner operation
 
-For each owner operation the dashboard MUST show its state beside the affected card. The operations are: answer a decision, open evidence, send back with a reason and open a run. While an operation is in progress, the card MUST name what is in progress, such as recording an answer, loading evidence or loading a run. Typed input MUST stay. When recorded, the card MUST show the recorded answer and its time, and the item MUST leave My turn. On failure, the card MUST name the failed operation and the reason from the server, keep the typed input and offer a retry that cannot record a second answer. When the dashboard does not respond, the page MUST say so and name the recovery command `graph-flow open`. Each state, selection and difference MUST have a cue other than colour, such as visible text, a labelled symbol or an outline pattern. An empty My turn MUST say that nothing waits and offer the progress view.
+For each owner operation the dashboard MUST show its state beside the affected card. The operations are: answer a decision, open evidence, send back with a reason and open a run. While an operation is in progress, the card MUST name what is in progress, such as recording an answer, loading evidence or loading a run. Typed input MUST stay. The in-progress message MUST mention retained input only when the owner has entered text. While recording an answer, the card MUST disable every answer control on that card and keep them disabled through success. On failure the card MUST restore only those controls whose current answer conditions are met. When recorded, the card MUST show the recorded answer and its time, and the item MUST leave My turn. On failure, the card MUST name the failed operation and the reason from the server, keep the typed input and offer a retry that cannot record a second answer. The retry control MUST name the action in its visible and accessible labels, for example “Sign and approve again”. When the dashboard does not respond, the page MUST say so and name the recovery command `graph-flow open`. Each state, selection and difference MUST have a cue other than colour, such as visible text, a labelled symbol or an outline pattern. An empty My turn MUST say that nothing waits and offer the progress view.
 
-Verify: In B delay the answer endpoint in the harness. Expect a disabled control with the recording text and the typed reason retained. Let it succeed. Expect the recorded outcome beside the card and the card absent from My turn after refresh. Make the endpoint return `stale_decision`, then a server error. Expect the operation name, the reason, retained text and a retry. Retry after the server error and expect exactly one answer. Stop the server. Expect the notice and the command within one poll interval. Render A–E in greyscale. Expect each state, selection and change to remain identifiable by text or shape. In E expect the empty My turn statement and a link to the progress view.
+Verify: In B delay the answer endpoint in the harness. Submit a typed reason. Expect all answer controls on that card disabled, the recording message to mention the retained reason, and the other card’s controls to keep their states. Try a second answer by keyboard and by pointer while recording. Expect one submission. Repeat with an offered reply and empty input. Expect the same lock and no retained-input message. Let it succeed. Expect the recorded outcome beside the card and the card absent from My turn after refresh. Make the endpoint return `stale_decision`, then a server error. Expect the operation name, the reason and retained text. Check that stale reading gates still block signing. For a failed approval with its gates met, expect an enabled retry labelled “Sign and approve again”. Retry after the server error and expect exactly one answer. Stop the server. Expect the notice and the command within one poll interval. Render A–E in greyscale. Expect each state, selection and change to remain identifiable by text or shape. In E expect the empty My turn statement and a link to the progress view.
 
 ### DASH-R26 — Write Korean interface text for Korean readers
 
 Korean interface text MUST read as Korean product text, not as a word-for-word translation of the English string. A button MUST name the action that happens when the owner presses it. A heading MUST name its content or purpose. Guidance MUST use the polite 해요 style. Each concept MUST use one Korean term. A glossary shipped with the page strings MUST record these terms, for example 서명, 돌려보내기, 승인, 내 차례, 작업 and 위험도. Korean text MUST NOT state an effect, a permission or a verification that the records do not support.
 
 Verify: Check every Korean string key against the glossary. Expect each glossary concept to use only its listed term, and no second term for the same concept. Check each Korean button string against the glossary's action forms. Human judgment: read the Korean strings of every fixture scenario aloud. Mark translated phrasing, a heading that names no content, or a claim that the records do not support. Expect no marks.
+
+**Helping an owner who is new to the run**
+
+### DASH-R27 — Explain the request before showing the records
+
+Every card waiting for the owner MUST open with the question, the requester lines and then a visible plain-language guide, in that visual and DOM order. The requesting agent MUST supply the guide for someone who has no knowledge of the run, code or graph-flow terms. The card MUST identify whose explanation it is. If a leader restates a worker’s question, the label names both roles, the original question stays visible verbatim under DASH-R2, and DASH-R1 still identifies the worker as requester.
+
+The guide MUST present these parts in order:
+
+1. What happened, in one to five short numbered steps.
+2. What the owner is deciding, in one sentence.
+3. What to weigh, naming the main risk and any safeguard that limits it. If no safeguard is recorded, say so.
+4. What each available answer does. Name the affected work or reply recipient and give the attempt count when relevant. For example, “The worker can start again. This would be attempt 2 of 3.”
+5. The requester’s recommendation and reason under DASH-R30. A gate request has no recommendation. In its place the guide states that the plan was written before the result existed.
+
+After the guide, the card MUST put recorded facts, field changes, files and logs under a “Check the details” heading with a line explaining that the owner can check the explanation against these records. Reading the guide MUST NOT satisfy a required evidence opening under DASH-R13 or DASH-R20. DASH-R3 still gives the effects derived from records beside the answers. DASH-R29 covers missing guides.
+
+Verify: In both locales render each waiting fixture that has a guide. Check the heading against the recorded question, then check the requester, attributed guide and details heading in visible and DOM order. Check the order of the five parts and count one to five numbered background steps. Match each guide part to its source and each answer to an effect, including B’s offered and typed replies. In a B variant give the leader’s restatement different wording from the worker’s original. Expect both texts visible before any interaction and the two roles identified. Read the guide without opening evidence and expect the reading gates still closed. Human judgment: give a reader unfamiliar with the run only the question, requester lines and guide. Ask them to explain what happened, the choice, the risk, any safeguard, each outcome and the reason for the recommendation. Compare their explanation with the fixture.
+
+### DASH-R28 — Define unfamiliar terms in place
+
+Where an owner may encounter an unfamiliar term on a request card, the card MUST provide a visibly identifiable inline control at the term. Activating it MUST show a short definition from the shipped DASH-R26 glossary beside the term in the current interface language. Activating it again MUST hide the definition. Both actions MUST work by tap, click and keyboard with the expanded state available to assistive technology. For a term in a signing label, place its definition control beside the signing button so the two actions are distinct. A definition available only on hover or in a tooltip is insufficient.
+
+Verify: Include test, reviewer, attempt, rejection, signing and risk lane in fixtures covering the guide, details and answer area. In each locale tab to each term. Press Enter to expand it and Space to collapse it. Repeat with a tap and a click. Compare adjacent visible text to the glossary, check the expanded state after each activation and verify that focus stays on the term in the keyboard route. Expect no change to reading gates or answer count.
+
+### DASH-R29 — Require the guide at the source of each request
+
+For new requests the writer MUST supply the DASH-R27 parts from the source in the table. Existing question and outcome fields can supply the matching parts. Each answer, including a typed reply where offered, needs its own effect. Except for a gate request, the recommendation identifies an available answer and gives a nonblank reason. A gate request MUST NOT carry a recommendation, because its guide is written with the plan before the result exists.
+
+| Request | Source and validation |
+| --- | --- |
+| Structural plan revision | Extend the fresh DASH-R9 note with background steps, what to weigh (risk and any safeguard), and the recommendation with its reason. Use the existing decision and outcome strings. Bind the entire note under DASH-R19. |
+| First plan approval | Use plan-level context fields with the same guide shape. For re-approval use the applicable plan context and identify the current recorded trigger under DASH-R2. |
+| Gate request | Use the applicable check or decision context in the plan. This covers human checks, holds, lane-3 and trajectory reviews, and planned authorizations. Plan validation requires the guide shape for those contexts and for the first approval. It rejects a recommendation in these contexts. |
+| Free question | Require a guide input on `gf decide ask`, alongside the original question and any offered options. Attribute a rewrite under DASH-R27. |
+
+Plan validation, revision-note validation and `gf decide ask` MUST reject missing or malformed required parts at the relevant input, name the offending part and leave the plan and request records intact. When a request has no recorded guide, the card MUST state “No plain-language explanation was recorded” and show the original question and available evidence under DASH-R16. This also covers an existing four-string revision note and an owner action with no agent explanation, such as key recovery under DASH-R21. Show the recorded note or recovery prompt and identify its actual source.
+
+Verify: Submit valid inputs for A, both B requests and each gate kind. Match the card to the correct source with distinct text per fixture. For each input path omit the guide, then vary one part at a time: blank text, zero or six steps, missing risk, missing answer effect, unavailable recommended answer or blank recommendation reason. Add a recommendation to a gate context and expect the same rejection. Expect a named validation error, nonzero exit and identical record bytes. A guide that explicitly reports no safeguard passes. For B compare the full note with the ask and exercise DASH-R19. Render pre-guide B with and without a four-string note. Expect the missing-guide notice, original question, available evidence, applicable reading gates and byte-for-byte preservation of the source records at their original location.
+
+### DASH-R30 — Show a reasoned recommendation and keep the answers neutral
+
+Inside the guide the card MUST label the recommended answer and its reason as the requesting agent’s opinion. It MUST NOT display a recommendation without a reason. A gate request card MUST NOT display a recommendation. Its guide MUST say that the plan was written before the result existed and therefore carries no recommendation. Answer controls MUST NOT carry a recommendation badge, preselect an answer, change emphasis because of the recommendation or depart from DASH-R12 order. A free-question option signs and sends the specific reply named on the button.
+
+Verify: Render two otherwise identical copies of B’s plan with opposite recommendations. Repeat for B’s free question with two offered replies. On the freshly opened card, expect the recommendation and reason together in the guide under the requester’s name or role. Compare button labels, accessible names, styling, selection, visual order, DOM order and tab order across the pair. Expect no recommendation badge or preselection and identical controls. Render D and the hold fixture. Expect the no-recommendation statement in the guide and no recommendation anywhere on the card. Remove or blank only the stored reason in a display fixture. Expect no recommendation in the guide or on the controls. Submit an offered reply and check its exact signed text under DASH-R12.
 
 ## Open questions
 

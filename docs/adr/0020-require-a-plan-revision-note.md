@@ -29,3 +29,5 @@ An incomplete proposal costs a local retry and adds zero owner answers. An edit 
 ## Principles served
 
 P6 gives structural comparison and completeness checks to code. P7 separates the author's explanation from the recorded evidence. P10 justifies refusing a structural revision that lacks the information needed for the existing approval. [Principles](../../skills/graph-flow/references/principles.md)
+
+See also — [ADR 0022 on the additional guide fields in the revision note](0022-require-a-low-context-guide-on-every-owner-request.md)

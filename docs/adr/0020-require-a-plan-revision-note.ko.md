@@ -1,7 +1,7 @@
 # 0020 계획 구조 수정에 수정 노트를 요구한다
 
 > 이 문서는 [0020-require-a-plan-revision-note.md](0020-require-a-plan-revision-note.md)의 한국어 읽기본입니다. 기준은 영어 원문입니다.
-> 원문 해시: `sha256:5f852380cd2f8a39807cd493b5eac9bbd3195a51008dc27db5e2bb986b9ae392`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
+> 원문 해시: `sha256:f65ca3417cb23ee61ed11b295d401077b0641340fc1fd96733b7ebb5b257c980`. 영어 원문이 바뀌면 `scripts/tests/test_reading_copies.py`가 실패합니다.
 
 상태: 승인됨(Accepted). 2026-11-21, 이슈 #11 설계 검토.
 
@@ -32,3 +32,5 @@
 ## 지키는 원칙
 
 P6에 따라 구조 비교와 완전성 검사를 코드에 맡깁니다. P7에 따라 작성자의 설명과 기록된 근거를 구분합니다. P10을 근거로, 기존 승인에 필요한 정보가 없는 구조 수정을 거부합니다. [원칙](../../skills/graph-flow/references/principles.md)
+
+관련 문서 — [ADR 0022. 수정 노트에 추가할 안내 항목](0022-require-a-low-context-guide-on-every-owner-request.ko.md)
