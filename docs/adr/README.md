@@ -53,3 +53,5 @@ An architecture decision record (ADR) explains one choice that future maintainer
 - [0018 Put waiting items first](0018-put-waiting-items-first.md)
 - [0019 Use a document style for the dashboard](0019-use-a-document-style.md)
 - [0020 Require a note for structural plan revisions](0020-require-a-plan-revision-note.md)
+- [0021 Show the requester's recommendation with its reason](0021-show-the-requesters-recommendation-with-its-reason.md)
+- [0022 Require a low-context guide on every owner request](0022-require-a-low-context-guide-on-every-owner-request.md)
